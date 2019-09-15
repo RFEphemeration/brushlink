@@ -1,0 +1,142 @@
+ElementType:
+[
+	Condition,
+	Action,
+	Selector,
+	Target,
+	UnitType,
+	AbilityType,
+	AttributeType,
+	Number,
+	MouseInput,
+	Termination
+]
+
+Elements:
+{
+	// category name
+	Condition:
+	{
+		// element name 		// properties of this element
+		SelectorIsNotEmpty: 	{ RequiredNext: [Selector, Action] }
+		SelectorIncludesSelf: 	{ RequiredNext: [Selector, Action] }
+		TimeHasPassed: 			{ RequiredNext: [Number, Action] }
+		And:					{ RequiredNext: [Condition, Condition] }
+		Or:						{ RequiredNext: [Condition, Condition] }
+	}
+	Action:
+	{
+		Move: 	{ RequiredNext: [Target] }
+		Attack: { RequiredNext: [Target] }
+		Cast: 	{ RequiredNext: [AbilityType, Target] }
+		Follow: { RequiredNext: [Target] } // can be used to move along a line or follow a unit
+		Repeat: { }
+		Stop: 	{ }
+		ClearConditionalCommands: { }
+	}
+	Selector:
+	{
+		CurrentSelection: { }
+		Area:
+		{
+			RequiredNext:
+			[
+				MouseInputDown,
+				{	Type: MouseInputHold,
+					AllowRepeats: true
+				},
+				MouseInputUp
+			]
+		}
+		Square: { RequiredNext: [MouseInputDown, MouseInputUp] }
+		OnScreen: { }
+		OfUnitType: { RequiredNext: [UnitType] }
+		WithAbilityType: { RequiredNext: [AbilityType] }
+		Number: { RequiredNext: [Number] }
+		Allies: { }
+		Enemies: { }
+		WithinRange: {
+			OptionalNext: [
+				{	// range + N
+					Type: Number
+					Default: Zero
+				}
+			]
+		}
+		Closest: { }
+		
+		BelowAttributeThreshold: { RequiredNext: [AttributeType, Number] }
+		AboveAttributeThreshold: { RequiredNext: [AttributeType, Number] }
+		WithMaxAttribute:
+		{
+			DefaultPrevious:
+			[
+				{
+					Type: Target
+					Override: Single
+					// if none of single, group size ratio
+				}
+			]
+			RequiredNext: [AttributeType]
+		}
+		WithMinAttribute: { RequiredNext: [AttributeType] }
+
+		Union: { RequiredNext: [Selector] }
+		Intersect: { RequiredNext: [Selector] }
+	}
+}
+	
+enum Target
+{
+	Point,
+	Direction,
+	Line,
+	Area,
+	Square,
+	Selection,
+	Single,
+	GroupSizeRatio, // default 1, can be specified, relative to selection (2 is 1/2 )
+	All,
+}
+	
+enum UnitType
+{
+	Worker,
+	Transport,
+	Scout,
+}
+	
+enum AbilityType
+{
+	Healing,
+	Movement,
+	Damage,
+	CrowdControl,
+	Building,
+}
+	
+enum AttributeType
+{
+	Health,
+	DPS,
+	Energy,
+}
+	
+enum Number
+{
+	Zero,
+	One,
+	Two,
+	Three,
+	Four,
+	Five,
+	Six,
+	Seven,
+	Eight,
+	Nine,
+}
+	
+enum Termination
+{
+	Termination
+}

@@ -1,0 +1,115 @@
+definition			=
+concatenation		,
+termination			;
+alternation			| or newline with indentation
+optional			[ ... ]
+repetition			{ ... }
+grouping			( ... )
+terminal string		" ... "
+terminal string		' ... '
+comment				(* ... *)
+special sequence	? ... ?
+exception			-
+
+implied default		< ... >
+
+first steps, simple selector action target
+then add conditional commands
+and then more thorough kinds of actions and selectors
+
+// this grammar is doing more than just syntax, it's semantics also.
+// maybe I should try using a syntax grammar for what it's good for
+
+Command
+	Selector
+	Action Termination
+	Immediate_Action
+
+Action
+	Move Target
+	Attack Target
+	Follow ( Target_Units | LDrag_Line )
+	Stop
+
+Immediate_Action
+	RClick_Location
+	RClick_Friendly_Unit
+	RClick_Enemy_Unit
+
+Target
+	Target_Units
+	Target_Location
+	Target_Area
+
+Target_Units
+	Selector
+	LClick_Enemy_Unit
+	LClick_Friendly_Unit
+
+Target_Location
+	Position_Of Selector
+	LClick_Location
+	LDrag_Line
+
+Target_Area
+	LDrag_Line_Area
+	LDrag_Box
+	Within_Range
+
+Selector
+	[ Selector_Base ] [ Selector_Superlative ] { Selector_Generic }
+	(* these can appear in any order *)
+
+Selector_Base
+	Friendly
+	Enemy
+
+Selector_Superlative
+	Closest
+
+Selector_Generic
+	On_Screen
+	In_Area Target_Area
+	Selector_Generic [ Intersection ] Selector_Generic
+	Selector_Generic Union Selector_Generic
+
+
+
+
+Command
+	Selector [ Termination ]
+	< Current_Selection > < Move > ( Click_Location | Click_Friendly_Unit )
+	< Current_Selection > < Attack > Click_Enemy_Unit
+	< Current_Selection > Action Termination
+
+
+Target
+	Click < Termination >
+	Selector
+
+Action
+	Move Target
+	Attack < Enemy > Target
+	Stop < Termination >
+
+Click
+	Click_Friendly_Unit
+	Click_Enemy_Unit
+	Click_Location
+
+Selector
+	< On_Screen > Friendly
+	< On_Screen > Enemy
+	On_Screen
+	In_Area Area
+	Selector Intersection Selector
+	Selector < Intersection > Selector
+	Selector Union Selector
+	{ Superlative } Selector
+
+Superlative
+	Closest
+
+Area
+	Box_Select
+	Perimeter_Select
