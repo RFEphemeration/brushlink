@@ -21,20 +21,27 @@ and then more thorough kinds of actions and selectors
 // maybe I should try using a syntax grammar for what it's good for
 
 Command
-	Selector
-	Action Termination
+	Selection_Command
+	Action_Command
+	enqueue Action_Command
+
+Selection_Command
+	Selector [ termination ]
+
+Action_Command
+	Action termination
 	Immediate_Action
 
 Action
-	Move Target
-	Attack Target
-	Follow ( Target_Units | LDrag_Line )
-	Stop
+	move Target
+	attack Target
+	follow ( Target_Units | l_drag_line )
+	stop
 
 Immediate_Action
-	RClick_Location
-	RClick_Friendly_Unit
-	RClick_Enemy_Unit
+	r_click_location
+	r_click_friendly_unit
+	r_click_enemy_unit
 
 Target
 	Target_Units
@@ -43,35 +50,35 @@ Target
 
 Target_Units
 	Selector
-	LClick_Enemy_Unit
-	LClick_Friendly_Unit
+	l_click_enemy_unit
+	l_click_friendly_unit
 
 Target_Location
-	Position_Of Selector
-	LClick_Location
-	LDrag_Line
+	position_of Selector
+	l_click_location
+	l_drag_line
 
 Target_Area
-	LDrag_Line_Area
-	LDrag_Box
-	Within_Range
+	l_drag_line_area
+	l_drag_box
+	within_range
 
 Selector
 	[ Selector_Base ] [ Selector_Superlative ] { Selector_Generic }
-	(* these can appear in any order *)
+	Selector union Selector
+	Selector intersection Selector
+	
 
 Selector_Base
-	Friendly
-	Enemy
+	friendly
+	enemy
 
 Selector_Superlative
-	Closest
+	closest
 
 Selector_Generic
-	On_Screen
-	In_Area Target_Area
-	Selector_Generic [ Intersection ] Selector_Generic
-	Selector_Generic Union Selector_Generic
+	on_screen
+	in_area Target_Area
 
 
 

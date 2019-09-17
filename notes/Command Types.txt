@@ -1,0 +1,51 @@
+Command
+
+Unit
+Group
+
+Number
+
+Unit_Type
+Ability_Type
+
+Point
+Line
+Direction
+Area
+
+
+Element
+	is like a function
+	must return a type (except for terminate?)
+	can take parameters
+	one of the parameters can be a prefix, the rest have to come after
+	if the order changes, types must be fixed
+	order of suffix parameters?
+	optional suffix parameters?
+
+ElementParameter
+	TypeName type
+	Bool optional
+	Bool permutable
+	ElementValue default
+	can have a function to validate the parameter, if it fails validation then 
+
+ElementAtom
+	is a type of element that points to an actual function to execute
+
+ElementTerm
+	is a type of element that is made up of other elements
+
+
+elements have parts that don't change with each call, and parts that do
+what are the parts that change with each call?
+
+validity of a command could change in the middle of giving it
+so we probably need to re-evaluate the whole command fragment periodically
+
+ElementEvaluation
+	Element type
+
+
+CommandFragment
+	
