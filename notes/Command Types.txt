@@ -1,18 +1,25 @@
-Command
+ElementType
+{
+	Command
 
-Unit
-Group
+	Unit
+	Unit_Group // are these two the same?
 
-Number
+	Number
 
-Unit_Type
-Ability_Type
+	Unit_Type
+	Ability_Type
 
-Point
-Line
-Direction
-Area
+	Point
+	Line
+	Direction
+	Area
+}
 
+// how to handle selector_base, selector_superlative, selector_generic ?
+// selector_base
+
+restrictions could apply to a chain of elements (chain being defined by prefix arguments only?)
 
 Element
 	is like a function
@@ -24,10 +31,11 @@ Element
 	optional suffix parameters?
 
 ElementParameter
-	TypeName type
+	ElementType type
 	Bool optional
 	Bool permutable
 	ElementValue default
+	OneOf allowedVariants // this is probably a bad idea, especially at first
 	can have a function to validate the parameter, if it fails validation then 
 
 ElementAtom
@@ -42,10 +50,17 @@ what are the parts that change with each call?
 
 validity of a command could change in the middle of giving it
 so we probably need to re-evaluate the whole command fragment periodically
+but which parameter is being fulfilled by which command doesn't change from frame to frame
 
 ElementEvaluation
-	Element type
+	Element element
+	map<int, ElementEvaluation*> parameterMap
+		// (-1 being prefix, 0 being first)
+		// map instead of array because you can skip some
+	ElementValue lastValue
 
 
 CommandFragment
-	
+	List<ElementEvaluation> elements
+		/ this should have all elements in order
+		// when you add a new one, 
