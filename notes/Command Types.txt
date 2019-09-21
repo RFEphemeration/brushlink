@@ -21,6 +21,8 @@ ElementType
 
 restrictions could apply to a chain of elements (chain being defined by prefix arguments only?)
 
+// how do to a break to move back up the stack?
+
 Element
 	is like a function
 	must return a type (except for terminate?)
@@ -36,7 +38,7 @@ ElementParameter
 	Bool permutable
 	ElementValue default
 	OneOf allowedVariants // this is probably a bad idea, especially at first
-	can have a function to validate the parameter, if it fails validation then 
+	can have a function to validate the parameter, if it fails validation then
 
 ElementAtom
 	is a type of element that points to an actual function to execute
@@ -56,11 +58,45 @@ ElementEvaluation
 	Element element
 	map<int, ElementEvaluation*> parameterMap
 		// (-1 being prefix, 0 being first)
-		// map instead of array because you can skip some
 	ElementValue lastValue
+	bool parametersSatisfied
 
 
 CommandFragment
-	List<ElementEvaluation> elements
+	CommandContext context
+	List<Element*> elements
 		/ this should have all elements in order
-		// when you add a new one, 
+		// when you add a new one, update the parameter map
+	List<Map<int, int> > parameters // element -> parameter -> element
+		// parameter index -1 is prefix, 0 is first
+		// map instead of array because you can skip some
+		// maybe it should be linear? in order that you type them
+		// but that order is already determined by which element you're pointing to
+		// but permuted parameters will be a bit of a pain to do
+	// should we have a list in the other direction? which element.parameter is the parent of the new element?
+	List<Pair<int, int> parents; // element -> element -> parameter
+		// when you add an element with a prefix parameter, the element that
+
+	Append(Element e)
+	{
+		// we should have already verified that this is an appropriate element
+
+		int newIndex = elements.size();
+		elements.push_back(e);
+		parameters.push_back_default();
+		parents.push_back_default();
+		if (e.leftParameter != nullptr)
+		{
+			int leftIndex = FindAppropriateLeftParameter(e);
+			Pair<int, int> parentIndex = parents[leftIndex];
+			
+			parameters[parentIndex.first][parentIndex.second] = newIndex;
+			parents[newIndex] = parentIndex;
+
+			parameters[newIndex][kLeftIndex] = leftIndex;
+			parents[leftIndex] = Pair(newIndex, kLeftIndex);
+		}
+	}
+
+	FindAppropriateLeftParameter
+	

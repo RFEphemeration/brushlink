@@ -1,0 +1,17 @@
+how far back in the context can you go? I think it depends on what you're doing
+
+for example, does attack make your targeting happen in red, and move happen in green?
+
+the set of units being selected can change over time, partially because the selection is complete at multiple phases. What about when it's not complete?
+
+attack
+	cursor becomes an attack symbol, all target selections are in red
+enemies
+	highlights all enemy units
+within_range (plus optional number)
+	removes highlight from enemies out of range
+2
+	puts back the highlight on the additional enemies in range + 2
+
+
+top level elements should probably get highlighting always, and then just the c
