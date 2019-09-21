@@ -1,9 +1,10 @@
+#ifndef BRUSHLINK_COMMAND_TYPES_HPP
+#define BRUSHLINK_COMMAND_TYPES_HPP
 
 using namespace Farb;
 
 namespace Command
 {
-
 
 // todo: interactive visualizations
 
@@ -20,6 +21,7 @@ enum class ValueType
 
 	Unit_Type
 	Ability_Type
+	Attribute_Type
 
 	Point
 	Line
@@ -39,22 +41,45 @@ struct Value
 		Number,
 		UnitType,
 		AbilityType,
+		AttributeType,		
 		Point,
 		Line,
 		Direction,
 		Area> value;
 
 	template <typename T>
-	T& As()
+	inline T& As()
 	{
 		return std::get<T>(value);
 	}
 
 	template <typename T>
-	bool Is()
+	inline const T& As() const
+	{
+		return std::get<T>(value);
+	}
+
+	template <typename T>
+	inline bool Is() const
 	{
 		std::holds_alternative<T>(value);
 	}
+}
+
+
+struct ElementIDTag
+{
+	static HString GetName() { return "Command::ElementID"; }
+}
+using ElementID = NamedType<HString, ElementIDTag>;
+
+// used as tags on elements for applying restrictions/rules
+enum class ElementType
+{
+	Number,
+	Selector_Base,
+	Selector_Superlative,
+	Selector_Generic
 }
 
 
@@ -93,54 +118,24 @@ struct Element
 	value_ptr<ElementParameter> left_parameter; // optional
 	std::vector<ElementParameter> right_parameters; // could be length 0
 
+	// errors should be reserved for programming errors I think?
+	// how should we handle user facing feedback like selector contains no units?
 	virtual ErrorOr<Value> Evaluate(
 		CommandContext context,
 		std::map<ParameterIndex, CRef<Value> > arguments) const;
 
 protected:
 	ErrorOr<Success> FillDefaultArguments(
-		std::map<ParameterIndex, CRef<Value> >& arguments) const
-	{
-		if (arguments.count(kLeftParameterIndex) == 0
-			&& left_parameter != nullptr)
-		{
-			if (left_parameter.default_value == nullptr)
-			{
-				return Error("Missing required left argument for Element");
-			}
-			arguments.insert(kLeftParameterIndex, cref(*left_parameter.default_value));
-		}
-
-		for (int arg = 0; arg < right_parameters.count(); arg++)
-		{
-			if (arguments.count(arg) > 0)
-			{
-				continue;
-			}
-			if (right_parameters[arg].default_value == nullptr)
-			{
-				return Error("Missing required argument " + arg + " for Element");
-			}
-			arguments.insert(ParameterIndex(arg), cref(*right_parameters[arg].default_value));
-		}
-
-		int desired_argument_count = right_parameters.count();
-		desired_argument_count += left_parameter != nullptr ? 1 : 0;
-
-		if (arguments.count() != desired_argument_count)
-		{
-			return Error("Too many arguments for Element");
-		}
-
-		return Success();
-	}
+		std::map<ParameterIndex,CRef<Value> >& arguments) const;
 }
 
 struct ElementAtomDynamic : Element
 {
-	Value (*underlying_function)(CommandContext, std::map<ParameterIndex, Value>);
+	ErrorOr<Value> (*underlying_function)(
+		CommandContext,
+		std::map<ParameterIndex, Value>);
 
-	virtual Value Evaluate(
+	virtual ErrorOr<Value> Evaluate(
 		CommandContext context,
 		std::map<ParameterIndex, Value> arguments) const override
 	{
@@ -163,12 +158,12 @@ struct ElementAtom : Element
 		auto baseFunctor = FunctionPointer { underlying_function };
 		auto funcWithContext = CurriedFunctor { baseFunctor, context };
 
-		TRet value = ApplyArguments(funcWithContext, arguments);
+		TRet value = CHECK_RETURN(ApplyArguments(funcWithContext, arguments));
 
 		return Value(value);
 	}
 
-	ErrorOr<TRet> ApplyArguments(
+	inline ErrorOr<TRet> ApplyArguments(
 		Functor<TRet>& func,
 		std::map<ParameterIndex, Value>& arguments) const
 	{
@@ -180,10 +175,14 @@ struct ElementAtom : Element
 	}
 
 	template<typename TArg, typename ... TRest>
-	ErrorOr<TRet> ApplyArguments(
+	inline ErrorOr<TRet> ApplyArguments(
 		Functor<TRet, TArg, TRest...>& func,
 		std::map<ParameterIndex, Value>& arguments) const
 	{
+		if (arguments.empty())
+		{
+			return Error("Something went wrong when currying ElementAtom arguments, even though we started with the correct number, we ran out before finishing");
+		}
 		auto argIter = arguments.begin();
 		if (!argIter->second.Is<TArg>())
 		{
@@ -209,7 +208,7 @@ struct ElementLiteral : Element
 		, value(value)
 	{ }
 
-	virtual Value Evaluate(
+	virtual ErrorOr<Value> Evaluate(
 		CommandContext context,
 		std::map<ParameterIndex, Value> arguments) const override
 	{
@@ -225,6 +224,7 @@ struct ElementReference : Element
 	ElementReference(const Element & parent, ParameterIndex index)
 		: Element(parent.GetParameter(index).type)
 		, parameter(index);
+
 	ParameterIndex parameter;
 }
 
@@ -243,74 +243,20 @@ struct FramentMapping
 	std::vector<ElementMapping> elementMapping;
 	std::vector<ElementIndex> evaluationOrder;
 
-	FragmentMapping(const std::vector<CRef<Element> > & elements)
-	{
-		for(const Element & e : elements)
-		{
-			Append(e, false);
-		}
-	}
+	FragmentMapping(const std::vector<CRef<Element> > & elements);
 
-	void Append(const Element & e, bool evaluateOrder = true)
-	{
-		ElementIndex eIndex { elementMapping.count() };
-		elementMapping.push_back(ElementMapping{e});
-
-		if (e.left_parameter != nullptr)
-		{
-			int leftIndex = FindAppropriateLeftParameter(e);
-			Pair<int, int> parentIndex = parents[leftIndex];
-			
-			parameters[parentIndex.first][parentIndex.second] = newIndex;
-			parents[newIndex] = parentIndex;
-
-			parameters[newIndex][kLeftParameterIndex] = leftIndex;
-			parents[leftIndex] = Pair(newIndex, kLeftParameterIndex);
-		}
-		// we are probably a parameter of another element
-		else
-		{
-			// 
-		}
-
-		if (!evaluateOrder)
-		{
-			return;
-		}
-	}
-
+	void Append(const Element & e, bool evaluateOrder = true);
 
 	// this is recursive descent
 	// requires precondition that everything in evaluationOrder so far
 	// isn't dependent on the element at the provided index
-	void EvaluateOrderFrom(ElementIndex index)
-	{
-		for(const auto & argument : elementMapping[index].arguments)
-		{
-			EvaluateOrderFrom(argument.second);
-		}
-		evaluationOrder.push_back(index);
-	}
+	void EvaluateOrderFrom(ElementIndex index);
 
-	void EvaluateOrder()
+	ErrorOr<Success> EvaluateOrder();
+
+	static ErrorOr<FragmentMapping> CreateMapping(const std::vector<CRef<Element> > &elements)
 	{
-		evaluationOrder.clear();
-		if (elementMapping.count() == 0)
-		{
-			return;
-		}
-		for (int i = 0; i < elementMapping.count(); i++)
-		{
-			if (elementMapping[i].parent.first == kNullElementIndex)
-			{
-				EvaluateOrderFrom(ElementIndex{i});
-				break;
-			}
-		}
-		if (evaluationOrder.count() != elementMapping.count())
-		{
-			// rmf todo: log error;
-		}
+		return FragmentMapping{elements};
 	}
 }
 
@@ -323,55 +269,13 @@ struct ElementWord : Element
 	// we can't do recursive descent here because ElementReferences
 	// must be resolved in this scope, where they can access this Word's arguments
 	// even if they are arguments to other Elements in the implementation
-	virtual Value Evaluate(
+	virtual ErrorOr<Value> Evaluate(
 		CommandContext context,
-		std::map<ParameterIndex, CRef<Value> > arguments) const override
-	{
-		std::vector<Value> computedValues{implementation.elementMapping.size()};
-		std::map<ParameterIndex, CRef<Value> > subArguments;
+		std::map<ParameterIndex, CRef<Value> > arguments) const override;
 
-		for(ElementIndex index : implementation.evaluationOrder)
-		{
-			const auto & elementMapping = implementation.elementMapping[index.value];
-			const auto & element = elementMapping.element;
-			const auto pReference = dynamic_cast<const ElementReference*>(&element);
-			
-			if (pReference != nullptr)
-			{
-				// rmf todo: post load check that this is in range
-				ParameterIndex parameterIndex = pReference->parameter;
-
-				if (arguments.contains_key(parameterIndex))
-				{
-					computedValues[index.value] = arguments[parameterIndex];
-				}
-				else
-				{
-					ElementParameter& parameter = parameterIndex == -1
-						? element.left_parameter
-						: element.right_parameters[parameterIndex];
-					if (parameter.default_value != nullptr)
-					{
-						computedValues[index.value] = parameter.default_value;
-					}
-					// rmf todo: what if there isn't a default? error?
-				}
-				continue;
-			}
-			subArguments.clear();
-			for(auto [parameterIndex, elementValueIndex] : elementMapping.arguments)
-			{
-				subArguments[parameterIndex] = cref(computedValues[elementValueIndex.value]);
-			}
-			computedValues[index.value] = element.Evaluate(context, subArguments);
-		}
-
-		// last computed value is return, yes? or is this a faulty assumption?
-		return computedValues[computedValues.count - 1];
-	}
+private:
+	ErrorOr<Success> PostLoad();
 }
-
-
 
 
 struct Action
@@ -392,3 +296,5 @@ struct Line
 }
 
 } // namespace Command
+
+#endif // BRUSHLINK_COMMAND_TYPES_HPP
