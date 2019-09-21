@@ -154,16 +154,12 @@ struct ElementAtom : Element
 {
 	TRet (*underlying_function)(CommandContext, TArgs...);
 
-	virtual Value Evaluate(
+	virtual ErrorOr<Value> Evaluate(
 		CommandContext context,
 		std::map<ParameterIndex, Value> arguments) const override
 	{
 		CHECK_RETURN(FillDefaultArguments(arguments));
 
-		if (arguments.count() == 0)
-		{
-			return Value(underlying_function(context));
-		}
 		auto baseFunctor = FunctionPointer { underlying_function };
 		auto funcWithContext = CurriedFunctor { baseFunctor, context };
 
@@ -183,7 +179,6 @@ struct ElementAtom : Element
 		return func();
 	}
 
-
 	template<typename TArg, typename ... TRest>
 	ErrorOr<TRet> ApplyArguments(
 		Functor<TRet, TArg, TRest...>& func,
@@ -199,18 +194,6 @@ struct ElementAtom : Element
 		arguments.erase(argIter);
 
 		return ApplyArguments(curriedFunction, arguments);
-	}
-
-	template<typename TArg, typename ... TRemaining>
-	ErrorOr<TRet> InternalEvaluate(CommandContext context,
-		std::map<ParameterIndex, Value>& arguments) const
-	{
-		auto pair = arguments.begin();
-		if (!pair->second.Is<TArg>())
-		{
-			return Error("ElementAtom received incorrect arguments");
-		}
-		.As<TArg>();
 	}
 }
 
