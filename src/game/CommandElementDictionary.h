@@ -17,6 +17,8 @@ using ElementVariant = std::variant<
 
 class ElementDictionary : Singleton<ElementDictionary>
 {
+	// sending commands across the internet can't include user defined words
+	// so we probably need begin/end word elements
 	std::unordered_map<ElementID, CRef<Element> > elements;
 
 	const Element & Get(ElementID id)
