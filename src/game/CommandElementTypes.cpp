@@ -5,30 +5,52 @@ using namespace Farb;
 namespace Command
 {
 
+ErrorOr<Value> ElementParameter::GetDefaultValue(CommandContext context)
+{
+	if (default_value)
+	{
+		return *default_value;
+	}
+	else if (default_element)
+	{
+		std::map<ParameterIndex, Value>& arguments;
+		return default_element->Evaluate(context, arguments);
+	}
+	return Error("No Default Value Available");
+}
+
+bool ElementParameter::Optional()
+{
+	return (default_value != nullptr || default_element != nullptr);
+}
+
 ErrorOr<Success> Element::FillDefaultArguments(
-	std::map<ParameterIndex, CRef<Value> >& arguments) const
+	CommandContext context,
+	std::map<ParameterIndex, Value>& arguments) const
 {
 	if (arguments.count(kLeftParameterIndex) == 0
 		&& left_parameter != nullptr)
 	{
-		if (left_parameter.default_value == nullptr)
+		if (left_parameter.Optional())
 		{
 			return Error("Missing required left argument for Element");
 		}
-		arguments.insert(kLeftParameterIndex, cref(*left_parameter.default_value));
+		arguments.insert(kLeftParameterIndex,
+			CHECK_RETURN(left_parameter.GetDefaultValue(context)));
 	}
 
 	for (int arg = 0; arg < right_parameters.count(); arg++)
 	{
-		if (arguments.count(arg) > 0)
+		if (arguments.count(ParameterIndex(arg)) > 0)
 		{
 			continue;
 		}
-		if (right_parameters[arg].default_value == nullptr)
+		if (!right_parameters[arg].Optional())
 		{
 			return Error("Missing required argument " + arg + " for Element");
 		}
-		arguments.insert(ParameterIndex(arg), cref(*right_parameters[arg].default_value));
+		arguments.insert(ParameterIndex(arg),
+			CHECK_RETURN(right_parameters[arg].GetDefaultValue(context)));
 	}
 
 	int desired_argument_count = right_parameters.count();
@@ -119,12 +141,12 @@ ErrorOr<Success> FragmentMapping::EvaluateOrder()
 // even if they are arguments to other Elements in the implementation
 ErrorOr<Value> ElementWord::Evaluate(
 	CommandContext context,
-	std::map<ParameterIndex, CRef<Value> > arguments) const
+	std::map<ParameterIndex, Value> arguments) const
 {
-	CHECK_RETURN(FillDefaultArguments());
+	CHECK_RETURN(FillDefaultArguments(context, arguments));
 
 	std::vector<Value> computedValues{implementation.elementMapping.size()};
-	std::map<ParameterIndex, CRef<Value> > subArguments;
+	std::map<ParameterIndex, Value> subArguments;
 
 	for(ElementIndex index : implementation.evaluationOrder)
 	{
@@ -141,7 +163,7 @@ ErrorOr<Value> ElementWord::Evaluate(
 		subArguments.clear();
 		for(auto [parameterIndex, elementValueIndex] : elementMapping.arguments)
 		{
-			subArguments[parameterIndex] = cref(computedValues[elementValueIndex.value]);
+			subArguments[parameterIndex] = computedValues[elementValueIndex.value];
 		}
 		computedValues[index.value] = element.Evaluate(context, subArguments);
 	}

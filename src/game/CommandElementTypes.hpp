@@ -29,6 +29,55 @@ enum class ValueType
 	Area
 }
 
+template<typename T>
+constexpr ValueType ValueTypeOf()
+{
+	if constexpr(std::is_same_v<T, CommandStatement>)
+	{
+		return ValueType::Command_Statement;
+	}
+	else if constexpr(std::is_same_v<T, UnitGroup>)
+	{
+		return ValueType::Unit_Group;
+	}
+	else if constexpr(std::is_same_v<T, Number>)
+	{
+		return ValueType::Number;
+	}
+	else if constexpr(std::is_same_v<T, UnitType>)
+	{
+		return ValueType::Unit_Type;
+	}
+	else if constexpr(std::is_same_v<T, AbilityType>)
+	{
+		return ValueType::Ability_Type;
+	}
+	else if constexpr(std::is_same_v<T, AttributeType>)
+	{
+		return ValueType::Attribute_Type;
+	}
+	else if constexpr(std::is_same_v<T, Point>)
+	{
+		return ValueType::Point;
+	}
+	else if constexpr(std::is_same_v<T, Line>)
+	{
+		return ValueType::Line;
+	}
+	else if constexpr(std::is_same_v<T, Direction>)
+	{
+		return ValueType::Direction;
+	}
+	else if constexpr(std::is_same_v<T, Area>)
+	{
+		return ValueType::Area;
+	}
+	else
+	{
+		static_assert(false, "the provided type is not a Command::ValueType");
+	}
+}
+
 
 struct Value
 {
@@ -88,9 +137,15 @@ struct ElementParameter
 	ValueType type;
 	Bool permutable;
 	value_ptr<Value> default_value; // if != nullptr, implies optional
+	value_ptr<CRef<Element> > default_element; // must not require parameters
 	// todo: one_of variants? unit or units, area or point
 	// or should those be handled by implicit conversion?
 	// could still list them here, in case the conversion functions differ?
+	// these might not be a value, but an element with no parameters that returns
+
+	Value GetDefaultValue(CommandContext context) const;
+
+	bool Optional() const;
 }
 
 // the index of a paramter in an element
@@ -122,10 +177,11 @@ struct Element
 	// how should we handle user facing feedback like selector contains no units?
 	virtual ErrorOr<Value> Evaluate(
 		CommandContext context,
-		std::map<ParameterIndex, CRef<Value> > arguments) const;
+		std::map<ParameterIndex, Value> arguments) const;
 
 protected:
 	ErrorOr<Success> FillDefaultArguments(
+		CommandContext context,
 		std::map<ParameterIndex,CRef<Value> >& arguments) const;
 }
 
@@ -139,7 +195,7 @@ struct ElementAtomDynamic : Element
 		CommandContext context,
 		std::map<ParameterIndex, Value> arguments) const override
 	{
-		CHECK_RETURN(FillDefaultArguments(arguments));
+		CHECK_RETURN(FillDefaultArguments(context, arguments));
 		return underlying_function(context, arguments);
 	}
 }
@@ -147,13 +203,33 @@ struct ElementAtomDynamic : Element
 template<typename TRet, typename ... TArgs>
 struct ElementAtom : Element
 {
-	TRet (*underlying_function)(CommandContext, TArgs...);
+	ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...);
+
+	ElementAtom(
+		ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...),
+		value_ptr<ElementParameter> left_parameter,
+		std::vector<ElementParameter> right_parameters)
+		: Element(ValueTypeOf<TRet>(), left_parameter, right_parameters)
+	{
+
+	}
+
+	// assumes all right parameters, no default values, no permutations
+	ElementAtom(
+		ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...))
+		: Element(ValueTypeOf<TRet>())
+	{
+		if constexpr (size_of...(TArgs) > 0)
+		{
+			PushBackGeneratedParams<TArgs...>();
+		}
+	}
 
 	virtual ErrorOr<Value> Evaluate(
 		CommandContext context,
 		std::map<ParameterIndex, Value> arguments) const override
 	{
-		CHECK_RETURN(FillDefaultArguments(arguments));
+		CHECK_RETURN(FillDefaultArguments(context, arguments));
 
 		auto baseFunctor = FunctionPointer { underlying_function };
 		auto funcWithContext = CurriedFunctor { baseFunctor, context };
@@ -193,6 +269,27 @@ struct ElementAtom : Element
 		arguments.erase(argIter);
 
 		return ApplyArguments(curriedFunction, arguments);
+	}
+
+private:
+	template <typename TParam, typename... TRest>
+	constexpr void PushBackGeneratedParams()
+	{
+		right_parameters.push_back(
+			ElementParameter{
+				ValueTypeOf<TParam>,
+				false,
+				nullptr
+			});
+
+		if constexpr (size_of...(TRest) == 0)
+		{
+			return;
+		}
+		else
+		{
+			PushBackGeneratedParams<TRest>();
+		}
 	}
 }
 
@@ -271,7 +368,7 @@ struct ElementWord : Element
 	// even if they are arguments to other Elements in the implementation
 	virtual ErrorOr<Value> Evaluate(
 		CommandContext context,
-		std::map<ParameterIndex, CRef<Value> > arguments) const override;
+		std::map<ParameterIndex, Value> arguments) const override;
 
 private:
 	ErrorOr<Success> PostLoad();
