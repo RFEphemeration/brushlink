@@ -67,7 +67,6 @@ Selector
 	[ Selector_Base ] [ Selector_Superlative ] { Selector_Generic }
 	Selector union Selector
 	Selector intersection Selector
-	
 
 Selector_Base
 	friendly

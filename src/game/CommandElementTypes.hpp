@@ -141,7 +141,7 @@ enum class ElementType
 struct ElementParameter
 {
 	ValueType type;
-	Bool permutable;
+	// Bool permutable; // implement this later
 	value_ptr<Value> default_value; // if != nullptr, implies optional
 	value_ptr<CRef<Element> > default_element; // must not require parameters
 	// todo: one_of variants? unit or units, area or point
@@ -217,7 +217,23 @@ struct ElementAtom : Element
 		std::vector<ElementParameter> right_parameters)
 		: Element(ValueTypeOf<TRet>(), left_parameter, right_parameters)
 	{
+		static_assert(size_of...(TArgs) >= 2);
+	}
 
+	ElementAtom(
+		ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...),
+		std::vector<ElementParameter> right_parameters)
+		: Element(ValueTypeOf<TRet>(), right_parameters)
+	{
+
+	}
+
+	ElementAtom(
+		ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...),
+		value_ptr<ElementParameter> left_parameter)
+		: Element(ValueTypeOf<TRet>(), left_parameter)
+	{
+		static_assert(size_of...(TArgs) == 1);
 	}
 
 	// assumes all right parameters, no default values, no permutations
@@ -386,6 +402,12 @@ struct ElementWord : Element
 
 private:
 	ErrorOr<Success> PostLoad();
+}
+
+// for operator overloading based on parameters
+struct ElementOneOf : Element
+{
+	
 }
 
 } // namespace Command

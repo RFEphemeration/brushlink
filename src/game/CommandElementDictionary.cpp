@@ -32,12 +32,36 @@ ErrorOr<UnitGroup> limit_group_size(CommandContext context, Number size, UnitGro
 
 ErrorOr<UniGroup> closest(CommandContext context, UnitGroup actor, UnitGroup target);
 
+ErrorOr<Number> plus(CommandContext context, Number left, Number right)
+{
+	return Number{a.value + b.value};
+}
+
+template<int value>
+ErrorOr<Number> digit(CommandContext context, Number left)
+{
+	return Number{(left.value * 10) + value};
+}
+
+#define DIGIT(value) static auto digit_ ## value = ElementAtom{digit<value>, ElementParameter{ValueType::Number, Value{Number{0}}}}
+
 
 void ElementDictionary::InitializeTypedAtoms()
 {
 	// initialize required literals first
 
-	// these 
+	// these
+
+	DIGIT(0);
+	DIGIT(1);
+	DIGIT(2);
+	DIGIT(3);
+	DIGIT(4);
+	DIGIT(5);
+	DIGIT(6);
+	DIGIT(7);
+	DIGIT(8);
+	DIGIT(9);
 
 	static auto current_selection = ElementAtom{atom_current_selection};
 
