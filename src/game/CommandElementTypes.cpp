@@ -64,6 +64,27 @@ ErrorOr<Success> Element::FillDefaultArguments(
 	return Success();
 }
 
+bool ElementMapping::ParametersMet() const
+{
+	if (element.left_parameter != nullptr
+		&& !element.left_parameter.Optional()
+		&& !arguments.contains_key(kLeftParameterIndex))
+	{
+		return false;
+	}
+
+	for (ParameterIndex p{0}; p.value < element.right_parameters.size(); p.value++)
+	{
+		if (!element.right_parameters[p.value].Optional()
+			&& !arguments.contains_key(p))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 FragmentMapping::FragmentMapping(const std::vector<CRef<Element> > & elements)
 {
 	for(const Element & e : elements)
@@ -74,14 +95,19 @@ FragmentMapping::FragmentMapping(const std::vector<CRef<Element> > & elements)
 	EvaluateOrder();
 }
 
-void FragmentMapping::Append(const Element & e, bool evaluateOrder = true)
+ErrorOr<Success>() FragmentMapping::Append(const Element & e, bool evaluateOrder = true)
 {
 	ElementIndex eIndex { elementMapping.count() };
 	elementMapping.push_back(ElementMapping{e});
 
 	if (e.left_parameter != nullptr)
 	{
-		int leftIndex = FindAppropriateLeftParameter(e);
+		auto leftIndex = FindAppropriateLeftParameter(e);
+		if (!e.left_parameter.Optional()
+			&& leftIndex == kNullElementIndex)
+		{
+			return Error("Left Parameter is required but could not be found");
+		}
 		Pair<int, int> parentIndex = parents[leftIndex];
 		
 		parameters[parentIndex.first][parentIndex.second] = newIndex;
@@ -101,6 +127,40 @@ void FragmentMapping::Append(const Element & e, bool evaluateOrder = true)
 		return;
 	}
 }
+
+ElementIndex FragmentMapping::FindAppropriateLeftParameter(const Element & next) const
+{
+	if (next.left_parameter == nullptr
+		|| elementMapping.empty())
+	{
+		return kNullElementIndex;
+	}
+
+	const ValueType desiredType = next.left_parameter->type;
+	ElementIndex current{elementMapping.count() - 1};
+	while (elementMapping[current.value].element.type == )
+	while (current.value > kNullElementIndex)
+	{
+		if (!elementMapping[current.value].ParametersMet())
+		{
+			return kNullElementIndex;
+		}
+		else if (elementMapping[current.value].element.type == desiredType)
+		{
+			// rmf todo: implement left param skipping based on count of skip elements
+			// which ones count? only ones typed last, right?
+			// so maybe our current index initialization is wrong
+			break;
+		}
+		else
+		{
+			current = elementMapping[current.value].parent.first;
+		}
+	}
+
+	return current;
+}
+
 
 
 // this is recursive descent

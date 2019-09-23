@@ -12,21 +12,27 @@ namespace Command
 // keep this in line with Value.value
 enum class ValueType
 {
-	Command_Statement
+	Command_Statement,
 
 	//Unit
-	Unit_Group // are these two the same?
+	Unit_Group, // are these two the same?
 
-	Number
+	Number,
 
-	Unit_Type
-	Ability_Type
-	Attribute_Type
+	Unit_Type,
+	Ability_Type,
+	Attribute_Type,
 
-	Point
-	Line
-	Direction
-	Area
+	Point,
+	Line,
+	Direction,
+	Area,
+
+	// should these be part of the same enum?
+	// this makes me think the enum should be called ElementType
+	Skip
+	BeginWord
+	EndWord
 }
 
 template<typename T>
@@ -81,7 +87,7 @@ constexpr ValueType ValueTypeOf()
 
 struct Value
 {
-	ValueType tag;
+	ValueType type;
 
 	// keep this in line with ValueType
 	std::variant<
@@ -311,7 +317,6 @@ struct ElementLiteral : Element
 	{
 		return value;
 	}
-	
 }
 
 // only used in the construction of ElementWord objects
@@ -333,6 +338,9 @@ struct ElementMapping
 	std::map<ParameterIndex, ElementIndex> arguments;
 	std::pair<ElementIndex, ParameterIndex> parent;
 		// kNullElementIndex (-1) means you have no parent
+
+	// this is not recursive, doesn't guarantee arguments have ParametersMet
+	bool ParametersMet() const;
 }
 
 struct FramentMapping
@@ -350,6 +358,12 @@ struct FramentMapping
 	void EvaluateOrderFrom(ElementIndex index);
 
 	ErrorOr<Success> EvaluateOrder();
+
+	std::set<ValueType> ComputeValidAppendTypes() const;
+
+	ElementIndex FindAppropriateLeftArgument(const Element & e) const;
+
+	std::Pair<ElementIndex, ParameterIndex> FindAppropriateParentForNew(const Element & e) const;
 
 	static ErrorOr<FragmentMapping> CreateMapping(const std::vector<CRef<Element> > &elements)
 	{
@@ -372,24 +386,6 @@ struct ElementWord : Element
 
 private:
 	ErrorOr<Success> PostLoad();
-}
-
-
-struct Action
-{
-	Target target;
-}
-
-
-
-struct Point
-{
-
-}
-
-struct Line
-{
-
 }
 
 } // namespace Command

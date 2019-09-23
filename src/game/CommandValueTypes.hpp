@@ -87,7 +87,9 @@ struct Direction
 
 struct Area
 {
-	virtual std::vector<Point> GetPointsInArea(Number count) const;
+	virtual std::vector<Point> GetPointDistributionInArea(Number count) const;
+
+	virtual bool IsPointInArea(Point point) const;
 }
 
 struct Box : Area

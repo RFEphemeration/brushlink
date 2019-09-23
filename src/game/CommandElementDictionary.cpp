@@ -1,5 +1,8 @@
 #include "CommandElementDictionary.h"
 
+// how to handle 1-1, 2-1, or all-to-one ratios?
+// in CommandContext?
+
 /*
 	CommandStatement,
 	UnitGroup,
@@ -13,9 +16,22 @@
 	Area
 */
 
-ErrorOr<UnitGroup> atom_current_selection(CommandContext context);
+ErrorOr<UnitGroup> current_selection(CommandContext context);
 
-ErrorOr<CommandStatement> atom_fire_at(CommandContext contex, UnitGroup actor, Point target);
+// probably need separate atoms for fire at point, line, unitgroup...
+// otherwise how do we find
+ErrorOr<CommandStatement> fire_at(CommandContext contex, UnitGroup actor, Point target);
+
+ErrorOr<Point> position_of(CommandContext contex, UnitGroup target);
+
+ErrorOr<UnitGroup> units_in_area(CommandContext context, Area area);
+
+ErrorOr<Area> circle(CommandContext context, Point center, Number radius);
+
+ErrorOr<UnitGroup> limit_group_size(CommandContext context, Number size, UnitGroup group);
+
+ErrorOr<UniGroup> closest(CommandContext context, UnitGroup actor, UnitGroup target);
+
 
 void ElementDictionary::InitializeTypedAtoms()
 {
