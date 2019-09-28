@@ -9,149 +9,81 @@ namespace Command
 // todo: interactive visualizations
 
 
-// keep this in line with Value.value
-enum class ValueType
-{
-	Command_Statement,
-
-	//Unit
-	Unit_Group, // are these two the same?
-
-	Number,
-
-	Unit_Type,
-	Ability_Type,
-	Attribute_Type,
-
-	Point,
-	Line,
-	Direction,
-	Area,
-
-	// should these be part of the same enum?
-	// this makes me think the enum should be called ElementType
-	Skip
-	BeginWord
-	EndWord
-}
-
-template<typename T>
-constexpr ValueType ValueTypeOf()
-{
-	if constexpr(std::is_same_v<T, CommandStatement>)
-	{
-		return ValueType::Command_Statement;
-	}
-	else if constexpr(std::is_same_v<T, UnitGroup>)
-	{
-		return ValueType::Unit_Group;
-	}
-	else if constexpr(std::is_same_v<T, Number>)
-	{
-		return ValueType::Number;
-	}
-	else if constexpr(std::is_same_v<T, UnitType>)
-	{
-		return ValueType::Unit_Type;
-	}
-	else if constexpr(std::is_same_v<T, AbilityType>)
-	{
-		return ValueType::Ability_Type;
-	}
-	else if constexpr(std::is_same_v<T, AttributeType>)
-	{
-		return ValueType::Attribute_Type;
-	}
-	else if constexpr(std::is_same_v<T, Point>)
-	{
-		return ValueType::Point;
-	}
-	else if constexpr(std::is_same_v<T, Line>)
-	{
-		return ValueType::Line;
-	}
-	else if constexpr(std::is_same_v<T, Direction>)
-	{
-		return ValueType::Direction;
-	}
-	else if constexpr(std::is_same_v<T, Area>)
-	{
-		return ValueType::Area;
-	}
-	else
-	{
-		static_assert(false, "the provided type is not a Command::ValueType");
-	}
-}
-
-
-struct Value
-{
-	ValueType type;
-
-	// keep this in line with ValueType
-	std::variant<
-		CommandStatement,
-		UnitGroup,
-		Number,
-		UnitType,
-		AbilityType,
-		AttributeType,		
-		Point,
-		Line,
-		Direction,
-		Area> value;
-
-	template <typename T>
-	inline T& As()
-	{
-		return std::get<T>(value);
-	}
-
-	template <typename T>
-	inline const T& As() const
-	{
-		return std::get<T>(value);
-	}
-
-	template <typename T>
-	inline bool Is() const
-	{
-		std::holds_alternative<T>(value);
-	}
-}
-
-
-struct ElementIDTag
-{
-	static HString GetName() { return "Command::ElementID"; }
-}
-using ElementID = NamedType<HString, ElementIDTag>;
-
-// used as tags on elements for applying restrictions/rules
 enum class ElementType
 {
-	Number,
-	Selector_Base,
-	Selector_Superlative,
-	Selector_Generic
+	Command =              1 << 0
+
+	Condition =            1 << 1,
+	Action =               1 << 2,
+
+	Selector =             1 << 3,
+	Selector_Base =        1 << 4,
+	Selector_Generic =     1 << 5,
+	Selector_Group_Size =  1 << 6,
+	Selector_Superlative = 1 << 7,
+
+	Location =             1 << 8,
+	Point =                1 << 9,
+	Line =                 1 << 10,
+	Area =                 1 << 11,
+
+	Unit_Type =            1 << 12,
+	Attribute_Type =       1 << 13,
+	Ability_Type =         1 << 14,
+
+	Number =               1 << 15,
+
+	Skip =                 1 << 16,
+	Termination =          1 << 17,
+
+	// Begin_Word? End_Word?
+
+	Default_Value =        1 << 18,
+	Implied =              1 << 19,
+
+	// has no parameters and is not context dependent
+	Literal =              1 << 20,
+	Parameter_Reference    1 << 21,
+
+	User_Defined =         1 << 22
+}
+
+struct ElementNameTag
+{
+	static HString GetName() { return "Command::ElementName"; }
+}
+using ElementName = NamedType<HString, ElementNameTag>;
+
+struct ElementToken
+{
+	// this is a bit field of flags, aka a set of types
+	ElementType types;
+	HString name;
+
+	bool IsType(ElementType other)
+	{
+		return other & types;
+	}
+
+	bool IsAllTypes(ElementType other)
+	{
+		 return (other & types) >= other;
+	}
 }
 
 
 struct ElementParameter
 {
-	ValueType type;
+	// todo: does this cover one_of variants? unit or units, area or point
+	ElementType types;
+
+	Bool optional;
 	// Bool permutable; // implement this later
-	value_ptr<Value> default_value; // if != nullptr, implies optional
-	value_ptr<CRef<Element> > default_element; // must not require parameters
-	// todo: one_of variants? unit or units, area or point
-	// or should those be handled by implicit conversion?
-	// could still list them here, in case the conversion functions differ?
-	// these might not be a value, but an element with no parameters that returns
+	// Bool repeatable; // implement this later
 
-	Value GetDefaultValue(CommandContext context) const;
+	// you can be optional without a default_value
+	value_ptr<ElementToken> default_value; 
 
-	bool Optional() const;
 }
 
 // the index of a paramter in an element
@@ -173,190 +105,61 @@ using ElementIndex = NamedType<int, ElementIndexTag>;
 
 const ElementIndex kNullElementIndex{-1};
 
-struct Element
+struct ElementDeclaration
 {
-	ValueType type; // return type
+	ElementType types;
+	ElementName name;
+
 	value_ptr<ElementParameter> left_parameter; // optional
 	std::vector<ElementParameter> right_parameters; // could be length 0
 
-	// errors should be reserved for programming errors I think?
-	// how should we handle user facing feedback like selector contains no units?
-	virtual ErrorOr<Value> Evaluate(
-		CommandContext context,
-		std::map<ParameterIndex, Value> arguments) const;
-
 protected:
 	ErrorOr<Success> FillDefaultArguments(
-		CommandContext context,
-		std::map<ParameterIndex,CRef<Value> >& arguments) const;
+		std::map<ParameterIndex, ElementToken>& arguments) const;
 }
 
-struct ElementAtomDynamic : Element
+
+// For an AST, ElementIndexes are in relationship to parent
+struct ElementNode
 {
-	ErrorOr<Value> (*underlying_function)(
-		CommandContext,
-		std::map<ParameterIndex, Value>);
+	// kNullElementIndex (-1) means you are not in the stream, i.e. implied
+	ElementIndex streamIndex;
+	ElementToken token;
 
-	virtual ErrorOr<Value> Evaluate(
-		CommandContext context,
-		std::map<ParameterIndex, Value> arguments) const override
-	{
-		CHECK_RETURN(FillDefaultArguments(context, arguments));
-		return underlying_function(context, arguments);
-	}
-}
+	std::list<ElementNode> children;
 
-template<typename TRet, typename ... TArgs>
-struct ElementAtom : Element
-{
-	ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...);
+	// ElementIndex here refers to in the list of children
+	std::multimap<ParameterIndex, ElementIndex> childArgumentMapping;
 
-	ElementAtom(
-		ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...),
-		value_ptr<ElementParameter> left_parameter,
-		std::vector<ElementParameter> right_parameters)
-		: Element(ValueTypeOf<TRet>(), left_parameter, right_parameters)
-	{
-		static_assert(size_of...(TArgs) >= 2);
-	}
+	ElementNode* parent;
 
-	ElementAtom(
-		ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...),
-		std::vector<ElementParameter> right_parameters)
-		: Element(ValueTypeOf<TRet>(), right_parameters)
-	{
-
-	}
-
-	ElementAtom(
-		ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...),
-		value_ptr<ElementParameter> left_parameter)
-		: Element(ValueTypeOf<TRet>(), left_parameter)
-	{
-		static_assert(size_of...(TArgs) == 1);
-	}
-
-	// assumes all right parameters, no default values, no permutations
-	ElementAtom(
-		ErrorOr<TRet> (*underlying_function)(CommandContext, TArgs...))
-		: Element(ValueTypeOf<TRet>())
-	{
-		if constexpr (size_of...(TArgs) > 0)
-		{
-			PushBackGeneratedParams<TArgs...>();
-		}
-	}
-
-	virtual ErrorOr<Value> Evaluate(
-		CommandContext context,
-		std::map<ParameterIndex, Value> arguments) const override
-	{
-		CHECK_RETURN(FillDefaultArguments(context, arguments));
-
-		auto baseFunctor = FunctionPointer { underlying_function };
-		auto funcWithContext = CurriedFunctor { baseFunctor, context };
-
-		TRet value = CHECK_RETURN(ApplyArguments(funcWithContext, arguments));
-
-		return Value(value);
-	}
-
-	inline ErrorOr<TRet> ApplyArguments(
-		Functor<TRet>& func,
-		std::map<ParameterIndex, Value>& arguments) const
-	{
-		if (!arguments.empty())
-		{
-			return Error("Something went wrong when currying ElementAtom arguments, even though we started with the correct number, we have some left over");
-		}
-		return func();
-	}
-
-	template<typename TArg, typename ... TRest>
-	inline ErrorOr<TRet> ApplyArguments(
-		Functor<TRet, TArg, TRest...>& func,
-		std::map<ParameterIndex, Value>& arguments) const
-	{
-		if (arguments.empty())
-		{
-			return Error("Something went wrong when currying ElementAtom arguments, even though we started with the correct number, we ran out before finishing");
-		}
-		auto argIter = arguments.begin();
-		if (!argIter->second.Is<TArg>())
-		{
-			return Error("ElementAtom received incorrect argument type for parameter " + argIter.first.value);
-		}
-
-		auto curriedFunction = CurriedFunctor { func, argIter->second.As<TArg>() };
-		arguments.erase(argIter);
-
-		return ApplyArguments(curriedFunction, arguments);
-	}
-
-private:
-	template <typename TParam, typename... TRest>
-	constexpr void PushBackGeneratedParams()
-	{
-		right_parameters.push_back(
-			ElementParameter{
-				ValueTypeOf<TParam>,
-				false,
-				nullptr
-			});
-
-		if constexpr (size_of...(TRest) == 0)
-		{
-			return;
-		}
-		else
-		{
-			PushBackGeneratedParams<TRest>();
-		}
-	}
-}
-
-// is there such a thing as an element literal?
-// even numbers take an optional left_param for multiple digits
-// would probably be useful for writing words in scripts
-struct ElementLiteral : Element
-{
-	Value value;
-
-	ElementLiteral(Value value)
-		: Element(value.type)
-		, value(value)
+	ElementNode(ElementToken token, ElementIndex streamIndex, ElementNode* parent = nullptr)
+		: token(token)
+		, streamIndex(streamIndex)
+		, parent(parent)
 	{ }
 
-	virtual ErrorOr<Value> Evaluate(
-		CommandContext context,
-		std::map<ParameterIndex, Value> arguments) const override
+	ErrorOr<Success> Add(ElementNode child)
 	{
-		return value;
+		auto argIndex = CHECK_RETURN(GetArgIndexForNextToken(child.token));
+		auto childIndex = ElementIndex{children.size()};
+		child.parent = this;
+		children.push_back(child);
+		childArgumentMapping.insert( { argIndex, childIndex } );
 	}
-}
 
-// only used in the construction of ElementWord objects
-// to represent the word parameters, index is relative to the parent
-struct ElementReference : Element
-{
-	ElementReference(const Element & parent, ParameterIndex index)
-		: Element(parent.GetParameter(index).type)
-		, parameter(index);
-
-	ParameterIndex parameter;
-}
-
-// only useful in the context of a FragmentMapping
-// since that provides the reference list for the ElementIndex;
-struct ElementMapping
-{
-	const Element& element;
-	std::map<ParameterIndex, ElementIndex> arguments;
-	std::pair<ElementIndex, ParameterIndex> parent;
-		// kNullElementIndex (-1) means you have no parent
+	ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const;
 
 	// this is not recursive, doesn't guarantee arguments have ParametersMet
 	bool ParametersMet() const;
+
+	ElementType GetValidNextArguments() const;
+}
+
+struct Parser
+{
+	std::vector<ElementToken> stream;
+	ElementNode root;
 }
 
 struct FramentMapping

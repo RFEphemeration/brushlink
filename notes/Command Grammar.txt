@@ -63,7 +63,39 @@ Target_Area
 	l_drag_box
 	within_range
 
+Command
+	Selection
+	Action
+	"enqueue" Action
+
+Selection
+	Selector "termination"
+
+Action
+	"fire_at" Selector "termination"
+
 Selector
+	( Base ) { Generic } ( Group_Size ) ( Superlative )
+
+Base
+	"enemies"
+	"allies"
+	"group_variable" Number
+
+Generic
+	"within_range"
+	"on_screen"
+	"with_heal_ability"
+
+Group_Size
+	"as_individuals"
+	"ratio" Number
+
+Superlative
+	"min_health"
+	"closest"
+
+
 	[ Selector_Base ] [ Selector_Superlative ] { Selector_Generic }
 	Selector union Selector
 	Selector intersection Selector
