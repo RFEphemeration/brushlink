@@ -45,7 +45,10 @@ enum class ElementType
 	Literal =              1 << 20,
 	Parameter_Reference    1 << 21,
 
-	User_Defined =         1 << 22
+	// this is probably not an appropriate type because of the way fields are compared
+	// but really I need to think about how to compare fields more thoroughly
+	// which probably means not using a field, and using sets instead
+	// User_Defined =         1 << 22
 }
 
 struct ElementNameTag
@@ -57,17 +60,13 @@ using ElementName = NamedType<HString, ElementNameTag>;
 struct ElementToken
 {
 	// this is a bit field of flags, aka a set of types
-	ElementType types;
+	// but I think it should actually only be a single one
+	ElementType type;
 	HString name;
 
 	bool IsType(ElementType other)
 	{
-		return other & types;
-	}
-
-	bool IsAllTypes(ElementType other)
-	{
-		 return (other & types) >= other;
+		return other & type;
 	}
 }
 
@@ -107,17 +106,61 @@ const ElementIndex kNullElementIndex{-1};
 
 struct ElementDeclaration
 {
-	ElementType types;
+	ElementType types = 0;
 	ElementName name;
 
 	value_ptr<ElementParameter> left_parameter; // optional
 	std::vector<ElementParameter> right_parameters; // could be length 0
+
+	inline bool HasLeftParamterMatching(ElementType type) const
+	{
+		if (left_parameter == nullptr) return false;
+		return type & left_parameter->types;
+	}
 
 protected:
 	ErrorOr<Success> FillDefaultArguments(
 		std::map<ParameterIndex, ElementToken>& arguments) const;
 }
 
+struct ImpliedNodeOptions
+{
+	static const ElementToken selectorToken { ElementType::Selector, "Selector" };
+	static const ElementToken locationToken { ElementType::Location, "Location" };
+
+	// accepted arg type -> token to use for node
+	static const std::unordered_map<ElementType, ElementToken> acceptedArgTypes
+	{
+		{ ElementType::Selector_Base, selectorToken },
+		{ ElementType::Selector_Group_Size, selectorToken },
+		{ ElementType::Selector_Generic, selectorToken },
+		{ ElementType::Selector_Superlative, selectorToken },
+
+		{ ElementType::Point, locationToken },
+		{ ElementType::Line, locationToken },
+		{ ElementType::Area, locationToken }
+	};
+
+	// parameter type -> arg types
+	static const std::unordered_map<ElementType, ElementType> potentialParamTypes
+	{
+		{
+			ElementType::Selector,
+
+			ElementType::Selector_Base
+			| ElementType::Selector_Group_Size
+			| ElementType::Selector_Generic
+			| ElementType::Selector_Superlative
+		},
+		{
+			ElementType::Location,
+
+			ElementType::Point
+			| ElementType::Line
+			| ElementType::Area
+		}
+	}
+}
 
 // For an AST, ElementIndexes are in relationship to parent
 struct ElementNode
@@ -126,6 +169,7 @@ struct ElementNode
 	ElementIndex streamIndex;
 	ElementToken token;
 
+	// in order of appending, aka streamIndex
 	std::list<ElementNode> children;
 
 	// ElementIndex here refers to in the list of children
@@ -133,19 +177,20 @@ struct ElementNode
 
 	ElementNode* parent;
 
-	ElementNode(ElementToken token, ElementIndex streamIndex, ElementNode* parent = nullptr)
+	ElementNode(ElementToken token, ElementIndex streamIndex)
 		: token(token)
 		, streamIndex(streamIndex)
-		, parent(parent)
+		, parent(nullptr)
 	{ }
 
-	ErrorOr<Success> Add(ElementNode child)
+	ErrorOr<ElementNode &> Add(ElementNode child)
 	{
 		auto argIndex = CHECK_RETURN(GetArgIndexForNextToken(child.token));
 		auto childIndex = ElementIndex{children.size()};
 		child.parent = this;
 		children.push_back(child);
 		childArgumentMapping.insert( { argIndex, childIndex } );
+		return children[childIndex.value];
 	}
 
 	ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const;
@@ -153,13 +198,141 @@ struct ElementNode
 	// this is not recursive, doesn't guarantee arguments have ParametersMet
 	bool ParametersMet() const;
 
-	ElementType GetValidNextArguments() const;
+	ElementType GetValidNextArgTypes() const;
+
+	ElementType GetValidNextArgsWithImpliedNodes() const
+	{
+		ElementType validArgs = GetValidNextArgTypes();
+		ElementType validArgsWithImplied { 0 };
+		for(auto pair : ImpliedNodeOptions.potentialParamTypes)
+		{
+			if (pair.first & validArgs)
+			{
+				validArgsWithImplied = validArgsWithImplied | pair.second;
+			}
+		}
+		return validArgsWithImplied;
+	}
 }
 
 struct Parser
 {
 	std::vector<ElementToken> stream;
 	ElementNode root;
+
+	inline ElementNode * GetRightmostElement() const
+	{
+		ElementNode * current = root;
+		// we must have at least one non left parameter child
+		// and there can be at most one left parameter
+		while (
+			(current->children.size() == 1
+				&& !current->childArgumentMapping.contains(kLeftParameterIndex))
+			|| current->children.size() > 1)
+		{
+			current = &current->children[current->children.size() - 1];
+		}
+		return current;
+	}
+
+	ErrorOr<Sucess> Append(ElementToken nextToken)
+	{
+		const ElementDeclaration & nextDec = GetElementDeclaration(nextToken);
+		ElementNode nextNode {nextToken, ElementIndex{stream.size()}};
+		stream.push_back(nextToken);
+
+		for(ElementNode * e = GetRightmostElement();
+			e != nullptr;
+			e = e->parent)
+		{
+			if (nextToken.type & e->GetValidNextArgTypes())
+			{
+				CHECK_RETURN(e->Add(nextNode));
+				return Success();
+			}
+			else if (nextToken.type & e->GetValidNextArgsWithImpliedNodes())
+			{
+				ElementNode implied {
+					ImpliedNodeOptions::acceptedArgTypes[nextToken.type],
+					kNullElementIndex };
+				CHECK_RETURN(implied.Add(nextNode));
+				CHECK_RETURN(e->Add(implied));
+				return Success();
+
+			}
+			else if (!e->ParametersMet())
+			{
+				// until parameters have been met yet, e can't be a left parameter
+				// and e->parent can't accept any more arguments
+				return Error("Couldn't find appropriate location for the next element without blocking an element that still requires parameters");
+			}
+			else if (nextDec.HasLeftParamterMatching(e->token.types))
+			{
+				ElementNode * parent = e->parent;
+				CHECK_RETURN(nextNode.Add(e));
+				parent->children.pop_back();
+				CHECK_RETURN(parent->Add(nextNode));
+				return Success();
+			}
+
+			// for now we're assuming that left parameters can't have implied nodes, but if this proves to be not true, 
+		}
+
+		return Error("Couldn't find appropriate location for the next element, it doesn't match any types");
+	}
+
+private:
+	void AssignParent(ElementNode * parent, ElementToken newChild)
+
+	ElementNode * GetValidParent(ElementToken newToken) const
+	{
+		ElementNode * current = GetRightmostElement();
+
+		ElementType validArguments = current->GetValidNextArguments();
+		if (validArguments & newToken.types)
+		{
+			return current;
+		}
+		while (current->ParametersMet() && current->parent != nullptr)
+		{
+			current = current->parent;
+			validArguments = current->GetValidNextArguments();
+			if (validArguments & newToken.types)
+			{
+				return current;
+			}
+		}
+		return nullptr;
+
+	}
+
+	ElementType GetRightSideTypesForLeftParameter() const
+	{
+		ElementNode * current = GetRightmostElement();
+
+		ElementType validArguments = current->token.types;
+		while (current->ParametersMet() && current->parent != nullptr)
+		{
+			current = current->parent;
+			validArguments = validArguments | current->token.types;
+		}
+		return validArguments;
+	}
+
+	// remember it's also valid to append anything that has a left parameter
+	// that is on the right
+	ElementType GetValidNextArguments() const
+	{
+		ElementNode * current = GetRightmostElement();
+
+		ElementType validArguments = current->GetValidNextArguments();
+		while (current->ParametersMet() && current->parent != nullptr)
+		{
+			current = current->parent;
+			validArguments = validArguments | current->GetValidNextArguments();
+		}
+		return validArguments;
+	}
 }
 
 struct FramentMapping
@@ -188,29 +361,6 @@ struct FramentMapping
 	{
 		return FragmentMapping{elements};
 	}
-}
-
-// made up from Atoms, Literals, and other Words
-struct ElementWord : Element
-{
-	// TypeInfoAs std::vector<Element&>
-	FramentMapping implementation;
-
-	// we can't do recursive descent here because ElementReferences
-	// must be resolved in this scope, where they can access this Word's arguments
-	// even if they are arguments to other Elements in the implementation
-	virtual ErrorOr<Value> Evaluate(
-		CommandContext context,
-		std::map<ParameterIndex, Value> arguments) const override;
-
-private:
-	ErrorOr<Success> PostLoad();
-}
-
-// for operator overloading based on parameters
-struct ElementOneOf : Element
-{
-	
 }
 
 } // namespace Command

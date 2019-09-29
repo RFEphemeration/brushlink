@@ -152,3 +152,28 @@ struct ElementReference : Element
 
 	ParameterIndex parameter;
 }
+
+
+
+// made up from Atoms, Literals, and other Words
+struct ElementWord : Element
+{
+	// TypeInfoAs std::vector<Element&>
+	FramentMapping implementation;
+
+	// we can't do recursive descent here because ElementReferences
+	// must be resolved in this scope, where they can access this Word's arguments
+	// even if they are arguments to other Elements in the implementation
+	virtual ErrorOr<Value> Evaluate(
+		CommandContext context,
+		std::map<ParameterIndex, Value> arguments) const override;
+
+private:
+	ErrorOr<Success> PostLoad();
+}
+
+// for operator overloading based on parameters
+struct ElementOneOf : Element
+{
+	
+}

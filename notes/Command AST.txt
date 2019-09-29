@@ -1,0 +1,5 @@
+when adding an element token that would require an implied node (Selector, Location), also search for those parameters
+
+if left parameters are causing a rearrangement of the tree, does that mean that left parameters need to have the same type as token? They need to have the same return value type, but that doesn't require them to have the same node type. Operators and Numbers both evaluate to a number, but in my current language grammar they would both have the type Number
+
+
