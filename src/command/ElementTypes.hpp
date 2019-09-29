@@ -190,6 +190,8 @@ struct ElementNode
 
 	ErrorOr<ElementNode &> Add(ElementNode child, ParameterIndex argIndex = kNullParameterIndex);
 
+	ParameterIndex RemoveLastChild();
+
 	void UpdateChildrenSetParent();
 
 	// these are not recursive, don't guarantee arguments have ParametersMet
@@ -224,69 +226,10 @@ struct Parser
 	std::vector<ElementToken> stream;
 	ElementNode root;
 
-	inline ElementNode * GetRightmostElement() const
-	{
-		ElementNode * current = root;
-		// we must have at least one non left parameter child
-		// and there can be at most one left parameter
-		while (
-			(current->children.size() == 1
-				&& !current->childArgumentMapping.contains(kLeftParameterIndex))
-			|| current->children.size() > 1)
-		{
-			current = &current->children[current->children.size() - 1];
-		}
-		return current;
-	}
-
-	ErrorOr<Sucess> Append(ElementToken nextToken)
-	{
-		const ElementDeclaration & nextDec = GetElementDeclaration(nextToken);
-		ElementNode nextNode {nextToken, ElementIndex{stream.size()}};
-		stream.push_back(nextToken);
-
-		for(ElementNode * e = GetRightmostElement();
-			e != nullptr;
-			e = e->parent)
-		{
-			if (nextToken.type & e->GetValidNextArgTypes())
-			{
-				CHECK_RETURN(e->Add(nextNode));
-				return Success();
-			}
-			else if (nextToken.type & e->GetValidNextArgsWithImpliedNodes())
-			{
-				ElementNode implied {
-					ImpliedNodeOptions::acceptedArgTypes[nextToken.type],
-					kNullElementIndex };
-				CHECK_RETURN(implied.Add(nextNode));
-				CHECK_RETURN(e->Add(implied));
-				return Success();
-
-			}
-			else if (!e->ParametersMet())
-			{
-				// until parameters have been met yet, e can't be a left parameter
-				// and e->parent can't accept any more arguments
-				return Error("Couldn't find appropriate location for the next element without blocking an element that still requires parameters");
-			}
-			else if (nextDec.HasLeftParamterMatching(e->token.types))
-			{
-				ElementNode * parent = e->parent;
-				CHECK_RETURN(nextNode.Add(e));
-				parent->children.pop_back();
-				CHECK_RETURN(parent->Add(nextNode));
-				return Success();
-			}
-
-			// for now we're assuming that left parameters can't have implied nodes, but if this proves to be not true, 
-		}
-
-		return Error("Couldn't find appropriate location for the next element, it doesn't match any types");
-	}
+	ElementNode * GetRightmostElement() const;
+	ErrorOr<Sucess> Append(ElementToken nextToken);
 
 private:
-	void AssignParent(ElementNode * parent, ElementToken newChild)
 
 	ElementNode * GetValidParent(ElementToken newToken) const
 	{

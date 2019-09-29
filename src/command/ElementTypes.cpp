@@ -95,13 +95,43 @@ ErrorOr<ElementNode &> ElementNode::Add(ElementNode child, ParameterIndex argInd
 	{
 		argIndex = CHECK_RETURN(GetArgIndexForNextToken(child.token));
 	}
-	
+
 	auto childIndex = ElementIndex{children.size()};
 	child.parent = this;
 	children.push_back(child);
 	childArgumentMapping.insert( { argIndex, childIndex } );
 	children[childIndex.value].UpdateChildrenSetParent();
 	return children[childIndex.value];
+}
+
+ParameterIndex ElementNode::RemoveLastChild()
+{	
+	if (children.size() == 0)
+	{
+		return kNullParameterIndex;
+	}
+	children.pop_back();
+
+	ParameterIndex index = kNullParameterIndex;
+	
+	ElementIndex removed { children.size() };
+
+	auto it = childArgumentMapping.begin()
+	while(it != childArgumentMapping.end())
+	{
+		if (it->second == removed)
+		{
+			index = it->first;
+			it = childArgumentMapping.erase(it);
+			
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	return index;
 }
 
 void ElementNode::UpdateChildrenSetParent()
@@ -270,200 +300,72 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 	return result;
 }
 
-bool ElementMapping::ParametersMet() const
+
+
+
+inline ElementNode * Parser::GetRightmostElement() const
 {
-	if (element.left_parameter != nullptr
-		&& !element.left_parameter.Optional()
-		&& !arguments.contains_key(kLeftParameterIndex))
+	ElementNode * current = root;
+	// we must have at least one non left parameter child
+	// and there can be at most one left parameter
+	while (
+		(current->children.size() == 1
+			&& !current->childArgumentMapping.contains(kLeftParameterIndex))
+		|| current->children.size() > 1)
 	{
-		return false;
+		current = &current->children[current->children.size() - 1];
 	}
-
-	for (ParameterIndex p{0}; p.value < element.right_parameters.size(); p.value++)
-	{
-		if (!element.right_parameters[p.value].Optional()
-			&& !arguments.contains_key(p))
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-FragmentMapping::FragmentMapping(const std::vector<CRef<Element> > & elements)
-{
-	for(const Element & e : elements)
-	{
-		Append(e, false);
-	}
-
-	EvaluateOrder();
-}
-
-ErrorOr<Success>() FragmentMapping::Append(const Element & e, bool evaluateOrder = true)
-{
-	ElementIndex eIndex { elementMapping.count() };
-	elementMapping.push_back(ElementMapping{e});
-
-	if (e.left_parameter != nullptr)
-	{
-		auto leftIndex = FindAppropriateLeftParameter(e);
-		if (!e.left_parameter.Optional()
-			&& leftIndex == kNullElementIndex)
-		{
-			return Error("Left Parameter is required but could not be found");
-		}
-		Pair<int, int> parentIndex = parents[leftIndex];
-		
-		parameters[parentIndex.first][parentIndex.second] = newIndex;
-		parents[newIndex] = parentIndex;
-
-		parameters[newIndex][kLeftParameterIndex] = leftIndex;
-		parents[leftIndex] = Pair(newIndex, kLeftParameterIndex);
-	}
-	// we are probably a parameter of another element
-	else
-	{
-		// 
-	}
-
-	if (!evaluateOrder)
-	{
-		return;
-	}
-}
-
-ElementIndex FragmentMapping::FindAppropriateLeftParameter(const Element & next) const
-{
-	if (next.left_parameter == nullptr
-		|| elementMapping.empty())
-	{
-		return kNullElementIndex;
-	}
-
-	const ValueType desiredType = next.left_parameter->type;
-	ElementIndex current{elementMapping.count() - 1};
-	while (elementMapping[current.value].element.type == )
-	while (current.value > kNullElementIndex)
-	{
-		if (!elementMapping[current.value].ParametersMet())
-		{
-			return kNullElementIndex;
-		}
-		else if (elementMapping[current.value].element.type == desiredType)
-		{
-			// rmf todo: implement left param skipping based on count of skip elements
-			// which ones count? only ones typed last, right?
-			// so maybe our current index initialization is wrong
-			break;
-		}
-		else
-		{
-			current = elementMapping[current.value].parent.first;
-		}
-	}
-
 	return current;
 }
 
-
-
-// this is recursive descent
-// requires precondition that everything in evaluationOrder so far
-// isn't dependent on the element at the provided index
-void FragmentMapping::EvaluateOrderFrom(ElementIndex index)
+ErrorOr<Sucess> Parser::Append(ElementToken nextToken)
 {
-	for(const auto & argument : elementMapping[index].arguments)
-	{
-		EvaluateOrderFrom(argument.second);
-	}
-	evaluationOrder.push_back(index);
-}
+	const ElementDeclaration & nextDec = GetElementDeclaration(nextToken);
+	ElementNode nextNode {nextToken, ElementIndex{stream.size()}};
+	stream.push_back(nextToken);
 
-ErrorOr<Success> FragmentMapping::EvaluateOrder()
-{
-	evaluationOrder.clear();
-
-	for (int i = 0; i < elementMapping.count(); i++)
+	for(ElementNode * e = GetRightmostElement();
+		e != nullptr;
+		e = e->parent)
 	{
-		if (elementMapping[i].parent.first == kNullElementIndex)
+		auto walkResult = e->WalkArgsAndParams(nextToken.type);
+
+		if (walkResult.firstArgIndexForNextToken.value > kNullParameterIndex.value)
 		{
-			EvaluateOrderFrom(ElementIndex{i});
-			break;
+			if (!walkResult.firstArgRequiresImpliedNode)
+			{
+				CHECK_RETURN(e->Add(nextNode, walkResult.firstArgIndexForNextToken));
+			}
+			else
+			{
+				ElementNode implied {
+					ImpliedNodeOptions::acceptedArgTypes[nextToken.type],
+					kNullElementIndex };
+				CHECK_RETURN(implied.Add(nextNode));
+				CHECK_RETURN(e->Add(implied, walkResult.firstArgIndexForNextToken));
+			}
+
+			return Success();
 		}
-	}
-
-	if (evaluationOrder.count() != elementMapping.count())
-	{
-		return Error("FragmentMapping::EvaluteOrder did not map correctly");
-	}
-
-	return Success();
-}
-
-// we can't do recursive descent here because ElementReferences
-// must be resolved in this scope, where they can access this Word's arguments
-// even if they are arguments to other Elements in the implementation
-ErrorOr<Value> ElementWord::Evaluate(
-	CommandContext context,
-	std::map<ParameterIndex, Value> arguments) const
-{
-	CHECK_RETURN(FillDefaultArguments(context, arguments));
-
-	std::vector<Value> computedValues{implementation.elementMapping.size()};
-	std::map<ParameterIndex, Value> subArguments;
-
-	for(ElementIndex index : implementation.evaluationOrder)
-	{
-		const auto & elementMapping = implementation.elementMapping[index.value];
-		const auto & element = elementMapping.element;
-		const auto pReference = dynamic_cast<const ElementReference*>(&element);
-		
-		if (pReference != nullptr)
+		else if (!walkResult.allParametersMet)
 		{
-			// this should be in range because it's been checked in PostLoad
-			computedValues[index.value] = arguments[pReference->parameter];
-			continue;
+			// until parameters have been met, e can't be a left parameter
+			// and e->parent can't accept any more arguments
+			return Error("Couldn't find appropriate location for the next element without blocking an element that still requires parameters");
 		}
-		subArguments.clear();
-		for(auto [parameterIndex, elementValueIndex] : elementMapping.arguments)
+		else if (nextDec.HasLeftParamterMatching(e->token.types))
 		{
-			subArguments[parameterIndex] = computedValues[elementValueIndex.value];
+			ElementNode * parent = e->parent;
+			CHECK_RETURN(nextNode.Add(e, kLeftParameterIndex));
+			parent->children.pop_back();
+			CHECK_RETURN(parent->Add(nextNode, walkResult.firstArgIndexForNextToken));
+			return Success();
 		}
-		computedValues[index.value] = element.Evaluate(context, subArguments);
+
+		// for now we're assuming that left parameters can't have implied nodes, but if this proves to be not true, 
 	}
 
-	// last computed value is return, yes? or is this a faulty assumption?
-	return computedValues[computedValues.count - 1];
-}
-
-ErrorOr<Success> ElementWord::PostLoad()
-{
-	for(ElementIndex index : implementation.evaluationOrder)
-	{
-		const auto & element  = implementation.elementMapping[index.value].element;
-		const auto pReference = dynamic_cast<const ElementReference*>(&element);
-		
-		if (pReference == nullptr)
-		{
-			continue;
-		}
-
-		// this reference must be in range of the parameters for this element
-		if (pReference->parameter == kLeftParameterIndex
-			&& left_parameter == nullptr)
-		{
-			return Error("ElementWord contains a reference to a left parameter when one doesn't exist");
-		}
-		else if (pReference->parameter != kLeftParameterIndex
-			&& !right_parameters.size() > pReference->parameter.value)
-		{
-			return Error("ElementWord contains a reference to a right parameter that doesn't exist");
-		}
-	}
-
-	return Success();
+	return Error("Couldn't find appropriate location for the next element, it doesn't match any types");
 }
 
 } // namespace Command
