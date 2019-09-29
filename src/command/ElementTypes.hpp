@@ -205,17 +205,16 @@ struct ElementNode
 
 	struct ArgAndParamWalkResult
 	{
-		// input
-		ElementType	nextTokenType { 0 };
-
-		// output
 		bool allParametersMet { true };
 		ElementType validNextArgs { 0 };
 		ElementType validNextArgsWithImpliedNodes { 0 };
 		ParameterIndex firstArgIndexForNextToken { kNullParameterIndex };
 		bool firstArgRequiresImpliedNode { false };
 
-		void AddValidNextArg(ParameterIndex index, ElementType types);
+		void AddValidNextArg(
+			ElementType nextTokenType,
+			ParameterIndex index,
+			ElementType types);
 	}
 
 	ArgAndParamWalkResult WalkArgsAndParams(ElementType nextTokenType = ElementType { 0 }) const;
@@ -227,65 +226,53 @@ struct Parser
 	ElementNode root;
 
 	ElementNode * GetRightmostElement() const;
+
 	ErrorOr<Sucess> Append(ElementToken nextToken);
+
+
+	struct ASTWalkResult
+	{
+		bool foundValidLocation;
+
+		// if we found a valid location, this might be incomplete
+		struct
+		{
+			ElementType validNextArgs;
+			ElementType rightSideTypesForLeftParameter;
+		} potential;
+
+		struct
+		{
+			// this pointer will only be valid until we update the tree
+			// after which it will be meaningless/dangling
+			ElementNode * e;
+			bool isLeftParam { false };
+
+			// nothing past here is used for left params
+			ParameterIndex argIndex { kNullParameterIndex };
+			bool argRequiresImpliedNode { false };
+		} tokenLocation;
+
+		void AddNodeWalkResult(
+			ElementNode * node,
+			ElementNode::ArgAndParamWalkResult nodeWalkResult);
+
+		void Parser::ASTWalkResult::AddTypesForPotentialLeftParams(
+			ElementNode * node,
+			ElementDeclaration * declaration);
+	}
 
 private:
 
-	ElementNode * GetValidParent(ElementToken newToken) const
-	{
-		ElementNode * current = GetRightmostElement();
+	ASTWalkResult WalkAST(ElementToken * nextToken) const;
 
-		ElementType validArguments = current->GetValidNextArguments();
-		if (validArguments & newToken.types)
-		{
-			return current;
-		}
-		while (current->ParametersMet() && current->parent != nullptr)
-		{
-			current = current->parent;
-			validArguments = current->GetValidNextArguments();
-			if (validArguments & newToken.types)
-			{
-				return current;
-			}
-		}
-		return nullptr;
+	ElementNode * GetValidParent(ElementToken newToken) const;
 
-	}
-
-	ElementType GetRightSideTypesForLeftParameter() const
-	{
-		ElementType validArguments {0};
-
-		for(ElementNode * e = GetRightmostElement();
-			e != nullptr;
-			e = e->parent)
-		{
-			if (!e->ParametersMet())
-			{
-				break;
-			}
-			validArguments = validArguments | e->token.types;
-		}
-
-		return validArguments;
-	}
+	ElementType GetRightSideTypesForLeftParameter() const;
 
 	// remember it's also valid to append anything that has a left parameter
 	// that is on the right
-	ElementType GetValidNextArguments() const
-	{
-		ElementType validArguments {0}
-
-		for(ElementNode * e = GetRightmostElement();
-			e != nullptr;
-			e = e->parent)
-		{
-			validArguments = validArguments | current->GetValidNextArguments();
-		}
-
-		return validArguments;
-	}
+	ElementType GetValidNextArguments() const;
 }
 
 struct FramentMapping

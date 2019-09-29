@@ -173,7 +173,7 @@ ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const
 	return index;
 }
 
-void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ParameterIndex index, ElementType types)
+void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType nextTokenType, ParameterIndex index, ElementType types)
 {
 	validNextArgs = validNextArgs | types;
 
@@ -206,10 +206,11 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ParameterIndex index, E
 	}
 }
 
+// rmf todo: this probably shouldn't handle left parameters, right?
+// since we'd be appending, and you can't give a left parameter by appending
 ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType nextTokenType = ElementType { 0 }) const
 {
 	ArgAndParamWalkResult result;
-	result.nextTokenType = nextTokenType;
 
 	const ElementDeclaration & dec = GetElementDeclaration(nextToken);
 	ParameterIndex maxArgIndex = kNullParameterIndex;
@@ -234,7 +235,7 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 		if (!childArgumentMapping.contains(index)
 			|| param.repeatable)
 		{
-			result.AddValidNextArg(index, param.types);
+			result.AddValidNextArg(nextTokenType, index, param.types);
 		}
 		if (!childArgumentMapping.contains(index)
 			&& !param.optional)
@@ -277,7 +278,7 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 			inPermutableSection = true;
 		}
 
-		result.AddValidNextArg(index, param.types);
+		result.AddValidNextArg(nextTokenType, index, param.types);
 
 		if (!param.optional)
 		{
@@ -300,10 +301,7 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 	return result;
 }
 
-
-
-
-inline ElementNode * Parser::GetRightmostElement() const
+ElementNode * Parser::GetRightmostElement() const
 {
 	ElementNode * current = root;
 	// we must have at least one non left parameter child
@@ -318,54 +316,192 @@ inline ElementNode * Parser::GetRightmostElement() const
 	return current;
 }
 
-ErrorOr<Sucess> Parser::Append(ElementToken nextToken)
+void Parser::ASTWalkResult::AddNodeWalkResult(
+	ElementNode * node,
+	ElementNode::ArgAndParamWalkResult nodeWalkResult)
 {
-	const ElementDeclaration & nextDec = GetElementDeclaration(nextToken);
-	ElementNode nextNode {nextToken, ElementIndex{stream.size()}};
-	stream.push_back(nextToken);
+	potential.validNextArgs = potential.validNextArgs
+		| nodeWalkResult.validNextArgs
+		| nodeWalkResult.validNextArgsWithImpliedNodes;
+
+	if (nodeWalkResult.firstArgIndexForNextToken.value > kNullParameterIndex.value
+		&& !foundValidLocation)
+	{
+		foundValidLocation = true;
+		tokenLocation.e = node;
+		tokenLocation.isLeftParam = false;
+		tokenLocation.argIndex = nodeWalkResult.firstArgIndexForNextToken;
+		tokenLocation.argRequiresImpliedNode = nodeWalkResult.firstArgRequiresImpliedNode;
+	}
+}
+
+void Parser::ASTWalkResult::AddTypesForPotentialLeftParams(
+	ElementNode * node,
+	ElementDeclaration * declaration)
+{
+	potential.rightSideTypesForLeftParameter =
+		potential.rightSideTypesForLeftParameter | node->token.types;
+
+	if (!foundValidLocation
+		&& nextDec != nullptr
+		&& nextDec->HasLeftParamterMatching(e->token.types))
+	{
+		foundValidLocation = true;
+		tokenLocation.e = node;
+		tokenLocation.isLeftParam = true;
+	}
+}
+
+ASTWalkResult Parser::WalkAST(ElementToken * nextToken, bool breakOnFoundLocation = false) const
+{
+	ElementType nextTokenType = 
+		nextToken == nullptr
+		? ElementType { 0 }
+		: nextToken.type;
+	const ElementDeclaration * nextDec =
+		nextToken == nullptr
+		? nullptr
+		: GetElementDeclaration(nextToken);
+
+	ASTWalkResult astWalkResult;
 
 	for(ElementNode * e = GetRightmostElement();
 		e != nullptr;
 		e = e->parent)
 	{
-		auto walkResult = e->WalkArgsAndParams(nextToken.type);
+		auto nodeWalkResult = e->WalkArgsAndParams(nextTokenType);
 
-		if (walkResult.firstArgIndexForNextToken.value > kNullParameterIndex.value)
+		astWalkResult.AddNodeWalkResult(e, nodeWalkResult);
+
+		if (breakOnFoundLocation
+			&& astWalkResult.foundValidLocation)
 		{
-			if (!walkResult.firstArgRequiresImpliedNode)
-			{
-				CHECK_RETURN(e->Add(nextNode, walkResult.firstArgIndexForNextToken));
-			}
-			else
-			{
-				ElementNode implied {
-					ImpliedNodeOptions::acceptedArgTypes[nextToken.type],
-					kNullElementIndex };
-				CHECK_RETURN(implied.Add(nextNode));
-				CHECK_RETURN(e->Add(implied, walkResult.firstArgIndexForNextToken));
-			}
-
-			return Success();
+			// early out for when we're appending and don't need other potentials
+			// in the case where we are a right argument
+			break;
 		}
-		else if (!walkResult.allParametersMet)
+		else if (!nodeWalkResult.allParametersMet)
 		{
 			// until parameters have been met, e can't be a left parameter
 			// and e->parent can't accept any more arguments
-			return Error("Couldn't find appropriate location for the next element without blocking an element that still requires parameters");
-		}
-		else if (nextDec.HasLeftParamterMatching(e->token.types))
-		{
-			ElementNode * parent = e->parent;
-			CHECK_RETURN(nextNode.Add(e, kLeftParameterIndex));
-			parent->children.pop_back();
-			CHECK_RETURN(parent->Add(nextNode, walkResult.firstArgIndexForNextToken));
-			return Success();
+			// this ends our walk
+			break;
 		}
 
-		// for now we're assuming that left parameters can't have implied nodes, but if this proves to be not true, 
+		astWalkResult.AddTypesForPotentialLeftParams(e, nextDec);
+
+		if (breakOnFoundLocation
+			&& astWalkResult.foundValidLocation)
+		{
+			// early out for when we're appending and don't need other potentials
+			// in the case where we found a left argument
+			break;
+		}
+
+		// for now we're assuming that left parameters can't have implied nodes
+		// otherwise that would happen here
 	}
 
-	return Error("Couldn't find appropriate location for the next element, it doesn't match any types");
+	return astWalkResult;
+}
+
+// rmf todo: use ast walk result for this
+ErrorOr<Success> Parser::Append(ElementToken newToken)
+{
+	//ElementNode nextNode {nextToken, ElementIndex{stream.size()}};
+	//stream.push_back(nextToken);
+
+	if (nodeWalkResult.firstArgIndexForNextToken.value > kNullParameterIndex.value)
+	{
+		if (!nodeWalkResult.firstArgRequiresImpliedNode)
+		{
+			CHECK_RETURN(e->Add(nextNode, nodeWalkResult.firstArgIndexForNextToken));
+		}
+		else
+		{
+			ElementNode implied {
+				ImpliedNodeOptions::acceptedArgTypes[nextToken.type],
+				kNullElementIndex };
+			CHECK_RETURN(implied.Add(nextNode));
+			CHECK_RETURN(e->Add(implied, nodeWalkResult.firstArgIndexForNextToken));
+		}
+
+		return Success();
+	}
+
+	if (isLeftParam)
+	{
+		ElementNode * parent = e->parent;
+		CHECK_RETURN(nextNode.Add(e, kLeftParameterIndex));
+		parent->children.pop_back();
+		CHECK_RETURN(parent->Add(nextNode, nodeWalkResult.firstArgIndexForNextToken));
+		return Success();
+	}
+}
+
+
+ElementNode * Parser::GetValidParent(ElementToken newToken) const
+{
+	ElementNode * current = GetRightmostElement();
+
+	ElementType validArguments = current->GetValidNextArguments();
+	if (validArguments & newToken.types)
+	{
+		return current;
+	}
+	while (current->ParametersMet() && current->parent != nullptr)
+	{
+		current = current->parent;
+		validArguments = current->GetValidNextArguments();
+		if (validArguments & newToken.types)
+		{
+			return current;
+		}
+	}
+	return nullptr;
+
+}
+
+ElementType Parser::GetRightSideTypesForLeftParameter() const
+{
+	ElementType validArguments {0};
+
+	for(ElementNode * e = GetRightmostElement();
+		e != nullptr;
+		e = e->parent)
+	{
+		if (!e->ParametersMet())
+		{
+			break;
+		}
+		validArguments = validArguments | e->token.types;
+	}
+
+	return validArguments;
+}
+
+// remember it's also valid to append anything that has a left parameter
+// that is on the right
+ElementType Parser::GetValidNextArguments() const
+{
+	ElementType validArguments {0}
+
+	for(ElementNode * e = GetRightmostElement();
+		e != nullptr;
+		e = e->parent)
+	{
+		auto walkResult = e->WalkArgsAndParams();
+		validArguments = validArguments
+			| walkResult.validNextArgs
+			| walkResult.validNextArgsWithImpliedNodes;
+		
+		if (!walkResult.parametersMet)
+		{
+			break;
+		}
+	}
+
+	return validArguments;
 }
 
 } // namespace Command
