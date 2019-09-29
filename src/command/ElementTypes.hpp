@@ -114,52 +114,16 @@ struct ElementDeclaration
 	value_ptr<ElementParameter> left_parameter; // optional
 	std::vector<ElementParameter> right_parameters; // could be length 0
 
-	bool HasLeftParamterMatching(ElementType type) const
-	{
-		if (left_parameter == nullptr) return false;
-		return type & left_parameter->types;
-	}
+	bool HasLeftParamterMatching(ElementType type) const;
 
-	ErrorOr<ElementParameter> GetParameter(ParameterIndex index) const
-	{
-		if (index == kLeftParameterIndex
-			&& left_parameter != nullptr)
-		{
-			return *left_parameter; 
-		}
-		else if (index > kLeftParameterIndex && < right_parameters.size())
-		{
-			return right_parameters[index];
-		}
-		return Error("Index out of range");
-	}
+	ErrorOr<ElementParameter> GetParameter(ParameterIndex index) const;
 
-	ParameterIndex GetMaxParameterIndex() const
-	{
-		if (right_parameters.size() == 0 && left_parameter == nullptr)
-		{
-			return kNullParameterIndex;
-		}
-		else if (right_parameters.size() > 0)
-		{
-			return ParameterIndex { right_parameters.size() - 1 };
-		}
-		else if (left_parameter != nullptr)
-		{
-			return kLeftParameterIndex;
-		}
-	}
+	ParameterIndex GetMaxParameterIndex() const;
 
-	inline ParameterIndex GetMinParameterIndex() const
-	{
-		if (left_parameter != nullptr)
-		{
-			return kLeftParameterIndex;
-		}
-		return ParameterIndex { 0 };
-	}
+	ParameterIndex GetMinParameterIndex() const;
 
 protected:
+	// rmf todo: change this to a multimap
 	ErrorOr<Success> FillDefaultArguments(
 		std::map<ParameterIndex, ElementToken>& arguments) const;
 }
@@ -224,115 +188,35 @@ struct ElementNode
 		, parent(nullptr)
 	{ }
 
-	ErrorOr<ElementNode &> Add(ElementNode child)
-	{
-		auto argIndex = CHECK_RETURN(GetArgIndexForNextToken(child.token));
-		auto childIndex = ElementIndex{children.size()};
-		child.parent = this;
-		children.push_back(child);
-		childArgumentMapping.insert( { argIndex, childIndex } );
-		children[childIndex.value].UpdateParentForChildren();
-		return children[childIndex.value];
-	}
+	ErrorOr<ElementNode &> Add(ElementNode child, ParameterIndex argIndex = kNullParameterIndex);
 
-	void UpdateParentForChildren()
-	{
-		for (auto child : children)
-		{
-			child.parent = this;
-			child.UpdateParentForChildren();
-		}
-	}
+	void UpdateChildrenSetParent();
 
+	// these are not recursive, don't guarantee arguments have ParametersMet
+	// these three should only be used when you only need one of them
+	// if you need two or more, you should call WalkArgsAndParams
+	// since these are just wrappers around that
+	bool ParametersMet() const;
+	ElementType GetValidNextArgTypes() const;
+	ElementType GetValidNextArgsWithImpliedNodes() const;
 	ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const;
 
-	// this is not recursive, doesn't guarantee arguments have ParametersMet
-	bool ParametersMet() const
+	struct ArgAndParamWalkResult
 	{
+		// input
+		ElementType	nextTokenType { 0 };
 
+		// output
+		bool allParametersMet { true };
+		ElementType validNextArgs { 0 };
+		ElementType validNextArgsWithImpliedNodes { 0 };
+		ParameterIndex firstArgIndexForNextToken { kNullParameterIndex };
+		bool firstArgRequiresImpliedNode { false };
+
+		void AddValidNextArg(ParameterIndex index, ElementType types);
 	}
 
-
-	// bool ParametersMet, ElementType validNextArgTypes
-	std::pair<bool, ElementType> CompareArgumentsAndParameters() const
-	{
-		bool parametersMet = true;
-		ElementType validNextArgTypes { 0 };
-		const ElementDeclaration & dec = GetElementDeclaration(nextToken);
-		ParameterIndex maxArgIndex = kNullParameterIndex;
-		auto lastMapping = childArgumentMapping.rbegin();
-		if (lastMapping != childArgumentMapping.rend())
-		{
-			maxArgIndex = lastMapping->first;
-		}
-		ParameterIndex minParamIndex = dec.GetMinParameterIndex();
-		ParameterIndex maxParamIndex = dec.GetMaxParameterIndex();
-
-		for (ParameterIndex index { maxArgIndex.value };
-			index > minParamIndex;
-			index.value--)
-		{
-			ElementParameter param = CHECK_RETURN(dec.GetParameter(index));
-			if (!param.permutable && index != maxArgIndex)
-			{
-				// don't have to worry about any parameters before the most recent one if they aren't permutable
-				break;
-			}
-			if (!childArgumentMapping.contains(index)
-				|| param.repeatable)
-			{
-				validNextArgTypes = validNextArgTypes | param.types;
-			}
-			if (!param.permutable && index == maxArgIndex)
-			{
-				// if the maxArgIndex isn't permutable, none of the ones
-				// before it matter at all
-				break;
-			}
-		}
-		
-
-		if ()
-
-		for (ParameterIndex index = maxIndexDefined;
-			index.value >= minIndexAllowed;
-			index.value--;)
-		{
-
-		}
-
-		for (auto mapping : childArgumentMapping)
-		{
-			ElementParameter & param 
-		}
-
-	}
-
-	ElementType GetValidNextArgTypes() const
-	{
-		const ElementDeclaration & dec = GetElementDeclaration(nextToken);
-		ElementType validArgs { 0 };
-
-		ParameterIndex 
-
-
-		return validArgs;
-
-	}
-
-	ElementType GetValidNextArgsWithImpliedNodes() const
-	{
-		ElementType validArgs = GetValidNextArgTypes();
-		ElementType validArgsWithImplied { 0 };
-		for(auto pair : ImpliedNodeOptions.potentialParamTypes)
-		{
-			if (pair.first & validArgs)
-			{
-				validArgsWithImplied = validArgsWithImplied | pair.second;
-			}
-		}
-		return validArgsWithImplied;
-	}
+	ArgAndParamWalkResult WalkArgsAndParams(ElementType nextTokenType = ElementType { 0 }) const;
 }
 
 struct Parser

@@ -11,33 +11,70 @@ bool ElementDeclaration::HasLeftParamterMatching(ElementType type) const
 	return type & left_parameter->types;
 }
 
+ErrorOr<ElementParameter> ElementDeclaration::GetParameter(ParameterIndex index) const
+{
+	if (index == kLeftParameterIndex
+		&& left_parameter != nullptr)
+	{
+		return *left_parameter; 
+	}
+	else if (index > kLeftParameterIndex && < right_parameters.size())
+	{
+		return right_parameters[index];
+	}
+	return Error("Index out of range");
+}
+
+ParameterIndex ElementDeclaration::GetMaxParameterIndex() const
+{
+	if (right_parameters.size() == 0 && left_parameter == nullptr)
+	{
+		return kNullParameterIndex;
+	}
+	else if (right_parameters.size() > 0)
+	{
+		return ParameterIndex { right_parameters.size() - 1 };
+	}
+	else if (left_parameter != nullptr)
+	{
+		return kLeftParameterIndex;
+	}
+}
+
+inline ParameterIndex ElementDeclaration::GetMinParameterIndex() const
+{
+	if (left_parameter != nullptr)
+	{
+		return kLeftParameterIndex;
+	}
+	return ParameterIndex { 0 };
+}
+
+// rmf todo: change this to a multimap
 ErrorOr<Success> ElementDeclaration::FillDefaultArguments(
-	CommandContext context,
-	std::map<ParameterIndex, Value>& arguments) const
+	std::map<ParameterIndex, ElementToken>& arguments) const
 {
 	if (arguments.count(kLeftParameterIndex) == 0
 		&& left_parameter != nullptr)
 	{
-		if (left_parameter.Optional())
+		if (!left_parameter.optional)
 		{
 			return Error("Missing required left argument for Element");
 		}
-		arguments.insert(kLeftParameterIndex,
-			CHECK_RETURN(left_parameter.GetDefaultValue(context)));
+		arguments.insert(kLeftParameterIndex, left_parameter.default_value);
 	}
 
 	for (int arg = 0; arg < right_parameters.count(); arg++)
 	{
-		if (arguments.count(ParameterIndex(arg)) > 0)
+		if (arguments.count(ParameterIndex{arg}) > 0)
 		{
 			continue;
 		}
-		if (!right_parameters[arg].Optional())
+		if (!right_parameters[arg].optional)
 		{
 			return Error("Missing required argument " + arg + " for Element");
 		}
-		arguments.insert(ParameterIndex(arg),
-			CHECK_RETURN(right_parameters[arg].GetDefaultValue(context)));
+		arguments.insert(ParameterIndex{arg}, right_parameters[arg].default_value);
 	}
 
 	int desired_argument_count = right_parameters.count();
@@ -49,6 +86,188 @@ ErrorOr<Success> ElementDeclaration::FillDefaultArguments(
 	}
 
 	return Success();
+}
+
+ErrorOr<ElementNode &> ElementNode::Add(ElementNode child, ParameterIndex argIndex)
+{
+	// this is often passed in after already walking the args and params
+	if (argIndex == kNullParameterIndex)
+	{
+		argIndex = CHECK_RETURN(GetArgIndexForNextToken(child.token));
+	}
+	
+	auto childIndex = ElementIndex{children.size()};
+	child.parent = this;
+	children.push_back(child);
+	childArgumentMapping.insert( { argIndex, childIndex } );
+	children[childIndex.value].UpdateChildrenSetParent();
+	return children[childIndex.value];
+}
+
+void ElementNode::UpdateChildrenSetParent()
+{
+	for (auto child : children)
+	{
+		child.parent = this;
+		child.UpdateChildrenSetParent();
+	}
+}
+
+bool ElementNode::ParametersMet() const;
+{
+	return WalkArgsAndParams().allParametersMet;
+}
+
+ElementType ElementNode::GetValidNextArgTypes() const
+{
+	return WalkArgsAndParams().validNextArgs;
+}
+
+ElementType ElementNode::GetValidNextArgsWithImpliedNodes() const
+{
+	return WalkArgsAndParams().validNextArgsWithImpliedNodes;
+}
+
+ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const
+{
+	auto result = WalkArgsAndParams(token.types);
+	ParameterIndex index = result.firstArgIndexForNextToken;
+	if (index == kNullParameterIndex)
+	{
+		return Error("There was no valid place for this token");
+	}
+	else if (result.firstArgRequiresImpliedNode)
+	{
+		return Error("This token requires an implied token");
+	}
+	return index;
+}
+
+void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ParameterIndex index, ElementType types)
+{
+	validNextArgs = validNextArgs | types;
+
+	ElementType typesWithImplied { 0 };
+
+	for (auto pair : ImpliedNodeOptions::potentialParamTypes)
+	{
+		if (pair.first & types)
+		{
+			typesWithImplied = typesWithImplied | pair.second;
+		}
+	}
+
+	validNextArgsWithImpliedNodes = validNextArgsWithImpliedNodes |  typesWithImplied;
+
+	if ((firstArgIndexForNextToken == kNullParameterIndex
+			|| index < firstArgIndexForNextToken)
+		&& (type & nextTokenType
+			|| typesWithImplied & nextTokenType))
+	{
+		if (type & nextTokenType)
+		{
+			firstArgRequiresImpliedNode = false;
+		}
+		else
+		{
+			firstArgRequiresImpliedNode = true;
+		}
+		firstArgIndexForNextToken = index;
+	}
+}
+
+ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType nextTokenType = ElementType { 0 }) const
+{
+	ArgAndParamWalkResult result;
+	result.nextTokenType = nextTokenType;
+
+	const ElementDeclaration & dec = GetElementDeclaration(nextToken);
+	ParameterIndex maxArgIndex = kNullParameterIndex;
+	auto lastMapping = childArgumentMapping.rbegin();
+	if (lastMapping != childArgumentMapping.rend())
+	{
+		maxArgIndex = lastMapping->first;
+	}
+	ParameterIndex minParamIndex = dec.GetMinParameterIndex();
+	ParameterIndex maxParamIndex = dec.GetMaxParameterIndex();
+
+	for (ParameterIndex index { maxArgIndex.value };
+		index.value > minParamIndex.value;
+		index.value--)
+	{
+		ElementParameter param = CHECK_RETURN(dec.GetParameter(index));
+		if (!param.permutable && index != maxArgIndex)
+		{
+			// don't have to worry about any parameters before the most recent one if they aren't permutable
+			break;
+		}
+		if (!childArgumentMapping.contains(index)
+			|| param.repeatable)
+		{
+			result.AddValidNextArg(index, param.types);
+		}
+		if (!childArgumentMapping.contains(index)
+			&& !param.optional)
+		{
+			result.allParametersMet = false;
+		}
+		if (!param.permutable && index == maxArgIndex)
+		{
+			// if the maxArgIndex isn't permutable, none of the ones
+			// before it matter at all
+			break;
+		}
+	}
+
+	// rmf todo: this logic is a mess
+	bool inPermutableSection = false;
+	bool allPermutableWereOptional = true;
+	for (ParameterIndex index { maxArgIndex.value + 1};
+		index.value <= maxParamIndex.value;
+		index.value++)
+	{
+		ElementParameter param = CHECK_RETURN(dec.GetParameter(index));
+
+		if (inPermutableSection
+			&& !param.permutable)
+		{
+			if (!allPermutableWereOptional)
+			{
+				// this is the end of a permutable section
+				// with required parameters, so we can't go past here
+				result.allParametersMet = false;
+				break;
+			}
+			// if we're going to continue, reset permutable
+			allPermutableWereOptional = true;
+			inPermutableSection = false;
+		}
+		if (param.permutable)
+		{
+			inPermutableSection = true;
+		}
+
+		result.AddValidNextArg(index, param.types);
+
+		if (!param.optional)
+		{
+			result.allParametersMet = false;
+			if (inPermutableSection)
+			{
+				allPermutableWereOptional = false;
+			}
+		}
+
+		if (!param.optional
+			&& !inPermutableSection)
+		{
+			// this is a required parameter that is not permutable
+			// so we can't go past here
+			break;
+		}
+	}
+
+	return result;
 }
 
 bool ElementMapping::ParametersMet() const
