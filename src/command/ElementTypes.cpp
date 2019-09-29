@@ -5,26 +5,13 @@ using namespace Farb;
 namespace Command
 {
 
-ErrorOr<Value> ElementParameter::GetDefaultValue(CommandContext context)
+bool ElementDeclaration::HasLeftParamterMatching(ElementType type) const
 {
-	if (default_value)
-	{
-		return *default_value;
-	}
-	else if (default_element)
-	{
-		std::map<ParameterIndex, Value>& arguments;
-		return default_element->Evaluate(context, arguments);
-	}
-	return Error("No Default Value Available");
+	if (left_parameter == nullptr) return false;
+	return type & left_parameter->types;
 }
 
-bool ElementParameter::Optional()
-{
-	return (default_value != nullptr || default_element != nullptr);
-}
-
-ErrorOr<Success> Element::FillDefaultArguments(
+ErrorOr<Success> ElementDeclaration::FillDefaultArguments(
 	CommandContext context,
 	std::map<ParameterIndex, Value>& arguments) const
 {

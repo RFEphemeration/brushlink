@@ -81,7 +81,7 @@ struct ElementParameter
 	// Bool repeatable; // implement this later
 
 	// you can be optional without a default_value
-	value_ptr<ElementToken> default_value; 
+	value_ptr<ElementToken> default_value;
 
 }
 
@@ -94,6 +94,8 @@ struct ParameterIndexTag
 using ParameterIndex = NamedType<int, ParameterIndexTag>;
 
 const ParameterIndex kLeftParameterIndex{-1};
+
+const ParameterIndex kNullParameterIndex{-2};
 
 // the index of an element in a fragment or command
 struct ElementIndexTag
@@ -112,10 +114,49 @@ struct ElementDeclaration
 	value_ptr<ElementParameter> left_parameter; // optional
 	std::vector<ElementParameter> right_parameters; // could be length 0
 
-	inline bool HasLeftParamterMatching(ElementType type) const
+	bool HasLeftParamterMatching(ElementType type) const
 	{
 		if (left_parameter == nullptr) return false;
 		return type & left_parameter->types;
+	}
+
+	ErrorOr<ElementParameter> GetParameter(ParameterIndex index) const
+	{
+		if (index == kLeftParameterIndex
+			&& left_parameter != nullptr)
+		{
+			return *left_parameter; 
+		}
+		else if (index > kLeftParameterIndex && < right_parameters.size())
+		{
+			return right_parameters[index];
+		}
+		return Error("Index out of range");
+	}
+
+	ParameterIndex GetMaxParameterIndex() const
+	{
+		if (right_parameters.size() == 0 && left_parameter == nullptr)
+		{
+			return kNullParameterIndex;
+		}
+		else if (right_parameters.size() > 0)
+		{
+			return ParameterIndex { right_parameters.size() - 1 };
+		}
+		else if (left_parameter != nullptr)
+		{
+			return kLeftParameterIndex;
+		}
+	}
+
+	inline ParameterIndex GetMinParameterIndex() const
+	{
+		if (left_parameter != nullptr)
+		{
+			return kLeftParameterIndex;
+		}
+		return ParameterIndex { 0 };
 	}
 
 protected:
@@ -190,15 +231,94 @@ struct ElementNode
 		child.parent = this;
 		children.push_back(child);
 		childArgumentMapping.insert( { argIndex, childIndex } );
+		children[childIndex.value].UpdateParentForChildren();
 		return children[childIndex.value];
+	}
+
+	void UpdateParentForChildren()
+	{
+		for (auto child : children)
+		{
+			child.parent = this;
+			child.UpdateParentForChildren();
+		}
 	}
 
 	ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const;
 
 	// this is not recursive, doesn't guarantee arguments have ParametersMet
-	bool ParametersMet() const;
+	bool ParametersMet() const
+	{
 
-	ElementType GetValidNextArgTypes() const;
+	}
+
+
+	// bool ParametersMet, ElementType validNextArgTypes
+	std::pair<bool, ElementType> CompareArgumentsAndParameters() const
+	{
+		bool parametersMet = true;
+		ElementType validNextArgTypes { 0 };
+		const ElementDeclaration & dec = GetElementDeclaration(nextToken);
+		ParameterIndex maxArgIndex = kNullParameterIndex;
+		auto lastMapping = childArgumentMapping.rbegin();
+		if (lastMapping != childArgumentMapping.rend())
+		{
+			maxArgIndex = lastMapping->first;
+		}
+		ParameterIndex minParamIndex = dec.GetMinParameterIndex();
+		ParameterIndex maxParamIndex = dec.GetMaxParameterIndex();
+
+		for (ParameterIndex index { maxArgIndex.value };
+			index > minParamIndex;
+			index.value--)
+		{
+			ElementParameter param = CHECK_RETURN(dec.GetParameter(index));
+			if (!param.permutable && index != maxArgIndex)
+			{
+				// don't have to worry about any parameters before the most recent one if they aren't permutable
+				break;
+			}
+			if (!childArgumentMapping.contains(index)
+				|| param.repeatable)
+			{
+				validNextArgTypes = validNextArgTypes | param.types;
+			}
+			if (!param.permutable && index == maxArgIndex)
+			{
+				// if the maxArgIndex isn't permutable, none of the ones
+				// before it matter at all
+				break;
+			}
+		}
+		
+
+		if ()
+
+		for (ParameterIndex index = maxIndexDefined;
+			index.value >= minIndexAllowed;
+			index.value--;)
+		{
+
+		}
+
+		for (auto mapping : childArgumentMapping)
+		{
+			ElementParameter & param 
+		}
+
+	}
+
+	ElementType GetValidNextArgTypes() const
+	{
+		const ElementDeclaration & dec = GetElementDeclaration(nextToken);
+		ElementType validArgs { 0 };
+
+		ParameterIndex 
+
+
+		return validArgs;
+
+	}
 
 	ElementType GetValidNextArgsWithImpliedNodes() const
 	{
@@ -308,14 +428,19 @@ private:
 
 	ElementType GetRightSideTypesForLeftParameter() const
 	{
-		ElementNode * current = GetRightmostElement();
+		ElementType validArguments {0};
 
-		ElementType validArguments = current->token.types;
-		while (current->ParametersMet() && current->parent != nullptr)
+		for(ElementNode * e = GetRightmostElement();
+			e != nullptr;
+			e = e->parent)
 		{
-			current = current->parent;
-			validArguments = validArguments | current->token.types;
+			if (!e->ParametersMet())
+			{
+				break;
+			}
+			validArguments = validArguments | e->token.types;
 		}
+
 		return validArguments;
 	}
 
@@ -323,14 +448,15 @@ private:
 	// that is on the right
 	ElementType GetValidNextArguments() const
 	{
-		ElementNode * current = GetRightmostElement();
+		ElementType validArguments {0}
 
-		ElementType validArguments = current->GetValidNextArguments();
-		while (current->ParametersMet() && current->parent != nullptr)
+		for(ElementNode * e = GetRightmostElement();
+			e != nullptr;
+			e = e->parent)
 		{
-			current = current->parent;
 			validArguments = validArguments | current->GetValidNextArguments();
 		}
+
 		return validArguments;
 	}
 }
