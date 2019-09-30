@@ -178,7 +178,33 @@ struct ElementOneOf : Element
 	
 }
 
+struct FramentMapping
+{
+	std::vector<ElementMapping> elementMapping;
+	std::vector<ElementIndex> evaluationOrder;
 
+	FragmentMapping(const std::vector<CRef<Element> > & elements);
+
+	void Append(const Element & e, bool evaluateOrder = true);
+
+	// this is recursive descent
+	// requires precondition that everything in evaluationOrder so far
+	// isn't dependent on the element at the provided index
+	void EvaluateOrderFrom(ElementIndex index);
+
+	ErrorOr<Success> EvaluateOrder();
+
+	std::set<ValueType> ComputeValidAppendTypes() const;
+
+	ElementIndex FindAppropriateLeftArgument(const Element & e) const;
+
+	std::Pair<ElementIndex, ParameterIndex> FindAppropriateParentForNew(const Element & e) const;
+
+	static ErrorOr<FragmentMapping> CreateMapping(const std::vector<CRef<Element> > &elements)
+	{
+		return FragmentMapping{elements};
+	}
+}
 
 bool ElementMapping::ParametersMet() const
 {

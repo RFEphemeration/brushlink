@@ -171,16 +171,17 @@ struct ImpliedNodeOptions
 struct ElementNode
 {
 	// kNullElementIndex (-1) means you are not in the stream, i.e. implied
-	ElementIndex streamIndex;
+	ElementIndex streamIndex = kNullElementIndex;
 	ElementToken token;
 
 	// in order of appending, aka streamIndex
+	// maybe used owned_ptr?
 	std::list<ElementNode> children;
 
 	// ElementIndex here refers to in the list of children
 	std::multimap<ParameterIndex, ElementIndex> childArgumentMapping;
 
-	ElementNode* parent;
+	ElementNode* parent = nullptr;
 
 	ElementNode(ElementToken token, ElementIndex streamIndex)
 		: token(token)
@@ -218,34 +219,31 @@ struct ElementNode
 	}
 
 	ArgAndParamWalkResult WalkArgsAndParams(ElementType nextTokenType = ElementType { 0 }) const;
-}
+};
 
 struct Parser
 {
-	std::vector<ElementToken> stream;
-	ElementNode root;
-
-	ElementNode * GetRightmostElement() const;
-
-	ErrorOr<Sucess> Append(ElementToken nextToken);
-
+	struct NextTokenCriteria
+	{
+		ElementType validNextArgs { 0 };
+		ElementType rightSideTypesForLeftParameter { 0 };
+	};
 
 	struct ASTWalkResult
 	{
-		bool foundValidLocation;
+		ElementToken walkedWith {};
+
+		bool completeStatement { false };
+		bool foundValidLocation { false };
 
 		// if we found a valid location, this might be incomplete
-		struct
-		{
-			ElementType validNextArgs;
-			ElementType rightSideTypesForLeftParameter;
-		} potential;
+		NextTokenCriteria potential;
 
 		struct
 		{
 			// this pointer will only be valid until we update the tree
 			// after which it will be meaningless/dangling
-			ElementNode * e;
+			ElementNode * e { nullptr };
 			bool isLeftParam { false };
 
 			// nothing past here is used for left params
@@ -260,47 +258,24 @@ struct Parser
 		void Parser::ASTWalkResult::AddTypesForPotentialLeftParams(
 			ElementNode * node,
 			ElementDeclaration * declaration);
-	}
+	};
+
+	std::vector<ElementToken> stream;
+	ElementNode root;
+
+	value_ptr<ASTWalkResult> mostRecentWalkResult;
+
+
+	ErrorOr<Sucess> Append(ElementToken nextToken);
+
+	NextTokenCriteria GetNextTokenCriteria();
 
 private:
 
-	ASTWalkResult WalkAST(ElementToken * nextToken) const;
+	ElementNode * GetRightmostElement() const;
 
-	ElementNode * GetValidParent(ElementToken newToken) const;
-
-	ElementType GetRightSideTypesForLeftParameter() const;
-
-	// remember it's also valid to append anything that has a left parameter
-	// that is on the right
-	ElementType GetValidNextArguments() const;
-}
-
-struct FramentMapping
-{
-	std::vector<ElementMapping> elementMapping;
-	std::vector<ElementIndex> evaluationOrder;
-
-	FragmentMapping(const std::vector<CRef<Element> > & elements);
-
-	void Append(const Element & e, bool evaluateOrder = true);
-
-	// this is recursive descent
-	// requires precondition that everything in evaluationOrder so far
-	// isn't dependent on the element at the provided index
-	void EvaluateOrderFrom(ElementIndex index);
-
-	ErrorOr<Success> EvaluateOrder();
-
-	std::set<ValueType> ComputeValidAppendTypes() const;
-
-	ElementIndex FindAppropriateLeftArgument(const Element & e) const;
-
-	std::Pair<ElementIndex, ParameterIndex> FindAppropriateParentForNew(const Element & e) const;
-
-	static ErrorOr<FragmentMapping> CreateMapping(const std::vector<CRef<Element> > &elements)
-	{
-		return FragmentMapping{elements};
-	}
+	ASTWalkResult WalkAST(ElementToken * nextToken = nullptr,
+		bool breakOnFoundLocation = false) const;
 }
 
 } // namespace Command

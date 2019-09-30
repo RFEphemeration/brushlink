@@ -123,7 +123,6 @@ ParameterIndex ElementNode::RemoveLastChild()
 		{
 			index = it->first;
 			it = childArgumentMapping.erase(it);
-			
 		}
 		else
 		{
@@ -352,7 +351,9 @@ void Parser::ASTWalkResult::AddTypesForPotentialLeftParams(
 	}
 }
 
-ASTWalkResult Parser::WalkAST(ElementToken * nextToken, bool breakOnFoundLocation = false) const
+ASTWalkResult Parser::WalkAST(
+	ElementToken * nextToken /* = nullptr */,
+	bool breakOnFoundLocation /* = false */) const
 {
 	ElementType nextTokenType = 
 		nextToken == nullptr
@@ -364,10 +365,13 @@ ASTWalkResult Parser::WalkAST(ElementToken * nextToken, bool breakOnFoundLocatio
 		: GetElementDeclaration(nextToken);
 
 	ASTWalkResult astWalkResult;
+	if (nextToken != nullptr)
+	{
+		astWalkResult.walkedWith = *nextToken;
+	}
 
-	for(ElementNode * e = GetRightmostElement();
-		e != nullptr;
-		e = e->parent)
+	ElementNode * e = nullptr;
+	for(e = GetRightmostElement(); e != nullptr; e = e->parent)
 	{
 		auto nodeWalkResult = e->WalkArgsAndParams(nextTokenType);
 
@@ -402,106 +406,71 @@ ASTWalkResult Parser::WalkAST(ElementToken * nextToken, bool breakOnFoundLocatio
 		// otherwise that would happen here
 	}
 
+	if (e == nullptr)
+	{
+		// we walked the full tree without breaking
+		// which means all nodes have allParametersMet
+		astWalkResult.completeStatement = true;
+	}
+
 	return astWalkResult;
 }
 
-// rmf todo: use ast walk result for this
 ErrorOr<Success> Parser::Append(ElementToken newToken)
 {
-	//ElementNode nextNode {nextToken, ElementIndex{stream.size()}};
-	//stream.push_back(nextToken);
+	// returning errors can be destructive here
 
-	if (nodeWalkResult.firstArgIndexForNextToken.value > kNullParameterIndex.value)
+	if (mostRecentWalkResult == nullptr
+		|| mostRecentWalkResult->walkedWith != newToken)
 	{
-		if (!nodeWalkResult.firstArgRequiresImpliedNode)
-		{
-			CHECK_RETURN(e->Add(nextNode, nodeWalkResult.firstArgIndexForNextToken));
-		}
-		else
-		{
-			ElementNode implied {
-				ImpliedNodeOptions::acceptedArgTypes[nextToken.type],
-				kNullElementIndex };
-			CHECK_RETURN(implied.Add(nextNode));
-			CHECK_RETURN(e->Add(implied, nodeWalkResult.firstArgIndexForNextToken));
-		}
-
-		return Success();
+		mostRecentWalkResult = WalkAST(newToken, true);
+	}
+	if (!mostRecentWalkResult->foundValidLocation)
+	{
+		return Error("Could not find location for new token");
 	}
 
-	if (isLeftParam)
+	stream.push_back(nextToken);
+	ElementNode nextNode {nextToken, ElementIndex{stream.size() - 1}};
+
+	auto & location = mostRecentWalkResult->tokenLocation;
+	ElementNode * e = location.e;
+
+	if (location.isLeftParam)
 	{
 		ElementNode * parent = e->parent;
 		CHECK_RETURN(nextNode.Add(e, kLeftParameterIndex));
-		parent->children.pop_back();
-		CHECK_RETURN(parent->Add(nextNode, nodeWalkResult.firstArgIndexForNextToken));
-		return Success();
+		ParameterIndex argIndex = parent->RemoveLastChild();
+		CHECK_RETURN(parent->Add(nextNode, argIndex));
 	}
+	else if (location.argRequiresImpliedNode)
+	{
+		ElementNode implied {
+			ImpliedNodeOptions::acceptedArgTypes[nextToken.type],
+			kNullElementIndex };
+		CHECK_RETURN(implied.Add(nextNode));
+		CHECK_RETURN(location.e->Add(implied, location.argIndex));
+	}
+	else
+	{
+		CHECK_RETURN(location.e->Add(nextNode, location.argIndex));
+	}
+
+	mostRecentWalkResult = nullptr;
+
+	return Success();
 }
 
 
-ElementNode * Parser::GetValidParent(ElementToken newToken) const
+NextTokenCriteria Parser::GetNextTokenCriteria()
 {
-	ElementNode * current = GetRightmostElement();
-
-	ElementType validArguments = current->GetValidNextArguments();
-	if (validArguments & newToken.types)
+	if (mostRecentWalkResult == nullptr
+		|| mostRecentWalkResult->walkedWith.type != 0)
 	{
-		return current;
-	}
-	while (current->ParametersMet() && current->parent != nullptr)
-	{
-		current = current->parent;
-		validArguments = current->GetValidNextArguments();
-		if (validArguments & newToken.types)
-		{
-			return current;
-		}
-	}
-	return nullptr;
-
-}
-
-ElementType Parser::GetRightSideTypesForLeftParameter() const
-{
-	ElementType validArguments {0};
-
-	for(ElementNode * e = GetRightmostElement();
-		e != nullptr;
-		e = e->parent)
-	{
-		if (!e->ParametersMet())
-		{
-			break;
-		}
-		validArguments = validArguments | e->token.types;
+		mostRecentWalkResult = WalkAST();
 	}
 
-	return validArguments;
-}
-
-// remember it's also valid to append anything that has a left parameter
-// that is on the right
-ElementType Parser::GetValidNextArguments() const
-{
-	ElementType validArguments {0}
-
-	for(ElementNode * e = GetRightmostElement();
-		e != nullptr;
-		e = e->parent)
-	{
-		auto walkResult = e->WalkArgsAndParams();
-		validArguments = validArguments
-			| walkResult.validNextArgs
-			| walkResult.validNextArgsWithImpliedNodes;
-		
-		if (!walkResult.parametersMet)
-		{
-			break;
-		}
-	}
-
-	return validArguments;
+	return mostRecentWalkResult->potential;
 }
 
 } // namespace Command
