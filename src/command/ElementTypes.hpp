@@ -1,6 +1,15 @@
 #ifndef BRUSHLINK_COMMAND_TYPES_HPP
 #define BRUSHLINK_COMMAND_TYPES_HPP
 
+#include <vector>
+#include <unordered_map>
+#include <map>
+#include <list>
+
+#include "BuiltinTypedefs.h"
+#include "NamedType.hpp"
+#include "ErrorOr.hpp"
+
 using namespace Farb;
 
 namespace Command
@@ -11,7 +20,7 @@ namespace Command
 
 enum class ElementType
 {
-	Command =              1 << 0
+	Command =              1 << 0,
 
 	Condition =            1 << 1,
 	Action =               1 << 2,
@@ -43,18 +52,31 @@ enum class ElementType
 
 	// has no parameters and is not context dependent
 	Literal =              1 << 20,
-	Parameter_Reference    1 << 21,
+	Parameter_Reference =  1 << 21
 
 	// this is probably not an appropriate type because of the way fields are compared
 	// but really I need to think about how to compare fields more thoroughly
 	// which probably means not using a field, and using sets instead
 	// User_Defined =         1 << 22
+};
+
+inline ElementType operator|(ElementType a, ElementType b)
+{
+	return static_cast<ElementType>(static_cast<int>(a) | static_cast<int>(b));
 }
+
+inline ElementType operator&(ElementType a, ElementType b)
+{
+	return static_cast<ElementType>(static_cast<int>(a) & static_cast<int>(b));
+}
+
+// rmf todo: split out ElementFlags from ElementType
+
 
 struct ElementNameTag
 {
 	static HString GetName() { return "Command::ElementName"; }
-}
+};
 using ElementName = NamedType<HString, ElementNameTag>;
 
 struct ElementToken
@@ -62,13 +84,18 @@ struct ElementToken
 	// this is a bit field of flags, aka a set of types
 	// but I think it should actually only be a single one
 	ElementType type;
-	HString name;
+	ElementName name;
+
+	ElementToken(ElementName name, ElementType type)
+		: name(name)
+		, type(type)
+	{ }
 
 	bool IsType(ElementType other)
 	{
-		return other & type;
+		return static_cast<uint>(other) & static_cast<uint>(type);
 	}
-}
+};
 
 
 struct ElementParameter
@@ -76,21 +103,31 @@ struct ElementParameter
 	// todo: does this cover one_of variants? unit or units, area or point
 	ElementType types;
 
-	Bool optional;
-	// Bool permutable; // implement this later
-	// Bool repeatable; // implement this later
+	bool optional = false;
+	bool permutable = false; // implement this later
+	bool repeatable = false; // implement this later
 
 	// you can be optional without a default_value
-	value_ptr<ElementToken> default_value;
+	value_ptr<ElementToken> default_value { nullptr };
 
-}
+	ElementParameter(ElementType type, bool optional = false, bool permutable = false, bool repeatable = false)
+		: types(type)
+		, optional(optional)
+	{ }
+
+	ElementParameter(ElementType type, bool optional, ElementToken default_value)
+		: types(type)
+		, optional(optional)
+		, default_value(default_value)
+	{ }
+};
 
 // the index of a paramter in an element
 // -1 is left parameter, 0 is first right parameter
 struct ParameterIndexTag
 {
 	static HString GetName() { return "Command::ParameterIndex"; }
-}
+};
 using ParameterIndex = NamedType<int, ParameterIndexTag>;
 
 const ParameterIndex kLeftParameterIndex{-1};
@@ -98,21 +135,44 @@ const ParameterIndex kLeftParameterIndex{-1};
 const ParameterIndex kNullParameterIndex{-2};
 
 // the index of an element in a fragment or command
+
 struct ElementIndexTag
 {
 	static HString GetName() { return "Command::ElementIndex"; }
-}
+};
+
 using ElementIndex = NamedType<int, ElementIndexTag>;
 
 const ElementIndex kNullElementIndex{-1};
 
 struct ElementDeclaration
 {
-	ElementType types = 0;
+	ElementType types { 0 };
 	ElementName name;
 
 	value_ptr<ElementParameter> left_parameter; // optional
 	std::vector<ElementParameter> right_parameters; // could be length 0
+
+	ElementDeclaration(ElementName name, ElementType type)
+		: name(name)
+		, types(type)
+		, left_parameter(nullptr)
+		, right_parameters()
+	{ }
+
+	ElementDeclaration(ElementName name, ElementType type, std::vector<ElementParameter> right_parameters)
+		: name(name)
+		, types(type)
+		, left_parameter(nullptr)
+		, right_parameters(right_parameters)
+	{ }
+
+	ElementDeclaration(ElementName name, ElementType type, ElementParameter left_parameter, std::vector<ElementParameter> right_parameters)
+		: name(name)
+		, types(type)
+		, left_parameter(left_parameter)
+		, right_parameters(right_parameters)
+	{ }
 
 	bool HasLeftParamterMatching(ElementType type) const;
 
@@ -126,46 +186,23 @@ protected:
 	// rmf todo: change this to a multimap
 	ErrorOr<Success> FillDefaultArguments(
 		std::map<ParameterIndex, ElementToken>& arguments) const;
-}
+};
 
+
+// could implied nodes also be used for parameter_references?
+// since their return type is context dependent?
+// or should there be different types of parameter_reference nodes?
 struct ImpliedNodeOptions
 {
-	static const ElementToken selectorToken { ElementType::Selector, "Selector" };
-	static const ElementToken locationToken { ElementType::Location, "Location" };
+	static const ElementToken selectorToken;
+	static const ElementToken locationToken;
 
 	// accepted arg type -> token to use for node
-	static const std::unordered_map<ElementType, ElementToken> acceptedArgTypes
-	{
-		{ ElementType::Selector_Base, selectorToken },
-		{ ElementType::Selector_Group_Size, selectorToken },
-		{ ElementType::Selector_Generic, selectorToken },
-		{ ElementType::Selector_Superlative, selectorToken },
-
-		{ ElementType::Point, locationToken },
-		{ ElementType::Line, locationToken },
-		{ ElementType::Area, locationToken }
-	};
+	static const std::unordered_map<ElementType, ElementToken> acceptedArgTypes;
 
 	// parameter type -> arg types
-	static const std::unordered_map<ElementType, ElementType> potentialParamTypes
-	{
-		{
-			ElementType::Selector,
-
-			ElementType::Selector_Base
-			| ElementType::Selector_Group_Size
-			| ElementType::Selector_Generic
-			| ElementType::Selector_Superlative
-		},
-		{
-			ElementType::Location,
-
-			ElementType::Point
-			| ElementType::Line
-			| ElementType::Area
-		}
-	}
-}
+	static const std::unordered_map<ElementType, ElementType> potentialParamTypes;
+};
 
 // For an AST, ElementIndexes are in relationship to parent
 struct ElementNode
@@ -189,7 +226,43 @@ struct ElementNode
 		, parent(nullptr)
 	{ }
 
-	ErrorOr<ElementNode &> Add(ElementNode child, ParameterIndex argIndex = kNullParameterIndex);
+	ErrorOr<ElementNode *> Add(ElementNode child, ParameterIndex argIndex = kNullParameterIndex);
+
+	static bool Equal(const ElementNode & a, const ElementNode & b)
+	{
+		bool equal = a.streamIndex == b.streamIndex
+			&& a.token.type == b.token.type
+			&& a.token.name == b.token.name
+			&& a.children.size() == b.children.size()
+			&& a.childArgumentMapping.size() == b.childArgumentMapping.size();
+		if (!equal)
+		{
+			return false;
+		}
+		auto aMapIter = a.childArgumentMapping.begin();
+		auto bMapIter = b.childArgumentMapping.begin();
+		auto aMapEnd = a.childArgumentMapping.end();
+		auto bMapEnd = b.childArgumentMapping.end();
+
+		for(; aMapIter != aMapEnd && bMapIter != bMapEnd; aMapIter++, bMapIter++)
+		{
+			equal = equal
+				&& (*aMapIter).first == (*bMapIter).first
+				&& (*aMapIter).second == (*bMapIter).second;
+		}
+
+		auto aChildIter = a.children.begin();
+		auto bChildIter = b.children.begin();
+		auto aChildEnd = a.children.end();
+		auto bChildEnd = b.children.end();
+
+		for(; aChildIter != aChildEnd && bChildIter != bChildEnd; aChildIter++, bChildIter++)
+		{
+			equal = equal && Equal(*aChildIter, *bChildIter);
+		}
+
+		return equal;
+	}
 
 	ParameterIndex RemoveLastChild();
 
@@ -216,7 +289,7 @@ struct ElementNode
 			ElementType nextTokenType,
 			ParameterIndex index,
 			ElementType types);
-	}
+	};
 
 	ArgAndParamWalkResult WalkArgsAndParams(ElementType nextTokenType = ElementType { 0 }) const;
 };
@@ -231,7 +304,7 @@ struct Parser
 
 	struct ASTWalkResult
 	{
-		ElementToken walkedWith {};
+		ElementToken walkedWith {ElementName{""}, ElementType{0}};
 
 		bool completeStatement { false };
 		bool foundValidLocation { false };
@@ -255,28 +328,40 @@ struct Parser
 			ElementNode * node,
 			ElementNode::ArgAndParamWalkResult nodeWalkResult);
 
-		void Parser::ASTWalkResult::AddTypesForPotentialLeftParams(
+		void AddTypesForPotentialLeftParams(
 			ElementNode * node,
-			ElementDeclaration * declaration);
+			const ElementDeclaration * declaration);
 	};
 
 	std::vector<ElementToken> stream;
-	ElementNode root;
+	ElementNode root {
+		ElementToken{ElementName{""}, ElementType{0}}, kNullElementIndex};
 
 	value_ptr<ASTWalkResult> mostRecentWalkResult;
 
 
-	ErrorOr<Sucess> Append(ElementToken nextToken);
+	ErrorOr<Success> Append(ElementToken nextToken);
 
 	NextTokenCriteria GetNextTokenCriteria();
 
 private:
 
-	ElementNode * GetRightmostElement() const;
+	ElementNode * GetRightmostElement();
 
 	ASTWalkResult WalkAST(ElementToken * nextToken = nullptr,
-		bool breakOnFoundLocation = false) const;
-}
+		bool breakOnFoundLocation = false);
+};
+
+class ElementDictionary
+{
+	static const std::map<ElementName, ElementDeclaration> declarations;
+
+public:
+	static const ElementDeclaration * GetDeclaration(ElementName name)
+	{
+		return &declarations.at(name);
+	}
+};
 
 } // namespace Command
 

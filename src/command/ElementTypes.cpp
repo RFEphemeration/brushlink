@@ -1,33 +1,112 @@
-#include "CommandTypes.hpp"
+#include "ElementTypes.hpp"
 
 using namespace Farb;
 
 namespace Command
 {
 
+
+const ElementToken ImpliedNodeOptions::selectorToken { ElementName{"Selector"}, ElementType::Selector };
+const ElementToken ImpliedNodeOptions::locationToken { ElementName{"Location"}, ElementType::Location };
+
+// accepted arg type -> token to use for node
+const std::unordered_map<ElementType, ElementToken> ImpliedNodeOptions::acceptedArgTypes
+{
+	{ ElementType::Selector_Base, selectorToken },
+	{ ElementType::Selector_Group_Size, selectorToken },
+	{ ElementType::Selector_Generic, selectorToken },
+	{ ElementType::Selector_Superlative, selectorToken },
+
+	{ ElementType::Point, locationToken },
+	{ ElementType::Line, locationToken },
+	{ ElementType::Area, locationToken }
+};
+
+// parameter type -> arg types
+const std::unordered_map<ElementType, ElementType> ImpliedNodeOptions::potentialParamTypes
+{
+	{
+		ElementType::Selector,
+
+		ElementType::Selector_Base
+		| ElementType::Selector_Group_Size
+		| ElementType::Selector_Generic
+		| ElementType::Selector_Superlative
+	},
+	{
+		ElementType::Location,
+
+		ElementType::Point
+		| ElementType::Line
+		| ElementType::Area
+	}
+};
+
+const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
+{
+	{ ElementName{"Attack"},
+		{ ElementName{"Attack"}, ElementType::Action,
+			std::vector<ElementParameter>
+			{
+				{ ElementType::Selector }
+			}
+		}
+	},
+	{ ElementName{"Enemies"},
+		{ ElementName{"Enemies"}, ElementType::Selector_Base }
+	},
+	{ ElementName{"Within_Range"},
+		{ ElementName{"Within_Range"}, ElementType::Selector_Generic,
+			std::vector<ElementParameter>
+			{
+				{ ElementType::Number, true, { ElementName{"Zero"}, ElementType::Number} }
+			}
+		}
+	},
+	{ ElementName{"Zero"},
+		{ ElementName{"Zero"}, ElementType::Number }
+	},
+	{ ElementName{"One"},
+		{ ElementName{"One"}, ElementType::Number}
+	},
+	{ ElementName{"Selector"},
+		{ ElementName{"Selector"}, ElementType::Selector,
+			std::vector<ElementParameter>
+			{
+				{ ElementType::Selector_Base, true },
+				{ ElementType::Selector_Generic, true },
+				{ ElementType::Selector_Group_Size, true },
+				{ ElementType::Selector_Superlative, true },
+			}
+		}
+	}
+};
+
+
 bool ElementDeclaration::HasLeftParamterMatching(ElementType type) const
 {
-	if (left_parameter == nullptr) return false;
-	return type & left_parameter->types;
+	if (left_parameter.get() == nullptr) return false;
+	return (type & left_parameter->types) != ElementType{0};
 }
 
 ErrorOr<ElementParameter> ElementDeclaration::GetParameter(ParameterIndex index) const
 {
 	if (index == kLeftParameterIndex
-		&& left_parameter != nullptr)
+		&& left_parameter.get() != nullptr)
 	{
 		return *left_parameter; 
 	}
-	else if (index > kLeftParameterIndex && < right_parameters.size())
+	else if (index.value > kLeftParameterIndex.value
+		&& index.value < right_parameters.size())
 	{
-		return right_parameters[index];
+		return right_parameters[index.value];
 	}
 	return Error("Index out of range");
 }
 
 ParameterIndex ElementDeclaration::GetMaxParameterIndex() const
 {
-	if (right_parameters.size() == 0 && left_parameter == nullptr)
+	if (right_parameters.size() == 0 && left_parameter.get() == nullptr)
 	{
 		return kNullParameterIndex;
 	}
@@ -35,15 +114,17 @@ ParameterIndex ElementDeclaration::GetMaxParameterIndex() const
 	{
 		return ParameterIndex { right_parameters.size() - 1 };
 	}
-	else if (left_parameter != nullptr)
+	else if (left_parameter.get() != nullptr)
 	{
 		return kLeftParameterIndex;
 	}
+
+	return kNullParameterIndex;
 }
 
 inline ParameterIndex ElementDeclaration::GetMinParameterIndex() const
 {
-	if (left_parameter != nullptr)
+	if (left_parameter.get() != nullptr)
 	{
 		return kLeftParameterIndex;
 	}
@@ -51,17 +132,18 @@ inline ParameterIndex ElementDeclaration::GetMinParameterIndex() const
 }
 
 // rmf todo: change this to a multimap
+/*
 ErrorOr<Success> ElementDeclaration::FillDefaultArguments(
 	std::map<ParameterIndex, ElementToken>& arguments) const
 {
 	if (arguments.count(kLeftParameterIndex) == 0
-		&& left_parameter != nullptr)
+		&& left_parameter.get() != nullptr)
 	{
-		if (!left_parameter.optional)
+		if (!left_parameter->optional)
 		{
 			return Error("Missing required left argument for Element");
 		}
-		arguments.insert(kLeftParameterIndex, left_parameter.default_value);
+		arguments.insert(kLeftParameterIndex, (left_parameter->default_value));
 	}
 
 	for (int arg = 0; arg < right_parameters.count(); arg++)
@@ -78,7 +160,7 @@ ErrorOr<Success> ElementDeclaration::FillDefaultArguments(
 	}
 
 	int desired_argument_count = right_parameters.count();
-	desired_argument_count += left_parameter != nullptr ? 1 : 0;
+	desired_argument_count += left_parameter.get() != nullptr ? 1 : 0;
 
 	if (arguments.count() != desired_argument_count)
 	{
@@ -87,8 +169,9 @@ ErrorOr<Success> ElementDeclaration::FillDefaultArguments(
 
 	return Success();
 }
+*/
 
-ErrorOr<ElementNode &> ElementNode::Add(ElementNode child, ParameterIndex argIndex)
+ErrorOr<ElementNode *> ElementNode::Add(ElementNode child, ParameterIndex argIndex)
 {
 	// this is often passed in after already walking the args and params
 	if (argIndex == kNullParameterIndex)
@@ -100,8 +183,8 @@ ErrorOr<ElementNode &> ElementNode::Add(ElementNode child, ParameterIndex argInd
 	child.parent = this;
 	children.push_back(child);
 	childArgumentMapping.insert( { argIndex, childIndex } );
-	children[childIndex.value].UpdateChildrenSetParent();
-	return children[childIndex.value];
+	children.back().UpdateChildrenSetParent();
+	return &children.back();
 }
 
 ParameterIndex ElementNode::RemoveLastChild()
@@ -116,7 +199,7 @@ ParameterIndex ElementNode::RemoveLastChild()
 	
 	ElementIndex removed { children.size() };
 
-	auto it = childArgumentMapping.begin()
+	auto it = childArgumentMapping.begin();
 	while(it != childArgumentMapping.end())
 	{
 		if (it->second == removed)
@@ -142,7 +225,7 @@ void ElementNode::UpdateChildrenSetParent()
 	}
 }
 
-bool ElementNode::ParametersMet() const;
+bool ElementNode::ParametersMet() const
 {
 	return WalkArgsAndParams().allParametersMet;
 }
@@ -157,9 +240,9 @@ ElementType ElementNode::GetValidNextArgsWithImpliedNodes() const
 	return WalkArgsAndParams().validNextArgsWithImpliedNodes;
 }
 
-ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const
+ErrorOr<ParameterIndex> ElementNode::GetArgIndexForNextToken(ElementToken token) const
 {
-	auto result = WalkArgsAndParams(token.types);
+	auto result = WalkArgsAndParams(token.type);
 	ParameterIndex index = result.firstArgIndexForNextToken;
 	if (index == kNullParameterIndex)
 	{
@@ -180,7 +263,7 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType nextTokenTy
 
 	for (auto pair : ImpliedNodeOptions::potentialParamTypes)
 	{
-		if (pair.first & types)
+		if ((pair.first & types) != ElementType {0})
 		{
 			typesWithImplied = typesWithImplied | pair.second;
 		}
@@ -189,11 +272,11 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType nextTokenTy
 	validNextArgsWithImpliedNodes = validNextArgsWithImpliedNodes |  typesWithImplied;
 
 	if ((firstArgIndexForNextToken == kNullParameterIndex
-			|| index < firstArgIndexForNextToken)
-		&& (type & nextTokenType
-			|| typesWithImplied & nextTokenType))
+			|| index.value < firstArgIndexForNextToken.value)
+		&& ((types & nextTokenType) != ElementType{0}
+			|| (typesWithImplied & nextTokenType) != ElementType{0}))
 	{
-		if (type & nextTokenType)
+		if ((types & nextTokenType) != ElementType{0})
 		{
 			firstArgRequiresImpliedNode = false;
 		}
@@ -207,36 +290,37 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType nextTokenTy
 
 // rmf todo: this probably shouldn't handle left parameters, right?
 // since we'd be appending, and you can't give a left parameter by appending
-ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType nextTokenType = ElementType { 0 }) const
+ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType nextTokenType /* = ElementType { 0 } */) const
 {
 	ArgAndParamWalkResult result;
 
-	const ElementDeclaration & dec = GetElementDeclaration(nextToken);
+	const ElementDeclaration * dec = ElementDictionary::GetDeclaration(token.name);
 	ParameterIndex maxArgIndex = kNullParameterIndex;
 	auto lastMapping = childArgumentMapping.rbegin();
 	if (lastMapping != childArgumentMapping.rend())
 	{
 		maxArgIndex = lastMapping->first;
 	}
-	ParameterIndex minParamIndex = dec.GetMinParameterIndex();
-	ParameterIndex maxParamIndex = dec.GetMaxParameterIndex();
+	ParameterIndex minParamIndex = dec->GetMinParameterIndex();
+	ParameterIndex maxParamIndex = dec->GetMaxParameterIndex();
 
 	for (ParameterIndex index { maxArgIndex.value };
 		index.value > minParamIndex.value;
 		index.value--)
 	{
-		ElementParameter param = CHECK_RETURN(dec.GetParameter(index));
-		if (!param.permutable && index != maxArgIndex)
+		// this could runtime assert
+		ElementParameter param = dec->GetParameter(index).GetValue();
+		if (!param.permutable && index.value != maxArgIndex.value)
 		{
 			// don't have to worry about any parameters before the most recent one if they aren't permutable
 			break;
 		}
-		if (!childArgumentMapping.contains(index)
+		if (childArgumentMapping.count(index) == 0
 			|| param.repeatable)
 		{
 			result.AddValidNextArg(nextTokenType, index, param.types);
 		}
-		if (!childArgumentMapping.contains(index)
+		if (childArgumentMapping.count(index) == 0
 			&& !param.optional)
 		{
 			result.allParametersMet = false;
@@ -256,7 +340,8 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 		index.value <= maxParamIndex.value;
 		index.value++)
 	{
-		ElementParameter param = CHECK_RETURN(dec.GetParameter(index));
+		// this could runtime assert
+		ElementParameter param = dec->GetParameter(index).GetValue();
 
 		if (inPermutableSection
 			&& !param.permutable)
@@ -300,17 +385,17 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 	return result;
 }
 
-ElementNode * Parser::GetRightmostElement() const
+ElementNode * Parser::GetRightmostElement()
 {
-	ElementNode * current = root;
+	ElementNode * current = &root;
 	// we must have at least one non left parameter child
 	// and there can be at most one left parameter
 	while (
 		(current->children.size() == 1
-			&& !current->childArgumentMapping.contains(kLeftParameterIndex))
+			&& current->childArgumentMapping.count(kLeftParameterIndex) == 0)
 		|| current->children.size() > 1)
 	{
-		current = &current->children[current->children.size() - 1];
+		current = &current->children.back();
 	}
 	return current;
 }
@@ -336,14 +421,14 @@ void Parser::ASTWalkResult::AddNodeWalkResult(
 
 void Parser::ASTWalkResult::AddTypesForPotentialLeftParams(
 	ElementNode * node,
-	ElementDeclaration * declaration)
+	const ElementDeclaration * declaration)
 {
 	potential.rightSideTypesForLeftParameter =
-		potential.rightSideTypesForLeftParameter | node->token.types;
+		potential.rightSideTypesForLeftParameter | node->token.type;
 
 	if (!foundValidLocation
-		&& nextDec != nullptr
-		&& nextDec->HasLeftParamterMatching(e->token.types))
+		&& declaration != nullptr
+		&& declaration->HasLeftParamterMatching(node->token.type))
 	{
 		foundValidLocation = true;
 		tokenLocation.e = node;
@@ -351,18 +436,18 @@ void Parser::ASTWalkResult::AddTypesForPotentialLeftParams(
 	}
 }
 
-ASTWalkResult Parser::WalkAST(
+Parser::ASTWalkResult Parser::WalkAST(
 	ElementToken * nextToken /* = nullptr */,
-	bool breakOnFoundLocation /* = false */) const
+	bool breakOnFoundLocation /* = false */)
 {
 	ElementType nextTokenType = 
 		nextToken == nullptr
 		? ElementType { 0 }
-		: nextToken.type;
+		: nextToken->type;
 	const ElementDeclaration * nextDec =
 		nextToken == nullptr
 		? nullptr
-		: GetElementDeclaration(nextToken);
+		: ElementDictionary::GetDeclaration(nextToken->name);
 
 	ASTWalkResult astWalkResult;
 	if (nextToken != nullptr)
@@ -416,14 +501,14 @@ ASTWalkResult Parser::WalkAST(
 	return astWalkResult;
 }
 
-ErrorOr<Success> Parser::Append(ElementToken newToken)
+ErrorOr<Success> Parser::Append(ElementToken nextToken)
 {
 	// returning errors can be destructive here
 
-	if (mostRecentWalkResult == nullptr
-		|| mostRecentWalkResult->walkedWith != newToken)
+	if (mostRecentWalkResult.get() == nullptr
+		|| !(mostRecentWalkResult->walkedWith.name == nextToken.name))
 	{
-		mostRecentWalkResult = WalkAST(newToken, true);
+		*mostRecentWalkResult = WalkAST(&nextToken, true);
 	}
 	if (!mostRecentWalkResult->foundValidLocation)
 	{
@@ -439,14 +524,14 @@ ErrorOr<Success> Parser::Append(ElementToken newToken)
 	if (location.isLeftParam)
 	{
 		ElementNode * parent = e->parent;
-		CHECK_RETURN(nextNode.Add(e, kLeftParameterIndex));
+		CHECK_RETURN(nextNode.Add(*e, kLeftParameterIndex));
 		ParameterIndex argIndex = parent->RemoveLastChild();
 		CHECK_RETURN(parent->Add(nextNode, argIndex));
 	}
 	else if (location.argRequiresImpliedNode)
 	{
 		ElementNode implied {
-			ImpliedNodeOptions::acceptedArgTypes[nextToken.type],
+			ImpliedNodeOptions::acceptedArgTypes.at(nextToken.type),
 			kNullElementIndex };
 		CHECK_RETURN(implied.Add(nextNode));
 		CHECK_RETURN(location.e->Add(implied, location.argIndex));
@@ -456,18 +541,18 @@ ErrorOr<Success> Parser::Append(ElementToken newToken)
 		CHECK_RETURN(location.e->Add(nextNode, location.argIndex));
 	}
 
-	mostRecentWalkResult = nullptr;
+	mostRecentWalkResult.reset();
 
 	return Success();
 }
 
 
-NextTokenCriteria Parser::GetNextTokenCriteria()
+Parser::NextTokenCriteria Parser::GetNextTokenCriteria()
 {
-	if (mostRecentWalkResult == nullptr
-		|| mostRecentWalkResult->walkedWith.type != 0)
+	if (mostRecentWalkResult.get() == nullptr
+		|| mostRecentWalkResult->walkedWith.type != ElementType{0})
 	{
-		mostRecentWalkResult = WalkAST();
+		*mostRecentWalkResult = WalkAST();
 	}
 
 	return mostRecentWalkResult->potential;
