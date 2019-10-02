@@ -336,7 +336,7 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 	// rmf todo: this logic is a mess
 	bool inPermutableSection = false;
 	bool allPermutableWereOptional = true;
-	for (ParameterIndex index { maxArgIndex.value + 1};
+	for (ParameterIndex index { std::max(maxArgIndex.value + 1, minParamIndex.value)};
 		index.value <= maxParamIndex.value;
 		index.value++)
 	{
@@ -387,7 +387,11 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 
 ElementNode * Parser::GetRightmostElement()
 {
-	ElementNode * current = &root;
+	ElementNode * current = root.get();
+	if (current == nullptr)
+	{
+		return nullptr;
+	}
 	// we must have at least one non left parameter child
 	// and there can be at most one left parameter
 	while (
@@ -455,8 +459,8 @@ Parser::ASTWalkResult Parser::WalkAST(
 		astWalkResult.walkedWith = *nextToken;
 	}
 
-	ElementNode * e = nullptr;
-	for(e = GetRightmostElement(); e != nullptr; e = e->parent)
+	ElementNode * e = GetRightmostElement();
+	for(; e != nullptr; e = e->parent)
 	{
 		auto nodeWalkResult = e->WalkArgsAndParams(nextTokenType);
 
@@ -503,12 +507,18 @@ Parser::ASTWalkResult Parser::WalkAST(
 
 ErrorOr<Success> Parser::Append(ElementToken nextToken)
 {
-	// returning errors can be destructive here
+	if (root.get() == nullptr)
+	{
+		stream.push_back(nextToken);
+		root = value_ptr<ElementNode>{ElementNode{nextToken, ElementIndex{0}}};
+		return Success();
+	}
 
+	// returning errors can be destructive here
 	if (mostRecentWalkResult.get() == nullptr
 		|| !(mostRecentWalkResult->walkedWith.name == nextToken.name))
 	{
-		*mostRecentWalkResult = WalkAST(&nextToken, true);
+		mostRecentWalkResult = value_ptr<ASTWalkResult>{WalkAST(&nextToken, true)};
 	}
 	if (!mostRecentWalkResult->foundValidLocation)
 	{

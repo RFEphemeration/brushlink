@@ -32,7 +32,7 @@ void TestASTFromStream(
 		};
 		stream += " " + token.name.value;
 	}
-	bool success = ElementNode::Equal(expected_result, parser.root);
+	bool success = ElementNode::Equal(expected_result, *parser.root);
 
 	
 	farb_print(success,
@@ -52,9 +52,13 @@ public:
 			{ ElementName{"Enemies"}, ElementType::Selector_Base }
 		};
 
-		ElementNode expected { stream[0], ElementIndex{1} };
-		expected.children.push_back(ElementNode{stream[2], ElementIndex{2}});
-		expected.childArgumentMapping.insert({ ParameterIndex{1}, ElementIndex{0} });
+		ElementNode expected { stream[0], ElementIndex{0} };
+		expected.children.push_back(ElementNode{
+			ImpliedNodeOptions::selectorToken, kNullElementIndex});
+		expected.childArgumentMapping.insert({ ParameterIndex{0}, ElementIndex{0} });
+		auto lastAdded = &expected.children.front();
+		lastAdded->children.push_back(ElementNode{stream[1], ElementIndex{1}});
+		lastAdded->childArgumentMapping.insert({ ParameterIndex{0}, ElementIndex{0} });
 
 		TestASTFromStream(stream, expected, true);
 

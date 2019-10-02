@@ -1,3 +1,10 @@
+#cpp
+*.dSYM
+
+#xcode
+xcuserdata/
+xcuserdatad/
+
 # Godot-specific ignores
 .import/
 export.cfg

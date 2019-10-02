@@ -334,8 +334,7 @@ struct Parser
 	};
 
 	std::vector<ElementToken> stream;
-	ElementNode root {
-		ElementToken{ElementName{""}, ElementType{0}}, kNullElementIndex};
+	value_ptr<ElementNode> root;
 
 	value_ptr<ASTWalkResult> mostRecentWalkResult;
 
