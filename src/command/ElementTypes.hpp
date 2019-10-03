@@ -115,9 +115,9 @@ struct ElementParameter
 		, optional(optional)
 	{ }
 
-	ElementParameter(ElementType type, bool optional, ElementToken default_value)
+	ElementParameter(ElementType type, ElementToken default_value)
 		: types(type)
-		, optional(optional)
+		, optional(true)
 		, default_value(default_value)
 	{ }
 };
@@ -213,9 +213,12 @@ struct ElementNode
 
 	// in order of appending, aka streamIndex
 	// maybe used owned_ptr?
-	std::list<ElementNode> children;
+	std::vector<ElementNode> children;
 
 	// ElementIndex here refers to in the list of children
+	// should probably just have the map directly go to ElementNode
+	// or not becausde the last element added is important, and undos make this chain
+	// all the way back
 	std::multimap<ParameterIndex, ElementIndex> childArgumentMapping;
 
 	ElementNode* parent = nullptr;
@@ -226,45 +229,15 @@ struct ElementNode
 		, parent(nullptr)
 	{ }
 
+	static bool Equal(const ElementNode & a, const ElementNode & b);
+
+	static std::string GetPrintString(const ElementNode & e, std::string indentation = "", ParameterIndex argIndex = kNullParameterIndex);
+
 	ErrorOr<ElementNode *> Add(ElementNode child, ParameterIndex argIndex = kNullParameterIndex);
 
-	static bool Equal(const ElementNode & a, const ElementNode & b)
-	{
-		bool equal = a.streamIndex == b.streamIndex
-			&& a.token.type == b.token.type
-			&& a.token.name == b.token.name
-			&& a.children.size() == b.children.size()
-			&& a.childArgumentMapping.size() == b.childArgumentMapping.size();
-		if (!equal)
-		{
-			return false;
-		}
-		auto aMapIter = a.childArgumentMapping.begin();
-		auto bMapIter = b.childArgumentMapping.begin();
-		auto aMapEnd = a.childArgumentMapping.end();
-		auto bMapEnd = b.childArgumentMapping.end();
-
-		for(; aMapIter != aMapEnd && bMapIter != bMapEnd; aMapIter++, bMapIter++)
-		{
-			equal = equal
-				&& (*aMapIter).first == (*bMapIter).first
-				&& (*aMapIter).second == (*bMapIter).second;
-		}
-
-		auto aChildIter = a.children.begin();
-		auto bChildIter = b.children.begin();
-		auto aChildEnd = a.children.end();
-		auto bChildEnd = b.children.end();
-
-		for(; aChildIter != aChildEnd && bChildIter != bChildEnd; aChildIter++, bChildIter++)
-		{
-			equal = equal && Equal(*aChildIter, *bChildIter);
-		}
-
-		return equal;
-	}
-
 	ParameterIndex RemoveLastChild();
+
+	void FillDefaultArguments();
 
 	void UpdateChildrenSetParent();
 

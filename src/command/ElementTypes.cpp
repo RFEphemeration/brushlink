@@ -1,10 +1,11 @@
 #include "ElementTypes.hpp"
+#include "ReflectionDeclare.h"
+#include "ReflectionBasics.h"
 
 using namespace Farb;
 
 namespace Command
 {
-
 
 const ElementToken ImpliedNodeOptions::selectorToken { ElementName{"Selector"}, ElementType::Selector };
 const ElementToken ImpliedNodeOptions::locationToken { ElementName{"Location"}, ElementType::Location };
@@ -46,6 +47,12 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 {
 	{ ElementName{"Attack"},
 		{ ElementName{"Attack"}, ElementType::Action,
+			ElementParameter
+			{
+				ElementType::Selector,
+				// rmf todo, default left with implied...
+				{ ElementName{"Current_Selection"}, ElementType::Selector_Base }
+			},
 			std::vector<ElementParameter>
 			{
 				{ ElementType::Selector }
@@ -59,7 +66,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 		{ ElementName{"Within_Range"}, ElementType::Selector_Generic,
 			std::vector<ElementParameter>
 			{
-				{ ElementType::Number, true, { ElementName{"Zero"}, ElementType::Number} }
+				{ ElementType::Number, { ElementName{"Zero"}, ElementType::Number} }
 			}
 		}
 	},
@@ -171,6 +178,64 @@ ErrorOr<Success> ElementDeclaration::FillDefaultArguments(
 }
 */
 
+bool ElementNode::Equal(const ElementNode & a, const ElementNode & b)
+{
+	bool equal = a.streamIndex == b.streamIndex
+		&& a.token.type == b.token.type
+		&& a.token.name == b.token.name
+		&& a.children.size() == b.children.size()
+		&& a.childArgumentMapping.size() == b.childArgumentMapping.size();
+	if (!equal)
+	{
+		return false;
+	}
+	auto aMapIter = a.childArgumentMapping.begin();
+	auto bMapIter = b.childArgumentMapping.begin();
+	auto aMapEnd = a.childArgumentMapping.end();
+	auto bMapEnd = b.childArgumentMapping.end();
+
+	for(; aMapIter != aMapEnd && bMapIter != bMapEnd; aMapIter++, bMapIter++)
+	{
+		equal = equal
+			&& (*aMapIter).first == (*bMapIter).first
+			&& (*aMapIter).second == (*bMapIter).second;
+	}
+
+	auto aChildIter = a.children.begin();
+	auto bChildIter = b.children.begin();
+	auto aChildEnd = a.children.end();
+	auto bChildEnd = b.children.end();
+
+	for(; aChildIter != aChildEnd && bChildIter != bChildEnd; aChildIter++, bChildIter++)
+	{
+		equal = equal && Equal(*aChildIter, *bChildIter);
+	}
+
+	return equal;
+}
+
+std::string ElementNode::GetPrintString(const ElementNode & e, std::string indentation, ParameterIndex argIndex)
+{
+	std::string printString = indentation + e.token.name.value;
+	printString += " (";
+	// todo, left param?
+	printString += "arg " + Reflection::ToString(argIndex.value);
+	if (e.streamIndex == kNullElementIndex)
+	{
+		printString += ", implied";
+	}
+	printString += ")\n";
+	indentation += "   ";
+	for (auto pair : e.childArgumentMapping)
+	{
+		printString += GetPrintString(
+			e.children[pair.second.value],
+			indentation,
+			pair.first);
+	}
+	return printString;
+}
+
 ErrorOr<ElementNode *> ElementNode::Add(ElementNode child, ParameterIndex argIndex)
 {
 	// this is often passed in after already walking the args and params
@@ -214,6 +279,11 @@ ParameterIndex ElementNode::RemoveLastChild()
 	}
 
 	return index;
+}
+
+void ElementNode::FillDefaultArguments()
+{
+
 }
 
 void ElementNode::UpdateChildrenSetParent()
@@ -362,7 +432,11 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 			inPermutableSection = true;
 		}
 
-		result.AddValidNextArg(nextTokenType, index, param.types);
+		// left parameters are not valid next arguments
+		if (index > kLeftParameterIndex)
+		{
+			result.AddValidNextArg(nextTokenType, index, param.types);
+		}
 
 		if (!param.optional)
 		{

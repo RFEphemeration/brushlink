@@ -42,7 +42,7 @@
       allowLocationSimulation = "YES">
       <PathRunnable
          runnableDebuggingMode = "0"
-         FilePath = "/Users/robin/Documents/Repositories/brushlink/runtests">
+         FilePath = "/Users/robin/Documents/Repositories/brushlink/build/bin/runtests">
       </PathRunnable>
    </LaunchAction>
    <ProfileAction
