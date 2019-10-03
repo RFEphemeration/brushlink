@@ -13,12 +13,61 @@ using namespace Farb::Tests;
 
 using namespace Command;
 
+struct ElementNodeFlags
+{
+	bool implied = false;
+
+	ElementNodeFlags(bool implied = false)
+		:implied(implied)
+	{ }
+};
+
+struct LinearElementNode
+{
+	ElementName name;
+	ParameterIndex argIndex = kNullParameterIndex;
+	int nestingLevel = 0;
+	ElementNodeFlags flags;
+
+	LinearElementNode(ElementName name, ParameterIndex argIndex, int nestingLevel, ElementNodeFlags flags = {})
+		: name(name)
+		, argIndex(argIndex)
+		, nestingLevel(nestingLevel)
+		, flags(flags)
+	{ }
+
+	bool operator==(const LinearElementNode & other) const
+	{
+		return name == other.name
+			&& argIndex == other.argIndex
+			&& nestingLevel == other.nestingLevel
+			&& flags.implied == other.flags.implied;
+	}
+};
+
+using LEN = LinearElementNode;
+
+void ConvertToLEN(ElementNode node, ParameterIndex argIndex, int nestingLevel, std::vector<LEN>& linear)
+{
+	linear.push_back(LinearElementNode{
+		node.token.name,
+		argIndex,
+		nestingLevel,
+		{node.streamIndex == kNullElementIndex}
+	});
+
+	nestingLevel++;
+	for (auto pair : node.childArgumentMapping)
+	{
+		ConvertToLEN(node.children[pair.second.value], pair.first, nestingLevel, linear);
+	}
+}
+
 void TestASTFromStream(
 	std::vector<ElementToken> & tokens,
-	ElementNode & expected_result,
-	bool complete)
+	const std::vector<LEN> & expected_linear,
+	bool complete = true)
 {
-
 	Parser parser;
 	std::string stream = "";
 
@@ -32,7 +81,10 @@ void TestASTFromStream(
 		};
 		stream += token.name.value + ", ";
 	}
-	bool success = ElementNode::Equal(expected_result, *parser.root);
+	std::vector<LEN> linear;
+	ConvertToLEN(*parser.root, kNullParameterIndex, 0, linear);
+	bool success = linear == expected_linear;
+	//bool success = ElementNode::Equal(expected_result, *parser.root);
 
 	std::string printString = ElementNode::GetPrintString(*parser.root, "            ");
 	
@@ -41,6 +93,8 @@ void TestASTFromStream(
 	
 	assert(success);
 }
+
+using Implied = ImpliedNodeOptions;
 
 class TestASTParsing : public ITest
 {
@@ -54,15 +108,13 @@ public:
 			{ ElementName{"Enemies"}, ElementType::Selector_Base }
 		};
 
-		ElementNode expected { stream[0], ElementIndex{0} };
-		ElementNode implied = ElementNode{
-			ImpliedNodeOptions::selectorToken, kNullElementIndex};
-		implied.children.push_back(ElementNode{stream[1], ElementIndex{1}});
-		implied.childArgumentMapping.insert({ ParameterIndex{0}, ElementIndex{0} });
-		expected.children.push_back(implied);
-		expected.childArgumentMapping.insert({ ParameterIndex{0}, ElementIndex{0} });
+		std::vector<LEN> expected_linear{
+			{stream[0].name, kNullParameterIndex, 0},
+			{Implied::selectorToken.name, 0, 1, {true}},
+			{stream[1].name, 0, 2}
+		};
 
-		TestASTFromStream(stream, expected, true);
+		TestASTFromStream(stream, expected_linear);
 
 		/*
 		stream = {
