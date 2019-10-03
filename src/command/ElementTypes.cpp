@@ -217,14 +217,24 @@ bool ElementNode::Equal(const ElementNode & a, const ElementNode & b)
 std::string ElementNode::GetPrintString(const ElementNode & e, std::string indentation, ParameterIndex argIndex)
 {
 	std::string printString = indentation + e.token.name.value;
-	printString += " (";
-	// todo, left param?
-	printString += "arg " + Reflection::ToString(argIndex.value);
+	bool annotations = false;
+	if (argIndex != kNullParameterIndex)
+	{
+		printString += " (";
+		// todo, left param?
+		printString += "arg " + Reflection::ToString(argIndex.value);
+		annotations = true;
+	}
 	if (e.streamIndex == kNullElementIndex)
 	{
 		printString += ", implied";
+		annotations = true;
 	}
-	printString += ")\n";
+	if (annotations)
+	{
+		printString += ")";
+	}
+	printString += "\n";
 	indentation += "   ";
 	for (auto pair : e.childArgumentMapping)
 	{

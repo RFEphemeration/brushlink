@@ -30,14 +30,14 @@ void TestASTFromStream(
 			farb_print(false, "TestAST appending token " + token.name.value + " failed");
 			assert(false);
 		};
-		stream += " " + token.name.value;
+		stream += token.name.value + ", ";
 	}
 	bool success = ElementNode::Equal(expected_result, *parser.root);
 
-	std::string printString = ElementNode::GetPrintString(*parser.root, "    ");
+	std::string printString = ElementNode::GetPrintString(*parser.root, "            ");
 	
 	farb_print(success,
-		"parsed ast from stream:" + stream + "\n" + printString);
+		"parsed ast from stream: [ " + stream + "]\n" + printString);
 	
 	assert(success);
 }
@@ -55,20 +55,12 @@ public:
 		};
 
 		ElementNode expected { stream[0], ElementIndex{0} };
-
 		ElementNode implied = ElementNode{
 			ImpliedNodeOptions::selectorToken, kNullElementIndex};
 		implied.children.push_back(ElementNode{stream[1], ElementIndex{1}});
 		implied.childArgumentMapping.insert({ ParameterIndex{0}, ElementIndex{0} });
-
-		std::cout << implied.children.size() << std::endl;
-
 		expected.children.push_back(implied);
 		expected.childArgumentMapping.insert({ ParameterIndex{0}, ElementIndex{0} });
-
-		std::cout << expected.children.size() << std::endl;
-
-		std::cout << expected.children[0].children.size() << std::endl;
 
 		TestASTFromStream(stream, expected, true);
 
