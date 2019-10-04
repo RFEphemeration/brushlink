@@ -17,8 +17,9 @@ namespace Command
 
 // todo: interactive visualizations
 
-
-enum class ElementType
+namespace ElementType
+{
+enum Enum
 {
 	Command =              1 << 0,
 
@@ -26,10 +27,10 @@ enum class ElementType
 	Action =               1 << 2,
 
 	Selector =             1 << 3,
-	Selector_Base =        1 << 4,
-	Selector_Generic =     1 << 5,
-	Selector_Group_Size =  1 << 6,
-	Selector_Superlative = 1 << 7,
+	Set =                 1 << 4, // group, crew, set?
+	Filter =               1 << 5, // predicate?
+	Group_Size =           1 << 6,
+	Superlative =          1 << 7,
 
 	Location =             1 << 8,
 	Point =                1 << 9,
@@ -37,37 +38,42 @@ enum class ElementType
 	Area =                 1 << 11,
 
 	Unit_Type =            1 << 12,
-	Attribute_Type =       1 << 13,
-	Ability_Type =         1 << 14,
+	Attribute_Type =       1 << 13, // drop _Type?
+	Ability_Type =         1 << 14, // skill?
 
 	Number =               1 << 15,
 
 	Skip =                 1 << 16,
 	Termination =          1 << 17,
-
 	// Begin_Word? End_Word?
 
-	Default_Value =        1 << 18,
-	Implied =              1 << 19,
+	Parameter_Reference =  1 << 18
 
-	// has no parameters and is not context dependent
-	Literal =              1 << 20,
-	Parameter_Reference =  1 << 21
-
-	// this is probably not an appropriate type because of the way fields are compared
+	// these are probably not appropriate types because of the way fields are compared
 	// but really I need to think about how to compare fields more thoroughly
 	// which probably means not using a field, and using sets instead
+	// or these become flags
+
+	//Default_Value =        1 << 18,
+	//Implied =              1 << 19,
+
+	// has no parameters and is not context dependent
+	//Literal =              1 << 20,
+
 	// User_Defined =         1 << 22
 };
+} // namespace ElementType
 
-inline ElementType operator|(ElementType a, ElementType b)
+const ElementType::Enum kNullElementType = static_cast<ElementType::Enum>(0);
+
+inline ElementType::Enum operator|(ElementType::Enum a, ElementType::Enum b)
 {
-	return static_cast<ElementType>(static_cast<int>(a) | static_cast<int>(b));
+	return static_cast<ElementType::Enum>(static_cast<int>(a) | static_cast<int>(b));
 }
 
-inline ElementType operator&(ElementType a, ElementType b)
+inline ElementType::Enum operator&(ElementType::Enum a, ElementType::Enum b)
 {
-	return static_cast<ElementType>(static_cast<int>(a) & static_cast<int>(b));
+	return static_cast<ElementType::Enum>(static_cast<int>(a) & static_cast<int>(b));
 }
 
 // rmf todo: split out ElementFlags from ElementType
@@ -83,17 +89,17 @@ struct ElementToken
 {
 	// this is a bit field of flags, aka a set of types
 	// but I think it should actually only be a single one
-	ElementType type;
+	ElementType::Enum type;
 	ElementName name;
 
 	ElementToken(ElementName name);
 
-	ElementToken(ElementName name, ElementType type)
+	ElementToken(ElementName name, ElementType::Enum type)
 		: name(name)
 		, type(type)
 	{ }
 
-	bool IsType(ElementType other)
+	bool IsType(ElementType::Enum other)
 	{
 		return static_cast<uint>(other) & static_cast<uint>(type);
 	}
@@ -103,7 +109,7 @@ struct ElementToken
 struct ElementParameter
 {
 	// todo: does this cover one_of variants? unit or units, area or point
-	ElementType types;
+	ElementType::Enum types;
 
 	bool optional = false;
 	bool permutable = false; // implement this later
@@ -112,12 +118,12 @@ struct ElementParameter
 	// you can be optional without a default_value
 	value_ptr<ElementToken> default_value { nullptr };
 
-	ElementParameter(ElementType type, bool optional = false, bool permutable = false, bool repeatable = false)
+	ElementParameter(ElementType::Enum type, bool optional = false, bool permutable = false, bool repeatable = false)
 		: types(type)
 		, optional(optional)
 	{ }
 
-	ElementParameter(ElementType type, ElementToken default_value)
+	ElementParameter(ElementType::Enum type, ElementToken default_value)
 		: types(type)
 		, optional(true)
 		, default_value(default_value)
@@ -149,34 +155,34 @@ const ElementIndex kNullElementIndex{-1};
 
 struct ElementDeclaration
 {
-	ElementType types { 0 };
+	ElementType::Enum types = kNullElementType;
 	ElementName name;
 
 	value_ptr<ElementParameter> left_parameter; // optional
 	std::vector<ElementParameter> right_parameters; // could be length 0
 
-	ElementDeclaration(ElementName name, ElementType type)
+	ElementDeclaration(ElementName name, ElementType::Enum type)
 		: name(name)
 		, types(type)
 		, left_parameter(nullptr)
 		, right_parameters()
 	{ }
 
-	ElementDeclaration(ElementName name, ElementType type, std::vector<ElementParameter> right_parameters)
+	ElementDeclaration(ElementName name, ElementType::Enum type, std::vector<ElementParameter> right_parameters)
 		: name(name)
 		, types(type)
 		, left_parameter(nullptr)
 		, right_parameters(right_parameters)
 	{ }
 
-	ElementDeclaration(ElementName name, ElementType type, ElementParameter left_parameter, std::vector<ElementParameter> right_parameters)
+	ElementDeclaration(ElementName name, ElementType::Enum type, ElementParameter left_parameter, std::vector<ElementParameter> right_parameters)
 		: name(name)
 		, types(type)
 		, left_parameter(left_parameter)
 		, right_parameters(right_parameters)
 	{ }
 
-	bool HasLeftParamterMatching(ElementType type) const;
+	bool HasLeftParamterMatching(ElementType::Enum type) const;
 
 	ErrorOr<ElementParameter> GetParameter(ParameterIndex index) const;
 
@@ -200,10 +206,10 @@ struct ImpliedNodeOptions
 	static const ElementToken locationToken;
 
 	// accepted arg type -> token to use for node
-	static const std::unordered_map<ElementType, ElementToken> acceptedArgTypes;
+	static const std::unordered_map<ElementType::Enum, ElementToken> acceptedArgTypes;
 
 	// parameter type -> arg types
-	static const std::unordered_map<ElementType, ElementType> potentialParamTypes;
+	static const std::unordered_map<ElementType::Enum, ElementType::Enum> potentialParamTypes;
 };
 
 // For an AST, ElementIndexes are in relationship to parent
@@ -244,38 +250,38 @@ struct ElementNode
 	// if you need two or more, you should call WalkArgsAndParams
 	// since these are just wrappers around that
 	bool ParametersMet() const;
-	ElementType GetValidNextArgTypes() const;
-	ElementType GetValidNextArgsWithImpliedNodes() const;
+	ElementType::Enum GetValidNextArgTypes() const;
+	ElementType::Enum GetValidNextArgsWithImpliedNodes() const;
 	ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const;
 
 	struct ArgAndParamWalkResult
 	{
 		bool allParametersMet { true };
-		ElementType validNextArgs { 0 };
-		ElementType validNextArgsWithImpliedNodes { 0 };
+		ElementType::Enum validNextArgs = kNullElementType;
+		ElementType::Enum validNextArgsWithImpliedNodes = kNullElementType;
 		ParameterIndex firstArgIndexForNextToken { kNullParameterIndex };
 		bool firstArgRequiresImpliedNode { false };
 
 		void AddValidNextArg(
-			ElementType nextTokenType,
+			ElementType::Enum nextTokenType,
 			ParameterIndex index,
-			ElementType types);
+			ElementType::Enum types);
 	};
 
-	ArgAndParamWalkResult WalkArgsAndParams(ElementType nextTokenType = ElementType { 0 }) const;
+	ArgAndParamWalkResult WalkArgsAndParams(ElementType::Enum nextTokenType = kNullElementType) const;
 };
 
 struct Parser
 {
 	struct NextTokenCriteria
 	{
-		ElementType validNextArgs { 0 };
-		ElementType rightSideTypesForLeftParameter { 0 };
+		ElementType::Enum validNextArgs = kNullElementType;
+		ElementType::Enum rightSideTypesForLeftParameter = kNullElementType;
 	};
 
 	struct ASTWalkResult
 	{
-		ElementToken walkedWith {ElementName{""}, ElementType{0}};
+		ElementToken walkedWith {ElementName{""}, kNullElementType};
 
 		bool completeStatement { false };
 		bool foundValidLocation { false };

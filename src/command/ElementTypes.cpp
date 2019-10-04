@@ -11,12 +11,12 @@ const ElementToken ImpliedNodeOptions::selectorToken { ElementName{"Selector"}, 
 const ElementToken ImpliedNodeOptions::locationToken { ElementName{"Location"}, ElementType::Location };
 
 // accepted arg type -> token to use for node
-const std::unordered_map<ElementType, ElementToken> ImpliedNodeOptions::acceptedArgTypes
+const std::unordered_map<ElementType::Enum, ElementToken> ImpliedNodeOptions::acceptedArgTypes
 {
-	{ ElementType::Selector_Base, selectorToken },
-	{ ElementType::Selector_Group_Size, selectorToken },
-	{ ElementType::Selector_Generic, selectorToken },
-	{ ElementType::Selector_Superlative, selectorToken },
+	{ ElementType::Set, selectorToken },
+	{ ElementType::Group_Size, selectorToken },
+	{ ElementType::Filter, selectorToken },
+	{ ElementType::Superlative, selectorToken },
 
 	{ ElementType::Point, locationToken },
 	{ ElementType::Line, locationToken },
@@ -24,15 +24,15 @@ const std::unordered_map<ElementType, ElementToken> ImpliedNodeOptions::accepted
 };
 
 // parameter type -> arg types
-const std::unordered_map<ElementType, ElementType> ImpliedNodeOptions::potentialParamTypes
+const std::unordered_map<ElementType::Enum, ElementType::Enum> ImpliedNodeOptions::potentialParamTypes
 {
 	{
 		ElementType::Selector,
 
-		ElementType::Selector_Base
-		| ElementType::Selector_Group_Size
-		| ElementType::Selector_Generic
-		| ElementType::Selector_Superlative
+		ElementType::Set
+		| ElementType::Group_Size
+		| ElementType::Filter
+		| ElementType::Superlative
 	},
 	{
 		ElementType::Location,
@@ -43,47 +43,52 @@ const std::unordered_map<ElementType, ElementType> ImpliedNodeOptions::potential
 	}
 };
 
+std::pair<ElementName, ElementDeclaration> Decl(const ElementDeclaration& decl)
+{
+	return {decl.name, decl};
+}
+
+using namespace ElementType;
+
 const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 {
-	{ ElementName{"Attack"},
-		{ ElementName{"Attack"}, ElementType::Action,
-			ElementParameter
+
+	Decl({
+		"Attack", Action,
+		{
+			Selector,
+			// rmf todo, default left with implied...
+			// and default tree not just single element
+			// and merge default children of implied
+			{ "Current_Selection", Set }
+		},
+		{
+			{ Selector }
+		}
+	}),
+	{ "Enemies",
+		{ "Enemies", Set }
+	},
+	{ "Within_Range",
+		{ "Within_Range", Filter,
 			{
-				ElementType::Selector,
-				// rmf todo, default left with implied...
-				{ ElementName{"Current_Selection"}, ElementType::Selector_Base }
-			},
-			std::vector<ElementParameter>
-			{
-				{ ElementType::Selector }
+				{ Number, { "Zero", Number} }
 			}
 		}
 	},
-	{ ElementName{"Enemies"},
-		{ ElementName{"Enemies"}, ElementType::Selector_Base }
+	{ "Zero",
+		{ "Zero", Number }
 	},
-	{ ElementName{"Within_Range"},
-		{ ElementName{"Within_Range"}, ElementType::Selector_Generic,
-			std::vector<ElementParameter>
+	{ "One",
+		{ "One", Number }
+	},
+	{ "Selector",
+		{ "Selector", Selector,
 			{
-				{ ElementType::Number, { ElementName{"Zero"}, ElementType::Number} }
-			}
-		}
-	},
-	{ ElementName{"Zero"},
-		{ ElementName{"Zero"}, ElementType::Number }
-	},
-	{ ElementName{"One"},
-		{ ElementName{"One"}, ElementType::Number}
-	},
-	{ ElementName{"Selector"},
-		{ ElementName{"Selector"}, ElementType::Selector,
-			std::vector<ElementParameter>
-			{
-				{ ElementType::Selector_Base, true },
-				{ ElementType::Selector_Group_Size, true },
-				{ ElementType::Selector_Generic, true },
-				{ ElementType::Selector_Superlative, true },
+				{ Set, true },
+				{ Group_Size, true },
+				{ Filter, true },
+				{ Superlative, true },
 			}
 		}
 	}
@@ -95,10 +100,10 @@ ElementToken::ElementToken(ElementName name)
 { }
 
 
-bool ElementDeclaration::HasLeftParamterMatching(ElementType type) const
+bool ElementDeclaration::HasLeftParamterMatching(ElementType::Enum type) const
 {
 	if (left_parameter.get() == nullptr) return false;
-	return (type & left_parameter->types) != ElementType{0};
+	return (type & left_parameter->types) != kNullElementType;
 }
 
 ErrorOr<ElementParameter> ElementDeclaration::GetParameter(ParameterIndex index) const
@@ -294,12 +299,12 @@ bool ElementNode::ParametersMet() const
 	return WalkArgsAndParams().allParametersMet;
 }
 
-ElementType ElementNode::GetValidNextArgTypes() const
+ElementType::Enum ElementNode::GetValidNextArgTypes() const
 {
 	return WalkArgsAndParams().validNextArgs;
 }
 
-ElementType ElementNode::GetValidNextArgsWithImpliedNodes() const
+ElementType::Enum ElementNode::GetValidNextArgsWithImpliedNodes() const
 {
 	return WalkArgsAndParams().validNextArgsWithImpliedNodes;
 }
@@ -319,15 +324,15 @@ ErrorOr<ParameterIndex> ElementNode::GetArgIndexForNextToken(ElementToken token)
 	return index;
 }
 
-void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType nextTokenType, ParameterIndex index, ElementType types)
+void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType::Enum nextTokenType, ParameterIndex index, ElementType::Enum types)
 {
 	validNextArgs = validNextArgs | types;
 
-	ElementType typesWithImplied { 0 };
+	ElementType::Enum typesWithImplied = kNullElementType;
 
 	for (auto pair : ImpliedNodeOptions::potentialParamTypes)
 	{
-		if ((pair.first & types) != ElementType {0})
+		if ((pair.first & types) != kNullElementType)
 		{
 			typesWithImplied = typesWithImplied | pair.second;
 		}
@@ -337,10 +342,10 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType nextTokenTy
 
 	if ((firstArgIndexForNextToken == kNullParameterIndex
 			|| index.value < firstArgIndexForNextToken.value)
-		&& ((types & nextTokenType) != ElementType{0}
-			|| (typesWithImplied & nextTokenType) != ElementType{0}))
+		&& ((types & nextTokenType) != kNullElementType
+			|| (typesWithImplied & nextTokenType) != kNullElementType))
 	{
-		if ((types & nextTokenType) != ElementType{0})
+		if ((types & nextTokenType) != kNullElementType)
 		{
 			firstArgRequiresImpliedNode = false;
 		}
@@ -354,7 +359,7 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType nextTokenTy
 
 // rmf todo: this probably shouldn't handle left parameters, right?
 // since we'd be appending, and you can't give a left parameter by appending
-ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType nextTokenType /* = ElementType { 0 } */) const
+ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType::Enum nextTokenType /* = kNullElementType */) const
 {
 	ArgAndParamWalkResult result;
 
@@ -522,9 +527,9 @@ Parser::ASTWalkResult Parser::WalkAST(
 	ElementToken * nextToken /* = nullptr */,
 	bool breakOnFoundLocation /* = false */)
 {
-	ElementType nextTokenType = 
+	ElementType::Enum nextTokenType = 
 		nextToken == nullptr
-		? ElementType { 0 }
+		? kNullElementType
 		: nextToken->type;
 	const ElementDeclaration * nextDec =
 		nextToken == nullptr
@@ -638,7 +643,7 @@ ErrorOr<Success> Parser::Append(ElementToken nextToken)
 Parser::NextTokenCriteria Parser::GetNextTokenCriteria()
 {
 	if (mostRecentWalkResult.get() == nullptr
-		|| mostRecentWalkResult->walkedWith.type != ElementType{0})
+		|| mostRecentWalkResult->walkedWith.type != kNullElementType)
 	{
 		*mostRecentWalkResult = WalkAST();
 	}

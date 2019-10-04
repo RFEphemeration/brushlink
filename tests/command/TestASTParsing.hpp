@@ -132,24 +132,24 @@ public:
 		/*
 		stream = {
 			{ ElementName{"Attack"}, ElementType::Action },
-			{ ElementName{"Enemies"}, ElementType::Selector_Base },
-			{ ElementName{"Within_Range"}, ElementType::Selector_Generic }
+			{ ElementName{"Enemies"}, ElementType::Set },
+			{ ElementName{"Within_Range"}, ElementType::Filter }
 		};
 
 		TestASTFromStream(stream);
 
 		stream = {
 			{ ElementName{"Attack"}, ElementType::Action },
-			{ ElementName{"Enemies"}, ElementType::Selector_Base },
-			{ ElementName{"Within_Range"}, ElementType::Selector_Generic },
+			{ ElementName{"Enemies"}, ElementType::Set },
+			{ ElementName{"Within_Range"}, ElementType::Filter },
 			{ ElementName{"One"}, ElementType::Number }
 		};
 		TestASTFromStream(stream);
 
 		stream = {
 			{ ElementName{"Attack"}, ElementType::Action },
-			{ ElementName{"Within_Range"}, ElementType::Selector_Generic },
-			{ ElementName{"Enemies"}, ElementType::Selector_Base }
+			{ ElementName{"Within_Range"}, ElementType::Filter },
+			{ ElementName{"Enemies"}, ElementType::Set }
 		};
 
 		TestASTFromStream(stream);
