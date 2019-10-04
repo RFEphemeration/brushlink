@@ -57,29 +57,29 @@ void ConvertToLEN(ElementNode node, ParameterIndex argIndex, int nestingLevel, s
 	});
 
 	nestingLevel++;
-	for (auto pair : node.childArgumentMapping)
+	for (auto pair : node.children)
 	{
-		ConvertToLEN(node.children[pair.second.value], pair.first, nestingLevel, linear);
+		ConvertToLEN(pair.second, pair.first, nestingLevel, linear);
 	}
 }
 
 void TestASTFromStream(
-	std::vector<ElementToken> & tokens,
+	const std::vector<ElementName> & names,
 	const std::vector<LEN> & expected_linear,
 	bool complete = true)
 {
 	Parser parser;
 	std::string stream = "";
 
-	for (auto token : tokens)
+	for (auto name : names)
 	{
-		auto result = parser.Append(token);
+		auto result = parser.Append({name});
 		if (result.IsError())
 		{
-			farb_print(false, "TestAST appending token " + token.name.value + " failed");
+			farb_print(false, "TestAST appending token " + name.value + " failed");
 			assert(false);
 		};
-		stream += token.name.value + ", ";
+		stream += name.value + ", ";
 	}
 	std::vector<LEN> linear;
 	ConvertToLEN(*parser.root, kNullParameterIndex, 0, linear);
@@ -94,7 +94,7 @@ void TestASTFromStream(
 	assert(success);
 }
 
-using Implied = ImpliedNodeOptions;
+using Stream = std::vector<ElementToken>;
 
 class TestASTParsing : public ITest
 {
@@ -103,18 +103,31 @@ public:
 	{
 		std::cout << "AST Parsing" << std::endl;
 
-		std::vector<ElementToken> stream = {
-			{ ElementName{"Attack"}, ElementType::Action },
-			{ ElementName{"Enemies"}, ElementType::Selector_Base }
-		};
+		TestASTFromStream(
+			{
+				{"Attack"},
+				{"Enemies"}
+			},
+			{
+				{ {"Attack"}, kNullParameterIndex, 0 },
+				{ {"Selector"}, 0, 1, {true} },
+				{ {"Enemies"}, 0, 2 }
+			}
+		);
 
-		std::vector<LEN> expected_linear{
-			{stream[0].name, kNullParameterIndex, 0},
-			{Implied::selectorToken.name, 0, 1, {true}},
-			{stream[1].name, 0, 2}
-		};
-
-		TestASTFromStream(stream, expected_linear);
+		TestASTFromStream(
+			{
+				"Attack",
+				"Enemies",
+				"Within_Range"
+			},
+			{
+				{ "Attack", kNullParameterIndex, 0 },
+				{ "Selector", 0, 1, {true} },
+				{ "Enemies", 0, 2 },
+				{ "Within_Range", 2, 2}
+			}
+		);
 
 		/*
 		stream = {

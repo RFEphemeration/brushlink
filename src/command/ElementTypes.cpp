@@ -81,13 +81,18 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 			std::vector<ElementParameter>
 			{
 				{ ElementType::Selector_Base, true },
-				{ ElementType::Selector_Generic, true },
 				{ ElementType::Selector_Group_Size, true },
+				{ ElementType::Selector_Generic, true },
 				{ ElementType::Selector_Superlative, true },
 			}
 		}
 	}
 };
+
+ElementToken::ElementToken(ElementName name)
+	: name(name)
+	, type(ElementDictionary::GetDeclaration(name)->types)
+{ }
 
 
 bool ElementDeclaration::HasLeftParamterMatching(ElementType type) const
@@ -183,35 +188,32 @@ bool ElementNode::Equal(const ElementNode & a, const ElementNode & b)
 	bool equal = a.streamIndex == b.streamIndex
 		&& a.token.type == b.token.type
 		&& a.token.name == b.token.name
-		&& a.children.size() == b.children.size()
-		&& a.childArgumentMapping.size() == b.childArgumentMapping.size();
+		&& a.children.size() == b.children.size();
 	if (!equal)
 	{
 		return false;
 	}
-	auto aMapIter = a.childArgumentMapping.begin();
-	auto bMapIter = b.childArgumentMapping.begin();
-	auto aMapEnd = a.childArgumentMapping.end();
-	auto bMapEnd = b.childArgumentMapping.end();
 
-	for(; aMapIter != aMapEnd && bMapIter != bMapEnd; aMapIter++, bMapIter++)
+	for (int i = 0; i < a.children.size(); i++)
 	{
 		equal = equal
-			&& (*aMapIter).first == (*bMapIter).first
-			&& (*aMapIter).second == (*bMapIter).second;
-	}
-
-	auto aChildIter = a.children.begin();
-	auto bChildIter = b.children.begin();
-	auto aChildEnd = a.children.end();
-	auto bChildEnd = b.children.end();
-
-	for(; aChildIter != aChildEnd && bChildIter != bChildEnd; aChildIter++, bChildIter++)
-	{
-		equal = equal && Equal(*aChildIter, *bChildIter);
+			&& a.children[i].first == b.children[i].first
+			&& Equal(a.children[i].second, b.children[i].second);
 	}
 
 	return equal;
+}
+
+int ElementNode::GetArgCountForParam(ParameterIndex index) const
+{
+	int count = 0;
+
+	for (auto pair : children)
+	{
+		if (pair.first == index) count++;
+	}
+
+	return count;
 }
 
 std::string ElementNode::GetPrintString(const ElementNode & e, std::string indentation, ParameterIndex argIndex)
@@ -236,10 +238,10 @@ std::string ElementNode::GetPrintString(const ElementNode & e, std::string inden
 	}
 	printString += "\n";
 	indentation += "   ";
-	for (auto pair : e.childArgumentMapping)
+	for (const auto & pair : e.children)
 	{
 		printString += GetPrintString(
-			e.children[pair.second.value],
+			pair.second,
 			indentation,
 			pair.first);
 	}
@@ -254,12 +256,10 @@ ErrorOr<ElementNode *> ElementNode::Add(ElementNode child, ParameterIndex argInd
 		argIndex = CHECK_RETURN(GetArgIndexForNextToken(child.token));
 	}
 
-	auto childIndex = ElementIndex{children.size()};
 	child.parent = this;
-	children.push_back(child);
-	childArgumentMapping.insert( { argIndex, childIndex } );
-	children.back().UpdateChildrenSetParent();
-	return &children.back();
+	children.push_back({argIndex, child});
+	UpdateChildrenSetParent();
+	return &(children.back().second);
 }
 
 ParameterIndex ElementNode::RemoveLastChild()
@@ -268,25 +268,9 @@ ParameterIndex ElementNode::RemoveLastChild()
 	{
 		return kNullParameterIndex;
 	}
+
+	ParameterIndex index = children[children.size() - 1].first;
 	children.pop_back();
-
-	ParameterIndex index = kNullParameterIndex;
-	
-	ElementIndex removed { children.size() };
-
-	auto it = childArgumentMapping.begin();
-	while(it != childArgumentMapping.end())
-	{
-		if (it->second == removed)
-		{
-			index = it->first;
-			it = childArgumentMapping.erase(it);
-		}
-		else
-		{
-			++it;
-		}
-	}
 
 	return index;
 }
@@ -298,10 +282,10 @@ void ElementNode::FillDefaultArguments()
 
 void ElementNode::UpdateChildrenSetParent()
 {
-	for (auto child : children)
+	for (auto & pair : children)
 	{
-		child.parent = this;
-		child.UpdateChildrenSetParent();
+		pair.second.parent = this;
+		pair.second.UpdateChildrenSetParent();
 	}
 }
 
@@ -376,15 +360,18 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 
 	const ElementDeclaration * dec = ElementDictionary::GetDeclaration(token.name);
 	ParameterIndex maxArgIndex = kNullParameterIndex;
-	auto lastMapping = childArgumentMapping.rbegin();
-	if (lastMapping != childArgumentMapping.rend())
+	for (auto pair : children)
 	{
-		maxArgIndex = lastMapping->first;
+		if (pair.first > maxArgIndex)
+		{
+			maxArgIndex = pair.first;
+		}
 	}
+
 	ParameterIndex minParamIndex = dec->GetMinParameterIndex();
 	ParameterIndex maxParamIndex = dec->GetMaxParameterIndex();
 
-	for (ParameterIndex index { maxArgIndex.value };
+	for (ParameterIndex index = maxArgIndex.value;
 		index.value > minParamIndex.value;
 		index.value--)
 	{
@@ -395,12 +382,13 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType ne
 			// don't have to worry about any parameters before the most recent one if they aren't permutable
 			break;
 		}
-		if (childArgumentMapping.count(index) == 0
+		int argCount = GetArgCountForParam(index);
+		if (argCount == 0
 			|| param.repeatable)
 		{
 			result.AddValidNextArg(nextTokenType, index, param.types);
 		}
-		if (childArgumentMapping.count(index) == 0
+		if (argCount == 0
 			&& !param.optional)
 		{
 			result.allParametersMet = false;
@@ -480,10 +468,16 @@ ElementNode * Parser::GetRightmostElement()
 	// and there can be at most one left parameter
 	while (
 		(current->children.size() == 1
-			&& current->childArgumentMapping.count(kLeftParameterIndex) == 0)
+			&& current->GetArgCountForParam(kLeftParameterIndex) == 0)
 		|| current->children.size() > 1)
 	{
-		current = &current->children.back();
+		ElementNode * previous = current;
+		current = &(current->children.back().second);
+		if (current->parent != previous)
+		{
+			// todo: log an error here
+			assert(false);
+		}
 	}
 	return current;
 }

@@ -86,6 +86,8 @@ struct ElementToken
 	ElementType type;
 	ElementName name;
 
+	ElementToken(ElementName name);
+
 	ElementToken(ElementName name, ElementType type)
 		: name(name)
 		, type(type)
@@ -213,13 +215,7 @@ struct ElementNode
 
 	// in order of appending, aka streamIndex
 	// maybe used owned_ptr?
-	std::vector<ElementNode> children;
-
-	// ElementIndex here refers to in the list of children
-	// should probably just have the map directly go to ElementNode
-	// or not becausde the last element added is important, and undos make this chain
-	// all the way back
-	std::multimap<ParameterIndex, ElementIndex> childArgumentMapping;
+	std::vector<std::pair<ParameterIndex, ElementNode> > children;
 
 	ElementNode* parent = nullptr;
 
@@ -232,6 +228,8 @@ struct ElementNode
 	static bool Equal(const ElementNode & a, const ElementNode & b);
 
 	static std::string GetPrintString(const ElementNode & e, std::string indentation = "", ParameterIndex argIndex = kNullParameterIndex);
+
+	int GetArgCountForParam(ParameterIndex index) const;
 
 	ErrorOr<ElementNode *> Add(ElementNode child, ParameterIndex argIndex = kNullParameterIndex);
 
