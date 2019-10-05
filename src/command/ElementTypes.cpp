@@ -50,48 +50,66 @@ std::pair<ElementName, ElementDeclaration>Decl(const ElementDeclaration& decl)
 
 using namespace ElementType;
 
+using Left = LeftParameter;
+
+using Right = std::vector<ElementParameter>;
+
 const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 {
 
 	Decl({ "Attack", Action,
-		LeftParameter{{
+		Left{{
 			Selector,
 			// rmf todo, default left with implied...
 			// and default tree not just single element
 			// and merge default children of implied
 			{ "Current_Selection", Set }
 		}},
-		{
+		Right{
 			// rmf todo: one_of Selector, Location
 			// or maybe these should be separate?
 			{ Selector }
 		}
 	}),
 
-	Decl({ "Enemies", Set }),
-	Decl({ "Allies", Set }),
-	Decl({ "Current_Selection", Set}),
-	Decl({ "Group_ID", Set,
-		{
-			{ Number }
-		}
-	}),
-
-	Decl({ "Within_Range", Filter,
-		{
-			{ Number, { "Zero", Number} }
-		}
-		}),
-	Decl({ "Zero", Number }),
-	Decl({ "One", Number }),
 	Decl({ "Selector", Selector,
-		{
+		Right{
 			{ Set, true },
 			{ Group_Size, true },
 			{ Filter, true },
 			{ Superlative, true },
 		}
-	})
+	}),
+
+	Decl({ "Enemies", Set }),
+	Decl({ "Allies", Set }),
+	Decl({ "Current_Selection", Set}),
+	Decl({ "Group_ID", Set, Right{{ Number }} }),
+
+	Decl({ "Within_Range", Filter,
+		Right{{ Number, { "Zero", Number } }}
+	}),
+
+	Decl({ "As_Individuals", Group_Size }),
+	Decl({ "Ratio", Group_Size,
+		Right{{ Number, { "One", Number } }}
+	}),
+
+	Decl({ "Closest", Superlative }),
+	Decl({ "Max_Attribute", Superlative,
+		Right{{ Attribute_Type }}
+	}),
+
+	Decl({ "Zero",  Number, Left{{ Number, true }} }),
+	Decl({ "One",   Number, Left{{ Number, true }} }),
+	Decl({ "Two",   Number, Left{{ Number, true }} }),
+	Decl({ "Three", Number, Left{{ Number, true }} }),
+	Decl({ "Four",  Number, Left{{ Number, true }} }),
+	Decl({ "Five",  Number, Left{{ Number, true }} }),
+	Decl({ "Six",   Number, Left{{ Number, true }} }),
+	Decl({ "Seven", Number, Left{{ Number, true }} }),
+	Decl({ "Eight", Number, Left{{ Number, true }} }),
+	Decl({ "Nine",  Number, Left{{ Number, true }} })
 };
 
 ElementToken::ElementToken(ElementName name)

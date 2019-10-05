@@ -182,6 +182,12 @@ struct ElementDeclaration
 		, right_parameters(right_parameters)
 	{ }
 
+	ElementDeclaration(ElementName name, ElementType::Enum type, LeftParameter left_parameter)
+		: name(name)
+		, types(type)
+		, left_parameter(left_parameter.value)
+	{ }
+
 	ElementDeclaration(ElementName name, ElementType::Enum type, LeftParameter left_parameter, std::vector<ElementParameter> right_parameters)
 		: name(name)
 		, types(type)
