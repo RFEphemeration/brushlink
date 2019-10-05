@@ -43,7 +43,7 @@ const std::unordered_map<ElementType::Enum, ElementType::Enum> ImpliedNodeOption
 	}
 };
 
-std::pair<ElementName, ElementDeclaration> Decl(const ElementDeclaration& decl)
+std::pair<ElementName, ElementDeclaration>Decl(const ElementDeclaration& decl)
 {
 	return {decl.name, decl};
 }
@@ -53,45 +53,45 @@ using namespace ElementType;
 const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 {
 
-	Decl({
-		"Attack", Action,
-		{
+	Decl({ "Attack", Action,
+		LeftParameter{{
 			Selector,
 			// rmf todo, default left with implied...
 			// and default tree not just single element
 			// and merge default children of implied
 			{ "Current_Selection", Set }
-		},
+		}},
 		{
+			// rmf todo: one_of Selector, Location
+			// or maybe these should be separate?
 			{ Selector }
 		}
 	}),
-	{ "Enemies",
-		{ "Enemies", Set }
-	},
-	{ "Within_Range",
-		{ "Within_Range", Filter,
-			{
-				{ Number, { "Zero", Number} }
-			}
+
+	Decl({ "Enemies", Set }),
+	Decl({ "Allies", Set }),
+	Decl({ "Current_Selection", Set}),
+	Decl({ "Group_ID", Set,
+		{
+			{ Number }
 		}
-	},
-	{ "Zero",
-		{ "Zero", Number }
-	},
-	{ "One",
-		{ "One", Number }
-	},
-	{ "Selector",
-		{ "Selector", Selector,
-			{
-				{ Set, true },
-				{ Group_Size, true },
-				{ Filter, true },
-				{ Superlative, true },
-			}
+	}),
+
+	Decl({ "Within_Range", Filter,
+		{
+			{ Number, { "Zero", Number} }
 		}
-	}
+		}),
+	Decl({ "Zero", Number }),
+	Decl({ "One", Number }),
+	Decl({ "Selector", Selector,
+		{
+			{ Set, true },
+			{ Group_Size, true },
+			{ Filter, true },
+			{ Superlative, true },
+		}
+	})
 };
 
 ElementToken::ElementToken(ElementName name)

@@ -153,6 +153,13 @@ using ElementIndex = NamedType<int, ElementIndexTag>;
 
 const ElementIndex kNullElementIndex{-1};
 
+struct LeftParameterTag
+{
+	static HString GetName() { return "Command::LeftParameter"; }
+};
+
+using LeftParameter = NamedType<ElementParameter, LeftParameterTag>;
+
 struct ElementDeclaration
 {
 	ElementType::Enum types = kNullElementType;
@@ -175,12 +182,17 @@ struct ElementDeclaration
 		, right_parameters(right_parameters)
 	{ }
 
-	ElementDeclaration(ElementName name, ElementType::Enum type, ElementParameter left_parameter, std::vector<ElementParameter> right_parameters)
+	ElementDeclaration(ElementName name, ElementType::Enum type, LeftParameter left_parameter, std::vector<ElementParameter> right_parameters)
 		: name(name)
 		, types(type)
-		, left_parameter(left_parameter)
+		, left_parameter(left_parameter.value)
 		, right_parameters(right_parameters)
 	{ }
+
+	operator std::pair<ElementName, ElementDeclaration>()
+	{
+		return {name, *this};
+	}
 
 	bool HasLeftParamterMatching(ElementType::Enum type) const;
 
