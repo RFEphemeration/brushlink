@@ -7,12 +7,16 @@ using namespace Farb;
 namespace Command
 {
 
+const ElementToken ImpliedNodeOptions::actionCastToken { ElementName{"Cast"}, ElementType::Action };
 const ElementToken ImpliedNodeOptions::selectorToken { ElementName{"Selector"}, ElementType::Selector };
 const ElementToken ImpliedNodeOptions::locationToken { ElementName{"Location"}, ElementType::Location };
 
 // accepted arg type -> token to use for node
 const std::unordered_map<ElementType::Enum, ElementToken> ImpliedNodeOptions::acceptedArgTypes
 {
+
+	{ ElementType::Ability, actionCastToken }
+
 	{ ElementType::Set, selectorToken },
 	{ ElementType::Group_Size, selectorToken },
 	{ ElementType::Filter, selectorToken },
@@ -20,7 +24,8 @@ const std::unordered_map<ElementType::Enum, ElementToken> ImpliedNodeOptions::ac
 
 	{ ElementType::Point, locationToken },
 	{ ElementType::Line, locationToken },
-	{ ElementType::Area, locationToken }
+	{ ElementType::Area, locationToken },
+
 };
 
 // parameter type -> arg types
@@ -57,49 +62,139 @@ using Right = std::vector<ElementParameter>;
 const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 {
 
+	// Action
+	Decl({ "Move", Action,
+		Left{{ Selector, { "Current_Selection", Set } }},
+		// could be changed to one_of Point, Line, Area
+		Right{{ Location }}
+	}),
+	Decl({ "Follow", Action,
+		Left{{ Selector, { "Current_Selection", Set } }},
+		// one_of Line, Selector
+		Right{{ Line }}
+	}),
 	Decl({ "Attack", Action,
-		Left{{
-			Selector,
-			// rmf todo, default left with implied...
-			// and default tree not just single element
-			// and merge default children of implied
-			{ "Current_Selection", Set }
-		}},
+		// rmf todo, default left with implied...
+		// and default tree not just single element
+		// and merge default children of implied
+		Left{{ Selector, { "Current_Selection", Set } }},
 		Right{
 			// rmf todo: one_of Selector, Location
 			// or maybe these should be separate?
 			{ Selector }
 		}
 	}),
+	Decl({ "Cast", Action,
+		Left{{ Selector, { "Current_Selection", Set } }},
+		Right{
+			{ Ability },
+			{ Location }
+		}
+	}),
+	Decl({ "Assign_Group", Action,
+		Left{{ Selector, { "Current_Selection", Set } }},
+		Right{{ Number }}
+	}),
 
+	// Selector
 	Decl({ "Selector", Selector,
 		Right{
 			{ Set, true },
 			{ Group_Size, true },
 			{ Filter, true },
-			{ Superlative, true },
+			{ Superlative, true }
 		}
 	}),
+	Decl({ "Union", Selector,
+		Left{{ Selector }},
+		Right{{ Selector }}
+	}),
 
+	// Set
 	Decl({ "Enemies", Set }),
 	Decl({ "Allies", Set }),
 	Decl({ "Current_Selection", Set}),
-	Decl({ "Group_ID", Set, Right{{ Number }} }),
+	Decl({ "Group", Set, Right{{ Number }} }),
 
+	// Filter
 	Decl({ "Within_Range", Filter,
 		Right{{ Number, { "Zero", Number } }}
 	}),
+	Decl({ "In_Area", Filter,
+		Right{{ Area }} }),
 
+	// Group Size
 	Decl({ "As_Individuals", Group_Size }),
 	Decl({ "Ratio", Group_Size,
 		Right{{ Number, { "One", Number } }}
 	}),
+	Decl({ "Count", Group_Size,
+		Right{{ Number, { "One", Number } }}
+	}),
 
+	// Superlative
 	Decl({ "Closest", Superlative }),
 	Decl({ "Max_Attribute", Superlative,
 		Right{{ Attribute_Type }}
 	}),
+	Decl({ "Min_Attribute", Superlative,
+		Right{{ Attribute_Type }}
+	}),
 
+	// Location
+	// Point
+	Decl({ "Coordinates", Point, Right{{ Number }, { Number }} }), // x, y
+	Decl({ "Average_Position", Point, Right{{ Selector }} }),
+	Decl({ "Center_Of", Point, Right{{ Area }} }),
+
+	// Line
+	Decl({ "Point_List", Line, Right{{ Point, false, true }} }),
+	// not quite sure how to do mouse input yet
+	Decl({ "Drawn_Line", Line, Right{{ Mouse_Input }} }),
+
+	// Area
+	Decl({ "Group_Area", Area, Right{{ Selector }} }),
+	Decl({ "Drawn_Area", Area, Right{{ Mouse_Input }} }),
+	// rmf note: it'd be nice if box_between and drawn_box were
+	// just one element - Box. todo: one_of Mouse_Input, (Point Point)
+	Decl({ "Drawn_Box", Area, Right{{ Mouse_Input }} }),
+	Decl({ "Box_Between", Area,
+		Right{
+			{ Point }, // two corners
+			{ Point }
+		}
+	}),
+	Decl({ "Circle", Area,
+		Right{
+			{ Point }, // center
+			{ Number } // radius
+		}
+	}),
+
+	// Unit_Type
+	Decl({ "Builder", Unit_Type }),
+	Decl({ "Scout", Unit_Type }),
+	Decl({ "Melee", Unit_Type }),
+	Decl({ "Ranged", Unit_Type }),
+	Decl({ "Tank", Unit_Type }),
+	Decl({ "Healer", Unit_Type }),
+	Decl({ "Support", Unit_Type }),
+
+	// Attribute_Type
+	Decl({ "Health", Attribute_Type }),
+	Decl({ "Move_Speed", Attribute_Type }),
+	Decl({ "Range", Attribute_Type }),
+
+	// Ability_Type
+	Decl({ "Movement", Ability }),
+	Decl({ "Heal", Ability }),
+	Decl({ "Area_Of_Affect", Ability }),
+	Decl({ "Build", Ability }),
+	Decl({ "Spawn", Ability }),
+	Decl({ "Buff", Ability }),
+	Decl({ "Debuff", Ability }),
+
+	// Number
 	Decl({ "Zero",  Number, Left{{ Number, true }} }),
 	Decl({ "One",   Number, Left{{ Number, true }} }),
 	Decl({ "Two",   Number, Left{{ Number, true }} }),
@@ -109,7 +204,31 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Six",   Number, Left{{ Number, true }} }),
 	Decl({ "Seven", Number, Left{{ Number, true }} }),
 	Decl({ "Eight", Number, Left{{ Number, true }} }),
-	Decl({ "Nine",  Number, Left{{ Number, true }} })
+	Decl({ "Nine",  Number, Left{{ Number, true }} }),
+	// todo: these should probably be left associative not right associative
+	// which could be implemented as implied skipping a continuous chain of numbers
+	// but should probably be something else
+	Decl({ "Divide", Number,
+		Left{{ Number }},
+		Right{{ Number }} }),
+	Decl({ "Multiply", Number,
+		Left{{ Number }},
+		Right{{ Number }} }),
+	Decl({ "Attribute_Value", Number,
+		Right{{ Attribute_Type }} }),
+	Decl({ "Unit_Count", Number,
+		Right{{ Selector }} }),
+
+	// Skip
+	Decl({ "Skip", Skip }),
+
+	// Termination
+	Decl({ "Termination", Termination }),
+
+	// Parameter_Reference
+	// rmf todo: how to get this to pass type checking?
+	// we could have one for each type...
+	Decl({ "Parameter_Reference", Parameter_Reference })
 };
 
 ElementToken::ElementToken(ElementName name)

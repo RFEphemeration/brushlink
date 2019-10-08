@@ -27,7 +27,7 @@ enum Enum
 	Action =               1 << 2,
 
 	Selector =             1 << 3,
-	Set =                 1 << 4, // group, crew, set?
+	Set =                  1 << 4, // base, group, crew, set?
 	Filter =               1 << 5, // predicate?
 	Group_Size =           1 << 6,
 	Superlative =          1 << 7,
@@ -36,6 +36,8 @@ enum Enum
 	Point =                1 << 9,
 	Line =                 1 << 10,
 	Area =                 1 << 11,
+	
+	// Direction?
 
 	Unit_Type =            1 << 12,
 	Attribute_Type =       1 << 13, // drop _Type?
@@ -116,7 +118,8 @@ struct ElementParameter
 	bool repeatable = false; // implement this later
 
 	// you can be optional without a default_value
-	value_ptr<ElementToken> default_value { nullptr };
+	// this is a list of elements that should be parsed into a tree
+	std::vector<ElementName> default_value;
 
 	ElementParameter(ElementType::Enum type, bool optional = false, bool permutable = false, bool repeatable = false)
 		: types(type)
@@ -220,6 +223,7 @@ protected:
 // or should there be different types of parameter_reference nodes?
 struct ImpliedNodeOptions
 {
+	static const ElementToken actionCastToken;
 	static const ElementToken selectorToken;
 	static const ElementToken locationToken;
 
