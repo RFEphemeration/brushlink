@@ -17,6 +17,7 @@ using Right = std::vector<ElementParameter>;
 
 const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 {
+	// rmf todo: how to state that this left parameter needs to be a root node?
 	// Action
 	Decl({ "Move", Action,
 		Left{{ Selector, "Current_Selection" }},
@@ -46,7 +47,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 			{ Location }
 		}
 	}),
-	Decl({ "Assign_Group", Action,
+	Decl({ "Assign_Command_Group", Action,
 		Left{{ Selector, "Current_Selection" }},
 		Right{{ Number }}
 	}),
@@ -69,7 +70,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Enemies", Set }),
 	Decl({ "Allies", Set }),
 	Decl({ "Current_Selection", Set}),
-	Decl({ "Group", Set, Right{{ Number }} }),
+	Decl({ "Command_Group", Set, Right{{ Number }} }),
 
 	// Filter
 	Decl({ "Within_Range", Filter,
@@ -83,7 +84,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Ratio", Group_Size,
 		Right{{ Number, "One" }}
 	}),
-	Decl({ "Count", Group_Size,
+	Decl({ "Group_Size", Group_Size,
 		Right{{ Number, "One" }}
 	}),
 
@@ -172,7 +173,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 		Right{{ Number }} }),
 	Decl({ "Attribute_Value", Number,
 		Right{{ Attribute_Type }} }),
-	Decl({ "Unit_Count", Number,
+	Decl({ "Group_Size_Of", Number,
 		Right{{ Selector }} }),
 
 	// Skip

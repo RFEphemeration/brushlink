@@ -507,7 +507,7 @@ NextTokenCriteria Parser::GetNextTokenCriteria()
 	if (mostRecentWalkResult.get() == nullptr
 		|| mostRecentWalkResult->walkedWith.type != kNullElementType)
 	{
-		*mostRecentWalkResult = WalkAST();
+		mostRecentWalkResult = value_ptr<ASTWalkResult>{WalkAST()};
 	}
 
 	return mostRecentWalkResult->potential;
