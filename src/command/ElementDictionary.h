@@ -1,43 +1,29 @@
 #ifndef BRUSHFIRE_COMMAND_ELEMENT_DICTIONARY_H
 #define BRUSHFIRE_COMMAND_ELEMENT_DICTIONARY_H
 
-#include "CommandElementTypes.hpp"
+#include "ElementTypes.hpp"
+
+#include <set>
 
 using namespace Farb;
 
 namespace Command
 {
 
-using ElementVariant = std::variant<
-	ElementAtomDynamic,
-	ElementLiteral,
-	ElementReference,
-	ElementWord,
-	ElementAtom< > > // we need to cover every kind of atom type here, don't we?
+struct NextTokenCriteria;
 
-class ElementDictionary : Singleton<ElementDictionary>
+class ElementDictionary
 {
-	// sending commands across the internet can't include user defined words
-	// so we probably need begin/end word elements
-	std::unordered_map<ElementID, CRef<Element> > elements;
+	static const std::map<ElementName, ElementDeclaration> declarations;
 
-	const Element & Get(ElementID id)
+public:
+	static const ElementDeclaration * GetDeclaration(ElementName name)
 	{
-		elements[id];
+		return &declarations.at(name);
 	}
 
-	std::unordered_map<ElementID, ElementAtomDynamic> element_atoms_dynamic;
-	std::unordered_map<ElementID, ElementLiteral> element_literals;
-	// should only contain "@-1, @0, @1, etc"
-	std::unordered_map<ElementID, ElementReference> element_references;
-	std::unordered_map<ElementID, ElementReference> element_words;
-
-private:
-	void InitializeTypedAtoms();
-
-
-
-}
+	static void GetAllowedNextElements(const NextTokenCriteria & criteria, std::set<ElementName> & out_allowed);
+};
 
 } // namespace Command
 

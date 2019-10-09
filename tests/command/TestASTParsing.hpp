@@ -4,8 +4,8 @@
 #include <assert.h> 
 
 #include "../../../farb/tests/RegisterTest.hpp"
-#include "../../src/command/ElementTypes.cpp"
-
+#include "../../src/command/ElementTypes.hpp"
+#include "../../src/command/Parser.h"
 
 using namespace Farb;
 
