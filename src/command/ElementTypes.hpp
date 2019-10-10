@@ -109,6 +109,19 @@ struct ElementToken
 	}
 };
 
+enum OccurrenceFlags
+{
+	Optional =   1 << 0,
+	Permutable = 1 << 1,
+	Repeatable = 1 << 2
+};
+
+
+inline OccurrenceFlags operator|(OccurrenceFlags a, OccurrenceFlags b)
+{
+	return static_cast<OccurrenceFlags>(static_cast<int>(a) | static_cast<int>(b));
+}
+
 
 struct ElementParameter
 {
@@ -123,9 +136,11 @@ struct ElementParameter
 	// this is a list of elements that should be parsed into a tree
 	value_ptr<ElementName> default_value;
 
-	ElementParameter(ElementType::Enum type, bool optional = false, bool permutable = false, bool repeatable = false)
+	ElementParameter(ElementType::Enum type, OccurrenceFlags flags = {})
 		: types(type)
-		, optional(optional)
+		, optional(flags & Optional)
+		, permutable(flags & Permutable)
+		, repeatable(flags & Repeatable)
 	{ }
 
 	ElementParameter(ElementType::Enum type, ElementName default_value)

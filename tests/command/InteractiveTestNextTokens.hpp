@@ -50,12 +50,27 @@ public:
  				continue;
  			}
  			std::cout << "AST - " << std::endl;
- 			std::string printString = ElementNode::GetPrintString(*parser.root, "    ");
+ 			std::string printString = ElementNode::GetPrintString(parser.root, "    ");
  			std::cout << printString;
 
  			auto criteria = parser.GetNextTokenCriteria();
 
  			ElementDictionary::GetAllowedNextElements(criteria, validNextElements);
+
+ 			if (validNextElements.size() == 0)
+ 			{
+ 				if (!parser.IsComplete())
+ 				{
+ 					std::cout << "no valid elements and the statement is still incomplete" << std::endl;
+ 					return false;
+ 				}
+ 				else
+ 				{
+ 					std::cout << "command is complete" << std::endl;
+ 					parser.Reset();
+ 					continue;
+ 				}
+ 			}
 
  			std::cout << "Valid Next - ";
  			for (auto & nextName : validNextElements)

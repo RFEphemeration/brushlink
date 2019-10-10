@@ -86,10 +86,9 @@ struct NextTokenCriteria
 	ElementType::Enum validNextArgs = kNullElementType;
 	ElementType::Enum rightSideTypesForLeftParameter = kNullElementType;
 };
-	
+
 struct Parser
 {
-
 	struct ASTWalkResult
 	{
 		ElementToken walkedWith {ElementName{""}, kNullElementType};
@@ -122,14 +121,17 @@ struct Parser
 	};
 
 	std::vector<ElementToken> stream;
-	value_ptr<ElementNode> root;
+	ElementNode root{{"Command", ElementType::Command}, kNullElementIndex};
 
 	value_ptr<ASTWalkResult> mostRecentWalkResult;
 
+	void Reset();
 
 	ErrorOr<Success> Append(ElementToken nextToken);
 
 	NextTokenCriteria GetNextTokenCriteria();
+
+	bool IsComplete();
 
 private:
 

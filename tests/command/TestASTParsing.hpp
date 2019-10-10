@@ -82,11 +82,11 @@ void TestASTFromStream(
 		stream += name.value + ", ";
 	}
 	std::vector<LEN> linear;
-	ConvertToLEN(*parser.root, kNullParameterIndex, 0, linear);
+	ConvertToLEN(parser.root, kNullParameterIndex, 0, linear);
 	bool success = linear == expected_linear;
 	//bool success = ElementNode::Equal(expected_result, *parser.root);
 
-	std::string printString = ElementNode::GetPrintString(*parser.root, "            ");
+	std::string printString = ElementNode::GetPrintString(parser.root, "            ");
 	
 	farb_print(success,
 		"parsed ast from stream: [ " + stream + "]\n" + printString);
@@ -105,13 +105,14 @@ public:
 
 		TestASTFromStream(
 			{
-				{"Attack"},
-				{"Enemies"}
+				"Attack",
+				"Enemies"
 			},
 			{
-				{ {"Attack"}, kNullParameterIndex, 0 },
-				{ {"Selector"}, 0, 1, {true} },
-				{ {"Enemies"}, 0, 2 }
+				{ "Command", kNullParameterIndex, 0, {true} },
+				{ "Attack", 1, 1 },
+				{ "Selector", 0, 2, {true} },
+				{ "Enemies", 0, 3 }
 			}
 		);
 
@@ -122,10 +123,11 @@ public:
 				"Within_Range"
 			},
 			{
-				{ "Attack", kNullParameterIndex, 0 },
-				{ "Selector", 0, 1, {true} },
-				{ "Enemies", 0, 2 },
-				{ "Within_Range", 2, 2}
+				{ "Command", kNullParameterIndex, 0, {true} },
+				{ "Attack", 1, 1 },
+				{ "Selector", 0, 2, {true} },
+				{ "Enemies", 0, 3 },
+				{ "Within_Range", 2, 3}
 			}
 		);
 

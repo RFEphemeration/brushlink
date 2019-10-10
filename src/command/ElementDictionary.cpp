@@ -18,47 +18,50 @@ using Right = std::vector<ElementParameter>;
 const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 {
 	// rmf todo: how to state that this left parameter needs to be a root node?
+	// Command
+	Decl({ "Command", Command,
+		Right{
+			// todo: default with implied
+			{ Selector, "Current_Selection" },
+			{ Action, Optional },
+			{ Termination }
+		}
+	}),
+
 	// Action
 	Decl({ "Move", Action,
-		Left{{ Selector, "Current_Selection" }},
 		// could be changed to one_of Point, Line, Area
 		Right{{ Location }}
 	}),
 	Decl({ "Follow", Action,
-		Left{{ Selector, "Current_Selection" }},
 		// one_of Line, Selector
 		Right{{ Line }}
 	}),
 	Decl({ "Attack", Action,
-		// rmf todo, default left with implied...
-		// and default tree not just single element
-		// and merge default children of implied
-		Left{{ Selector, "Current_Selection" }},
 		Right{
 			// rmf todo: one_of Selector, Location
 			// or maybe these should be separate?
+			// todo: default tree and merging
 			{ Selector }
 		}
 	}),
 	Decl({ "Cast", Action,
-		Left{{ Selector, "Current_Selection" }},
 		Right{
 			{ Ability_Type },
 			{ Location }
 		}
 	}),
 	Decl({ "Assign_Command_Group", Action,
-		Left{{ Selector, "Current_Selection" }},
 		Right{{ Number }}
 	}),
 
 	// Selector
 	Decl({ "Selector", Selector,
 		Right{
-			{ Set, true },
-			{ Group_Size, true },
-			{ Filter, true },
-			{ Superlative, true }
+			{ Set, Optional | Permutable },
+			{ Group_Size, Optional | Permutable },
+			{ Filter, Optional | Permutable | Repeatable },
+			{ Superlative, Optional | Permutable }
 		}
 	}),
 	Decl({ "Union", Selector,
@@ -104,7 +107,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Center_Of", Point, Right{{ Area }} }),
 
 	// Line
-	Decl({ "Point_List", Line, Right{{ Point, false, true }} }),
+	Decl({ "Point_List", Line, Right{{ Point, Repeatable }} }),
 	// not quite sure how to do mouse input yet
 	Decl({ "Drawn_Line", Line, Right{{ Mouse_Input }} }),
 
@@ -152,16 +155,16 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 
 	// Number
 	// tood: should probably add flag of Literal as requirement for left parameter
-	Decl({ "Zero",  Number, Left{{ Number, true }} }),
-	Decl({ "One",   Number, Left{{ Number, true }} }),
-	Decl({ "Two",   Number, Left{{ Number, true }} }),
-	Decl({ "Three", Number, Left{{ Number, true }} }),
-	Decl({ "Four",  Number, Left{{ Number, true }} }),
-	Decl({ "Five",  Number, Left{{ Number, true }} }),
-	Decl({ "Six",   Number, Left{{ Number, true }} }),
-	Decl({ "Seven", Number, Left{{ Number, true }} }),
-	Decl({ "Eight", Number, Left{{ Number, true }} }),
-	Decl({ "Nine",  Number, Left{{ Number, true }} }),
+	Decl({ "Zero",  Number, Left{{ Number, Optional }} }),
+	Decl({ "One",   Number, Left{{ Number, Optional }} }),
+	Decl({ "Two",   Number, Left{{ Number, Optional }} }),
+	Decl({ "Three", Number, Left{{ Number, Optional }} }),
+	Decl({ "Four",  Number, Left{{ Number, Optional }} }),
+	Decl({ "Five",  Number, Left{{ Number, Optional }} }),
+	Decl({ "Six",   Number, Left{{ Number, Optional }} }),
+	Decl({ "Seven", Number, Left{{ Number, Optional }} }),
+	Decl({ "Eight", Number, Left{{ Number, Optional }} }),
+	Decl({ "Nine",  Number, Left{{ Number, Optional }} }),
 	// todo: these should probably be left associative not right associative
 	// which could be implemented as implied skipping a continuous chain of numbers
 	// but should probably be something else

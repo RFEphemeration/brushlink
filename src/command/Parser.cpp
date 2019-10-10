@@ -86,22 +86,23 @@ int ElementNode::GetArgCountForParam(ParameterIndex index) const
 std::string ElementNode::GetPrintString(const ElementNode & e, std::string indentation, ParameterIndex argIndex)
 {
 	std::string printString = indentation + e.token.name.value;
-	bool annotations = false;
+	std::string annotations;
 	if (argIndex != kNullParameterIndex)
 	{
-		printString += " (";
 		// todo, left param?
-		printString += "arg " + Reflection::ToString(argIndex.value);
-		annotations = true;
+		annotations += "arg " + Reflection::ToString(argIndex.value);
 	}
 	if (e.streamIndex == kNullElementIndex)
 	{
-		printString += ", implied";
-		annotations = true;
+		if (!annotations.empty())
+		{
+			annotations += ", ";
+		}
+		annotations += "implied";
 	}
-	if (annotations)
+	if (!annotations.empty())
 	{
-		printString += ")";
+		printString += " (" + annotations + ")";
 	}
 	printString += "\n";
 	indentation += "   ";
@@ -239,7 +240,7 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType::E
 	ParameterIndex maxParamIndex = dec->GetMaxParameterIndex();
 
 	for (ParameterIndex index = maxArgIndex.value;
-		index.value > minParamIndex.value;
+		index.value >= minParamIndex.value;
 		index.value--)
 	{
 		// this could runtime assert
@@ -326,11 +327,8 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType::E
 
 ElementNode * Parser::GetRightmostElement()
 {
-	ElementNode * current = root.get();
-	if (current == nullptr)
-	{
-		return nullptr;
-	}
+	ElementNode * current = &root;
+
 	// we must have at least one non left parameter child
 	// and there can be at most one left parameter
 	while (
@@ -450,15 +448,15 @@ Parser::ASTWalkResult Parser::WalkAST(
 	return astWalkResult;
 }
 
+void Parser::Reset()
+{
+	stream.clear();
+	root = {{"Command", ElementType::Command}, kNullElementIndex};
+	mostRecentWalkResult.reset();
+}
+
 ErrorOr<Success> Parser::Append(ElementToken nextToken)
 {
-	if (root.get() == nullptr)
-	{
-		stream.push_back(nextToken);
-		root = value_ptr<ElementNode>{ElementNode{nextToken, ElementIndex{0}}};
-		return Success();
-	}
-
 	// returning errors can be destructive here
 	if (mostRecentWalkResult.get() == nullptr
 		|| !(mostRecentWalkResult->walkedWith.name == nextToken.name))
@@ -511,6 +509,17 @@ NextTokenCriteria Parser::GetNextTokenCriteria()
 	}
 
 	return mostRecentWalkResult->potential;
+}
+
+bool Parser::IsComplete()
+{
+	if (mostRecentWalkResult.get() == nullptr
+		|| mostRecentWalkResult->walkedWith.type != kNullElementType)
+	{
+		mostRecentWalkResult = value_ptr<ASTWalkResult>{WalkAST()};
+	}
+
+	return mostRecentWalkResult->completeStatement;
 }
 
 } // namespace Command
