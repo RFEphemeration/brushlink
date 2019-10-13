@@ -1,0 +1,14 @@
+command
+	parser
+		fill defaults
+		context sensitive defaults
+		default_value tree or chain
+		merge default value for sub items
+		skip
+		backspace, including removing implied with zero children
+		one_of parameters
+	element definitions
+		are these actually an ast, and the others are a parse tree?
+		what does optional without a default value mean?
+			for example, Command has an optional action, but that could be a default action of "set current selection"
+

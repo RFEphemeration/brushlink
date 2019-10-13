@@ -31,54 +31,59 @@ public:
 		while (true)
 		{
 			std::cout << ": " << std::flush;
- 			std::getline(std::cin, line);
- 			if (line.empty())
- 			{
- 				return true;
- 			}
- 			ElementName name{line};
- 			auto decl = ElementDictionary::GetDeclaration({line});
- 			if (decl == nullptr)
- 			{
- 				std::cout << "invalid element name." << std::endl;
- 				continue;
- 			}
- 			auto result = parser.Append({name, decl->types});
- 			if (result.IsError())
- 			{
- 				result.GetError().Log();
- 				continue;
- 			}
- 			std::cout << "AST - " << std::endl;
- 			std::string printString = ElementNode::GetPrintString(parser.root, "    ");
- 			std::cout << printString;
+			std::getline(std::cin, line);
+			if (line.empty())
+			{
+				return true;
+			}
+			ElementName name{line};
+			auto decl = ElementDictionary::GetDeclaration({line});
+			if (decl == nullptr)
+			{
+				std::cout << "invalid element name." << std::endl;
+				continue;
+			}
+			auto result = parser.Append({name, decl->types});
+			if (result.IsError())
+			{
+				result.GetError().Log();
+				continue;
+			}
+			std::cout << "AST - " << std::endl;
+			std::string printString = ElementNode::GetPrintString(parser.root, "    ");
+			std::cout << printString;
 
- 			auto criteria = parser.GetNextTokenCriteria();
+			auto criteria = parser.GetNextTokenCriteria();
 
- 			ElementDictionary::GetAllowedNextElements(criteria, validNextElements);
+			ElementDictionary::GetAllowedNextElements(criteria, validNextElements);
 
- 			if (validNextElements.size() == 0)
- 			{
- 				if (!parser.IsComplete())
- 				{
- 					std::cout << "no valid elements and the statement is still incomplete" << std::endl;
- 					return false;
- 				}
- 				else
- 				{
- 					std::cout << "command is complete" << std::endl;
- 					parser.Reset();
- 					continue;
- 				}
- 			}
+			if (validNextElements.size() == 0)
+			{
+				if (!parser.IsComplete())
+				{
+					std::cout << "no valid elements and the statement is still incomplete" << std::endl;
+					return false;
+				}
+				else
+				{
+					std::cout << "command is complete" << std::endl;
+					parser.FillDefaultArguments();
+					std::cout << "AST with defaults filled- " << std::endl;
+		 			std::string printString = ElementNode::GetPrintString(parser.root, "    ");
+					std::cout << printString;
 
- 			std::cout << "Valid Next - ";
- 			for (auto & nextName : validNextElements)
- 			{
- 				std::cout << nextName.value << " ";
- 			}
- 			std::cout << std::endl;
- 		}
+					parser.Reset();
+					continue;
+				}
+			}
+
+			std::cout << "Valid Next - ";
+			for (auto & nextName : validNextElements)
+			{
+				std::cout << nextName.value << " ";
+			}
+			std::cout << std::endl;
+		}
 	}
 };
 

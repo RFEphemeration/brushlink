@@ -145,7 +145,37 @@ ParameterIndex ElementNode::RemoveLastChild()
 
 void ElementNode::FillDefaultArguments()
 {
+	const ElementDeclaration * dec = ElementDictionary::GetDeclaration(token.name);
 
+	ParameterIndex minParamIndex = dec->GetMinParameterIndex();
+	ParameterIndex maxParamIndex = dec->GetMaxParameterIndex();
+
+	for (ParameterIndex paramIndex = minParamIndex;
+		paramIndex.value <= maxParamIndex.value;
+		paramIndex.value++)
+	{
+		ElementParameter param = dec->GetParameter(paramIndex).GetValue();
+		if (param.default_value.get() == nullptr)
+		{
+			// no need to try to fill defaults for parameters that don't have them
+			// might as well avoid searching through our arguments
+			continue;
+		}
+		bool existsArgForParam = false;
+		for (auto pair : children)
+		{
+			ParameterIndex argIndex = pair.first;
+			if (argIndex == paramIndex)
+			{
+				existsArgForParam = true;
+				break;
+			}
+		}
+		if (!existsArgForParam)
+		{
+			Add({ { *param.default_value }, kNullElementIndex }, paramIndex);
+		}
+	}
 }
 
 void ElementNode::UpdateChildrenSetParent()
@@ -323,6 +353,20 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType::E
 	}
 
 	return result;
+}
+
+void Parser::FillDefaultArguments()
+{
+	FillDefaultArguments(root);
+}
+
+void Parser::FillDefaultArguments(ElementNode & current)
+{
+	current.FillDefaultArguments();
+	for(auto & pair : current.children)
+	{
+		FillDefaultArguments(pair.second);
+	}
 }
 
 ElementNode * Parser::GetRightmostElement()

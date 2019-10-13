@@ -22,13 +22,29 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Command", Command,
 		Right{
 			// todo: default with implied
+			// what if some selectors aren't valid here?
+			// is it just that they're not valid yet?
+			// i.e. current_actor not valid until Command Arg 0 is complete?
 			{ Selector, "Current_Selection" },
-			{ Action, Optional },
+			{ Action, "Set_Current_Selection" },
+			// how to require at least one of selector or action?
+			// here it doesn't particularly matter
+			// since setting the current selection to the current selection
+			// is a no-op
 			{ Termination }
 		}
 	}),
 
 	// Action
+	// it feels like there are two groups of actions
+	// things done by units and things done by the player
+	Decl({ "Set_Current_Selection", Action }),
+	Decl({ "Assign_Command_Group", Action,
+		Right{{ Number }}
+	}),
+	Decl({ "Add_To_Command_Group", Action,
+		Right{{ Number }}
+	}),
 	Decl({ "Move", Action,
 		// could be changed to one_of Point, Line, Area
 		Right{{ Location }}
@@ -37,6 +53,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 		// one_of Line, Selector
 		Right{{ Line }}
 	}),
+	// rmf todo: resolve Attack, Attack_Move, Fire_At
 	Decl({ "Attack", Action,
 		Right{
 			// rmf todo: one_of Selector, Location
@@ -45,14 +62,16 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 			{ Selector }
 		}
 	}),
+	Decl({ "Fire_At", Action, 
+		Right{
+			{ Location }
+		}
+	}),
 	Decl({ "Cast", Action,
 		Right{
 			{ Ability_Type },
 			{ Location }
 		}
-	}),
-	Decl({ "Assign_Command_Group", Action,
-		Right{{ Number }}
 	}),
 
 	// Selector
@@ -72,7 +91,8 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	// Set
 	Decl({ "Enemies", Set }),
 	Decl({ "Allies", Set }),
-	Decl({ "Current_Selection", Set}),
+	Decl({ "Current_Selection", Set }),
+	Decl({ "Actors", Set }),
 	Decl({ "Command_Group", Set, Right{{ Number }} }),
 
 	// Filter

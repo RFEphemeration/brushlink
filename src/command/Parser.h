@@ -25,7 +25,7 @@ struct ImpliedNodeOptions
 // For an AST, ElementIndexes are in relationship to parent
 struct ElementNode
 {
-	// kNullElementIndex (-1) means you are not in the stream, i.e. implied
+	// kNullElementIndex (-1) means you are not in the stream, i.e. implied or default
 	ElementIndex streamIndex = kNullElementIndex;
 	ElementToken token;
 
@@ -81,6 +81,8 @@ struct ElementNode
 	ArgAndParamWalkResult WalkArgsAndParams(ElementType::Enum nextTokenType = kNullElementType) const;
 };
 
+// can this really be evaluated seperately?
+// or are there location/context dependent criteria that won't work?
 struct NextTokenCriteria
 {
 	ElementType::Enum validNextArgs = kNullElementType;
@@ -132,6 +134,10 @@ struct Parser
 	NextTokenCriteria GetNextTokenCriteria();
 
 	bool IsComplete();
+
+	void FillDefaultArguments();
+
+	void FillDefaultArguments(ElementNode & current);
 
 private:
 
