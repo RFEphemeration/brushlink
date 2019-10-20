@@ -45,7 +45,7 @@ struct ElementNode
 
 	static std::string GetPrintString(const ElementNode & e, std::string indentation = "", ParameterIndex argIndex = kNullParameterIndex);
 
-	int GetArgCountForParam(ParameterIndex index) const;
+	int GetArgCountForParam(ParameterIndex index, bool excludeRightmost = false) const;
 
 	ErrorOr<ElementNode *> Add(ElementNode child, ParameterIndex argIndex = kNullParameterIndex);
 
@@ -64,6 +64,8 @@ struct ElementNode
 	ElementType::Enum GetValidNextArgsWithImpliedNodes() const;
 	ErrorOr<ParameterIndex> GetArgIndexForNextToken(ElementToken token) const;
 
+	ElementType::Enum GetValidNextArgTypesReplacingRightmost() const;
+
 	struct ArgAndParamWalkResult
 	{
 		bool allParametersMet { true };
@@ -78,7 +80,9 @@ struct ElementNode
 			ElementType::Enum types);
 	};
 
-	ArgAndParamWalkResult WalkArgsAndParams(ElementType::Enum nextTokenType = kNullElementType) const;
+	ArgAndParamWalkResult WalkArgsAndParams(
+		ElementType::Enum nextTokenType = kNullElementType,
+		bool excludeRightmost = false) const;
 };
 
 // can this really be evaluated seperately?
@@ -87,6 +91,8 @@ struct NextTokenCriteria
 {
 	ElementType::Enum validNextArgs = kNullElementType;
 	ElementType::Enum rightSideTypesForLeftParameter = kNullElementType;
+	// first = left param type, second = allowed element types
+	std::vector<std::pair<ElementType::Enum, ElementType::Enum> > rightSideTypesForMismatchedLeftParameter;
 };
 
 struct Parser

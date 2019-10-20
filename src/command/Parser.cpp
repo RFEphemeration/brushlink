@@ -8,25 +8,26 @@ using namespace Farb;
 
 namespace Command
 {
+using namespace ElementType;
 
-const ElementToken ImpliedNodeOptions::actionCastToken { ElementName{"Cast"}, ElementType::Action };
-const ElementToken ImpliedNodeOptions::selectorToken { ElementName{"Selector"}, ElementType::Selector };
-const ElementToken ImpliedNodeOptions::locationToken { ElementName{"Location"}, ElementType::Location };
+const ElementToken ImpliedNodeOptions::actionCastToken { ElementName{"Cast"}, Action };
+const ElementToken ImpliedNodeOptions::selectorToken { ElementName{"Selector"}, Selector };
+const ElementToken ImpliedNodeOptions::locationToken { ElementName{"Location"}, Location };
 
 // accepted arg type -> token to use for node
 const std::unordered_map<ElementType::Enum, ElementToken> ImpliedNodeOptions::acceptedArgTypes
 {
 
-	{ ElementType::Ability_Type, actionCastToken },
+	{ Ability_Type, actionCastToken },
 
-	{ ElementType::Set, selectorToken },
-	{ ElementType::Group_Size, selectorToken },
-	{ ElementType::Filter, selectorToken },
-	{ ElementType::Superlative, selectorToken },
+	{ Set, selectorToken },
+	{ Group_Size, selectorToken },
+	{ Filter, selectorToken },
+	{ Superlative, selectorToken },
 
-	{ ElementType::Point, locationToken },
-	{ ElementType::Line, locationToken },
-	{ ElementType::Area, locationToken },
+	{ Point, locationToken },
+	{ Line, locationToken },
+	{ Area, locationToken },
 
 };
 
@@ -34,19 +35,19 @@ const std::unordered_map<ElementType::Enum, ElementToken> ImpliedNodeOptions::ac
 const std::unordered_map<ElementType::Enum, ElementType::Enum> ImpliedNodeOptions::potentialParamTypes
 {
 	{
-		ElementType::Selector,
+		Selector,
 
-		ElementType::Set
-		| ElementType::Group_Size
-		| ElementType::Filter
-		| ElementType::Superlative
+		Set
+		| Group_Size
+		| Filter
+		| Superlative
 	},
 	{
-		ElementType::Location,
+		Location,
 
-		ElementType::Point
-		| ElementType::Line
-		| ElementType::Area
+		Point
+		| Line
+		| Area
 	}
 };
 
@@ -71,13 +72,20 @@ bool ElementNode::Equal(const ElementNode & a, const ElementNode & b)
 	return equal;
 }
 
-int ElementNode::GetArgCountForParam(ParameterIndex index) const
+int ElementNode::GetArgCountForParam(ParameterIndex index, bool excludeRightmost /* = false */) const
 {
 	int count = 0;
 
 	for (auto pair : children)
 	{
 		if (pair.first == index) count++;
+	}
+
+	if (excludeRightmost
+		&& count > 0
+		&& children.back().first == index)
+	{
+		count--;
 	}
 
 	return count;
@@ -192,6 +200,18 @@ bool ElementNode::ParametersMet() const
 	return WalkArgsAndParams().allParametersMet;
 }
 
+ElementType::Enum ElementNode::GetValidNextArgTypesReplacingRightmost() const
+{
+	if (children.empty())
+	{
+		return kNullElementType;
+	}
+	auto walkResult = WalkArgsAndParams(kNullElementType, true);
+	ElementType::Enum allowed = walkResult.validNextArgs
+		| walkResult.validNextArgsWithImpliedNodes;
+	return allowed;
+}
+
 ElementType::Enum ElementNode::GetValidNextArgTypes() const
 {
 	return WalkArgsAndParams().validNextArgs;
@@ -252,7 +272,9 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType::Enum nextT
 
 // rmf todo: this probably shouldn't handle left parameters, right?
 // since we'd be appending, and you can't give a left parameter by appending
-ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType::Enum nextTokenType /* = kNullElementType */) const
+ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(
+	ElementType::Enum nextTokenType /* = kNullElementType */,
+	bool excludeRightmost /* = false */ ) const
 {
 	ArgAndParamWalkResult result;
 
@@ -280,7 +302,7 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(ElementType::E
 			// don't have to worry about any parameters before the most recent one if they aren't permutable
 			break;
 		}
-		int argCount = GetArgCountForParam(index);
+		int argCount = GetArgCountForParam(index, excludeRightmost);
 		if (argCount == 0
 			|| param.repeatable)
 		{
@@ -417,9 +439,20 @@ void Parser::ASTWalkResult::AddTypesForPotentialLeftParams(
 	potential.rightSideTypesForLeftParameter =
 		potential.rightSideTypesForLeftParameter | node->token.type;
 
+	ElementType::Enum allowedToReplaceLeft = kNullElementType;
+
+	if (node->parent != nullptr)
+	{
+		allowedToReplaceLeft = node->parent->GetValidNextArgTypesReplacingRightmost();
+		potential.rightSideTypesForMismatchedLeftParameter.push_back({
+			node->token.type,
+			allowedToReplaceLeft});
+	}
+
 	if (!foundValidLocation
 		&& declaration != nullptr
-		&& declaration->HasLeftParamterMatching(node->token.type))
+		&& declaration->HasLeftParamterMatching(node->token.type)
+		&& (allowedToReplaceLeft & declaration->types) != kNullElementType)
 	{
 		foundValidLocation = true;
 		tokenLocation.e = node;

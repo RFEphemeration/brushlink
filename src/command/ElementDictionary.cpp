@@ -38,23 +38,30 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	// Action
 	// it feels like there are two groups of actions
 	// things done by units and things done by the player
-	Decl({ "Set_Current_Selection", Action }),
+	Decl({ "Set_Current_Selection", Action,
+		Left{{ Selector, "Current_Selection" }},
+	}),
 	Decl({ "Assign_Command_Group", Action,
+		Left{{ Selector, "Current_Selection" }},
 		Right{{ Number }}
 	}),
 	Decl({ "Add_To_Command_Group", Action,
+		Left{{ Selector, "Current_Selection" }},
 		Right{{ Number }}
 	}),
 	Decl({ "Move", Action,
+		Left{{ Selector, "Current_Selection" }},
 		// could be changed to one_of Point, Line, Area
 		Right{{ Location }}
 	}),
 	Decl({ "Follow", Action,
+		Left{{ Selector, "Current_Selection" }},
 		// one_of Line, Selector
 		Right{{ Line }}
 	}),
 	// rmf todo: resolve Attack, Attack_Move, Fire_At
 	Decl({ "Attack", Action,
+		Left{{ Selector, "Current_Selection" }},
 		Right{
 			// rmf todo: one_of Selector, Location
 			// or maybe these should be separate?
@@ -62,12 +69,14 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 			{ Selector }
 		}
 	}),
-	Decl({ "Fire_At", Action, 
+	Decl({ "Fire_At", Action,
+		Left{{ Selector, "Current_Selection" }}, 
 		Right{
 			{ Location }
 		}
 	}),
 	Decl({ "Cast", Action,
+		Left{{ Selector, "Current_Selection" }},
 		Right{
 			{ Ability_Type },
 			{ Location }
