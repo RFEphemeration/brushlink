@@ -110,6 +110,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	}),
 	Decl({ "In_Area", Filter,
 		Right{{ Area }} }),
+	// Attribute_Threshold_Quintile right params Threshold_Type(Absolute,Relative), Attribute, Number
 
 	// Group Size
 	Decl({ "As_Individuals", Group_Size }),
@@ -130,6 +131,15 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	}),
 
 	// Location
+	Decl({ "Location", Location,
+		Right{
+			// todo: change to one_of
+			{ Point, Optional | Permutable },
+			{ Line, Optional | Permutable },
+			{ Area, Optional | Permutable }
+		}
+	}),
+
 	// Point
 	Decl({ "Coordinates", Point, Right{{ Number }, { Number }} }), // x, y
 	Decl({ "Average_Position", Point, Right{{ Selector }} }),
@@ -220,6 +230,15 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Parameter_Reference", Parameter_Reference })
 };
 
+const ElementDeclaration * ElementDictionary::GetDeclaration(ElementName name)
+{
+	if (declarations.count(name) == 0)
+	{
+		Error("Couldn't find ElementDeclaration for name " + name.value).Log();
+		return nullptr;
+	}
+	return &declarations.at(name);
+}
 
 void ElementDictionary::GetAllowedNextElements(const NextTokenCriteria & criteria, std::set<ElementName> & out_allowed)
 {
@@ -246,7 +265,27 @@ void ElementDictionary::GetAllowedNextElements(const NextTokenCriteria & criteri
 			// or if we match the left parameter (optional or required)
 			else if (decl.left_parameter->types & criteria.rightSideTypesForLeftParameter)
 			{
-				out_allowed.insert(pair.first);
+				// our type is the same as the left_parameter
+				if (decl.left_parameter->types == decl.types)
+				{
+					out_allowed.insert(pair.first);
+				}
+				// or if our type differs from the left_parameter
+				else
+				{
+					// we need to check the mismatched list
+					for (auto & mismatched : criteria.rightSideTypesForMismatchedLeftParameter)
+					{
+						// there could be multiple entries meeting the first
+						// criteria, so we can't early out unless this type is allowed
+						if (mismatched.first & decl.left_parameter->types
+							&& mismatched.second & decl.types)
+						{
+							out_allowed.insert(pair.first);
+							break;
+						}
+					}
+				}
 			}
 		}
 	}

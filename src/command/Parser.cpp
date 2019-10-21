@@ -245,7 +245,7 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType::Enum nextT
 
 	for (auto pair : ImpliedNodeOptions::potentialParamTypes)
 	{
-		if ((pair.first & types) != kNullElementType)
+		if (pair.first & types)
 		{
 			typesWithImplied = typesWithImplied | pair.second;
 		}
@@ -255,10 +255,10 @@ void ElementNode::ArgAndParamWalkResult::AddValidNextArg(ElementType::Enum nextT
 
 	if ((firstArgIndexForNextToken == kNullParameterIndex
 			|| index.value < firstArgIndexForNextToken.value)
-		&& ((types & nextTokenType) != kNullElementType
-			|| (typesWithImplied & nextTokenType) != kNullElementType))
+		&& (types & nextTokenType
+			|| typesWithImplied & nextTokenType))
 	{
-		if ((types & nextTokenType) != kNullElementType)
+		if (types & nextTokenType)
 		{
 			firstArgRequiresImpliedNode = false;
 		}

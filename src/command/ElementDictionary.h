@@ -17,10 +17,7 @@ class ElementDictionary
 	static const std::map<ElementName, ElementDeclaration> declarations;
 
 public:
-	static const ElementDeclaration * GetDeclaration(ElementName name)
-	{
-		return &declarations.at(name);
-	}
+	static const ElementDeclaration * GetDeclaration(ElementName name);
 
 	static void GetAllowedNextElements(const NextTokenCriteria & criteria, std::set<ElementName> & out_allowed);
 };

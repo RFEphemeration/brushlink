@@ -4,7 +4,7 @@ command
 			unit types (select, build)
 			ability types (select, use)
 		check type of new node with left_parameter
-		re-add attack left_parameter
+		# re-add attack left_parameter
 		fill defaults
 		context sensitive defaults
 		default_value tree or chain

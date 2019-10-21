@@ -19,7 +19,7 @@ ElementToken::ElementToken(ElementName name)
 bool ElementDeclaration::HasLeftParamterMatching(ElementType::Enum type) const
 {
 	if (left_parameter.get() == nullptr) return false;
-	return (type & left_parameter->types) != kNullElementType;
+	return type & left_parameter->types;
 }
 
 ErrorOr<ElementParameter> ElementDeclaration::GetParameter(ParameterIndex index) const

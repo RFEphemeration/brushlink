@@ -30,29 +30,6 @@ public:
 
 		while (true)
 		{
-			std::cout << ": " << std::flush;
-			std::getline(std::cin, line);
-			if (line.empty())
-			{
-				return true;
-			}
-			ElementName name{line};
-			auto decl = ElementDictionary::GetDeclaration({line});
-			if (decl == nullptr)
-			{
-				std::cout << "invalid element name." << std::endl;
-				continue;
-			}
-			auto result = parser.Append({name, decl->types});
-			if (result.IsError())
-			{
-				result.GetError().Log();
-				continue;
-			}
-			std::cout << "AST - " << std::endl;
-			std::string printString = ElementNode::GetPrintString(parser.root, "    ");
-			std::cout << printString;
-
 			auto criteria = parser.GetNextTokenCriteria();
 
 			ElementDictionary::GetAllowedNextElements(criteria, validNextElements);
@@ -76,13 +53,36 @@ public:
 					continue;
 				}
 			}
-
+			
 			std::cout << "Valid Next - ";
 			for (auto & nextName : validNextElements)
 			{
 				std::cout << nextName.value << " ";
 			}
 			std::cout << std::endl;
+
+			std::cout << ": " << std::flush;
+			std::getline(std::cin, line);
+			if (line.empty())
+			{
+				return true;
+			}
+			ElementName name{line};
+			auto decl = ElementDictionary::GetDeclaration({line});
+			if (decl == nullptr)
+			{
+				std::cout << "invalid element name." << std::endl;
+				continue;
+			}
+			auto result = parser.Append({name, decl->types});
+			if (result.IsError())
+			{
+				result.GetError().Log();
+				continue;
+			}
+			std::cout << "AST - " << std::endl;
+			std::string printString = ElementNode::GetPrintString(parser.root, "    ");
+			std::cout << printString;
 		}
 	}
 };
