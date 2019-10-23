@@ -30,6 +30,10 @@ struct NumberTag
 }
 using Number = NamedType<int, Number>;
 
+using Selector_Filter = Functor<UnitGroup, CommandContext, UnitGroup>;
+using Selector_GroupSize = Functor<Number, CommandContext, UnitGroup>; // is this just a number?
+using Selector_Superlative = Functor<UnitGroup, CommandContext, Number, UnitGroup>;
+
 // each unit can have multiple types
 enum class Unit_Type
 {
@@ -108,6 +112,12 @@ struct Perimeter : Area
 {
 	Line perimeter;
 }
+
+template<typename T>
+using OptionalRepeatable = std::vector<T>;
+
+template<typename T>
+using Optional = std::optional<T>;
 
 } // namespace Command
 

@@ -114,7 +114,10 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 
 	// Group Size
 	Decl({ "As_Individuals", Group_Size }),
-	Decl({ "Ratio", Group_Size,
+	Decl({ "Actor_Ratio", Group_Size,
+		Right{{ Number, "One" }}
+	}),
+	Decl({ "Group_Ratio", Group_Size,
 		Right{{ Number, "One" }}
 	}),
 	Decl({ "Group_Size", Group_Size,

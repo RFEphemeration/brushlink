@@ -17,7 +17,6 @@ const ElementToken ImpliedNodeOptions::locationToken { ElementName{"Location"}, 
 // accepted arg type -> token to use for node
 const std::unordered_map<ElementType::Enum, ElementToken> ImpliedNodeOptions::acceptedArgTypes
 {
-
 	{ Ability_Type, actionCastToken },
 
 	{ Set, selectorToken },

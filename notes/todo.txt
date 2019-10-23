@@ -3,7 +3,9 @@ command
 		new implied nodes
 			unit types (select, build)
 			ability types (select, use)
-		check type of new node with left_parameter
+		prioritizing implied?
+		implied with left param
+		# check type of new node with left_parameter
 		# re-add attack left_parameter
 		fill defaults
 		context sensitive defaults
@@ -16,4 +18,5 @@ command
 		are these actually an ast, and the others are a parse tree?
 		what does optional without a default value mean?
 			for example, Command has an optional action, but that could be a default action of "set current selection"
-
+	interpreter
+		execute element definitions
