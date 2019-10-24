@@ -190,8 +190,8 @@ ErrorOr<Selector_GroupSize> group_ratio(
 	}
 
 	static auto evaluate = [](
-		const CommandContext & context,
 		Number ratio,
+		const CommandContext & context,
 		UnitGroup group)
 	{
 		Number group_size{ group.members.size() / ratio.value };
@@ -206,6 +206,24 @@ ErrorOr<Selector_GroupSize> group_ratio(
 	return CurriedFunctor{
 		FunctionPointer{evaluate},
 		ratio
+	};
+}
+
+Selector_GroupSize group_size(
+	const CommandContext & context,
+	Number number)
+{
+	static auto evaluate = [](
+		Number number,
+		const CommandContext & context,
+		UnitGroup group)
+	{
+		return number;
+	};
+
+	return CurriedFunctor{
+		FunctionPointer{evaluate},
+		number
 	};
 }
 
@@ -292,6 +310,49 @@ Selector_Superlative closest(
 		CurriedFunctor{
 			FunctionPointer{getDistanceToNearestActor},
 			actorUnits
+		}
+	);
+}
+
+Selector_Superlative max_attribute(
+	const CommandContext & context
+	Attribute_Type attribute)
+{
+	static auto getAttributeValue = [](
+		Attribute_Type attribute,
+		const CommandContext & context,
+		UnitID unitID)
+	{
+		const Unit & target = context.GetUnit(unitID);
+		return target.GetAttribute(attribute);
+	}
+
+	return superlative_helper(
+		CurriedFunctor{
+			FunctionPointer{getAttributeValue},
+			attribute
+		},
+		false
+	);
+}
+
+Selector_Superlative min_attribute(
+	const CommandContext & context
+	Attribute_Type attribute)
+{
+	static auto getAttributeValue = [](
+		Attribute_Type attribute,
+		const CommandContext & context,
+		UnitID unitID)
+	{
+		const Unit & target = context.GetUnit(unitID);
+		return target.GetAttribute(attribute);
+	}
+
+	return superlative_helper(
+		CurriedFunctor{
+			FunctionPointer{getAttributeValue},
+			attribute
 		}
 	);
 }
