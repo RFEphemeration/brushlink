@@ -89,11 +89,11 @@ struct Direction
 	int y;
 }
 
-struct Area
+struct Area // should this be a union type?
 {
 	virtual std::vector<Point> GetPointDistributionInArea(Number count) const;
 
-	virtual bool IsPointInArea(Point point) const;
+	virtual bool Contains(Point point) const;
 }
 
 struct Box : Area
@@ -113,9 +113,28 @@ struct Perimeter : Area
 	Line perimeter;
 }
 
+struct AreaUnion : Area
+{
+	std::vector<Area> areas;
+}
+
+struct AreaIntersection : Area
+{
+	std::vector Area areas;
+}
+
+// relying on the declaration parameter type checking
+// to verify that there is at least one for repeatable
+// but not optional parameters
+template<typename T>
+using Repeatable = std::vector<T>;
+
 template<typename T>
 using OptionalRepeatable = std::vector<T>;
 
+// this optional should only be used for things that have
+// no default value, since if there is a default
+// we just pass that to the function instead
 template<typename T>
 using Optional = std::optional<T>;
 

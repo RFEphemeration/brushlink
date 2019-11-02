@@ -40,6 +40,12 @@ Selector_Filter within_range(
 	const CommandContext & context,
 	Number distance_modifier);
 
+Selector_Filter in_area(
+	const CommandContext & context,
+	Area area);
+
+// todo: as_individuals, maybe cutting this...
+
 ErrorOr<Selector_GroupSize> actor_ratio(
 	const CommandContext & context,
 	Number ratio);

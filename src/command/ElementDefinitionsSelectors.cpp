@@ -146,6 +146,36 @@ Selector_Filter within_range(
 	};
 }
 
+Selector_Filter in_area(
+	const CommandContext & context,
+	Area area)
+{
+	static auto evaluate = [](
+		const CommandContext & context,
+		Area area,
+		UnitGroup group)
+	{
+		UnitGroup new_group;
+
+		for(auto unitID : group.members)
+		{
+			const Unit & target = context.GetUnit(unitID);
+
+			if (area.Contains(target.GetPosition()))
+			{
+				new_group.members.push_back(unitID);
+			}
+		}
+
+		return new_group;
+	}
+
+	return CurriedFunctor{
+		FunctionPointer{evaluate},
+		area
+	};
+}
+
 // Group Size
 ErrorOr<Selector_GroupSize> actor_ratio(
 	const CommandContext & context,

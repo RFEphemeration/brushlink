@@ -16,6 +16,9 @@ class ElementDictionary
 {
 	static const std::map<ElementName, ElementDeclaration> declarations;
 
+	// rmf todo: post load to fill out element references to each other
+	// for example words use other declarations
+
 public:
 	static const ElementDeclaration * GetDeclaration(ElementName name);
 

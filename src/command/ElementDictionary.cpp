@@ -1,3 +1,5 @@
+#include "ElementDefinition.hpp"
+#include "ElementDefinitions.h"
 #include "ElementDictionary.h"
 #include "Parser.h"
 
@@ -14,6 +16,8 @@ using namespace ElementType;
 using Left = LeftParameter;
 
 using Right = std::vector<ElementParameter>;
+
+using namespace ElementDefinitionAbbreviations;
 
 const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 {
@@ -84,7 +88,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	}),
 
 	// Selector
-	Decl({ "Selector", Selector,
+	Decl({ "Selector", Selector, Atom(selector),
 		Right{
 			{ Set, Optional | Permutable },
 			{ Group_Size, Optional | Permutable },
@@ -92,44 +96,44 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 			{ Superlative, Optional | Permutable }
 		}
 	}),
-	Decl({ "Union", Selector,
+	Decl({ "Union", Selector, Atom(selector_union),
 		Left{{ Selector }},
 		Right{{ Selector }}
 	}),
 
 	// Set
-	Decl({ "Enemies", Set }),
-	Decl({ "Allies", Set }),
-	Decl({ "Current_Selection", Set }),
-	Decl({ "Actors", Set }),
-	Decl({ "Command_Group", Set, Right{{ Number }} }),
+	Decl({ "Enemies", Set, Atom(enemies) }),
+	Decl({ "Allies", Set, Atom(allies) }),
+	Decl({ "Current_Selection", Se, Atom(current_selection) }),
+	Decl({ "Actors", Set, Atom(actors) }),
+	Decl({ "Command_Group", Set, Atom(command_group), Right{{ Number }} }),
 
 	// Filter
-	Decl({ "Within_Range", Filter,
+	Decl({ "Within_Range", Filter, Atom(within_range),
 		Right{{ Number, "Zero" }}
 	}),
-	Decl({ "In_Area", Filter,
+	Decl({ "In_Area", Filter, Atom(in_area),
 		Right{{ Area }} }),
 	// Attribute_Threshold_Quintile right params Threshold_Type(Absolute,Relative), Attribute, Number
 
 	// Group Size
 	Decl({ "As_Individuals", Group_Size }),
-	Decl({ "Actor_Ratio", Group_Size,
+	Decl({ "Actor_Ratio", Group_Size, Atom(actor_ratio),
 		Right{{ Number, "One" }}
 	}),
-	Decl({ "Group_Ratio", Group_Size,
+	Decl({ "Group_Ratio", Group_Size, Atom(group_ratio),
 		Right{{ Number, "One" }}
 	}),
-	Decl({ "Group_Size", Group_Size,
+	Decl({ "Group_Size", Group_Size, Atom(group_size),
 		Right{{ Number, "One" }}
 	}),
 
 	// Superlative
-	Decl({ "Closest", Superlative }),
-	Decl({ "Max_Attribute", Superlative,
+	Decl({ "Closest", Superlative, Atom(closest) }),
+	Decl({ "Max_Attribute", Superlative, Atom(max_attribute),
 		Right{{ Attribute_Type }}
 	}),
-	Decl({ "Min_Attribute", Superlative,
+	Decl({ "Min_Attribute", Superlative, Atom(min_attribute),
 		Right{{ Attribute_Type }}
 	}),
 

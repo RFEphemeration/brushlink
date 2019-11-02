@@ -185,34 +185,41 @@ struct ElementDeclaration
 	ElementType::Enum types = kNullElementType;
 	ElementName name;
 
-	value_ptr<ElementParameter> left_parameter; // optional
+	value_ptr<ElementParameter> left_parameter = nullptr; // optional
 	std::vector<ElementParameter> right_parameters; // could be length 0
 
-	ElementDeclaration(ElementName name, ElementType::Enum type)
+	OwnedPtr<ElementDefinition> definition;
+
+	ElementDeclaration(ElementName name, ElementType::Enum type, OwnedPtr<ElementDefinition>&& definition)
 		: name(name)
 		, types(type)
-		, left_parameter(nullptr)
-		, right_parameters()
+		, definition(definition)
 	{ }
 
-	ElementDeclaration(ElementName name, ElementType::Enum type, std::vector<ElementParameter> right_parameters)
+	ElementDeclaration(
+		ElementName name,
+		ElementType::Enum type,
+		OwnedPtr<ElementDefinition>&& definition,
+		std::vector<ElementParameter> right_parameters)
 		: name(name)
 		, types(type)
-		, left_parameter(nullptr)
 		, right_parameters(right_parameters)
+		, definition(definition)
 	{ }
 
-	ElementDeclaration(ElementName name, ElementType::Enum type, LeftParameter left_parameter)
+	ElementDeclaration(ElementName name, ElementType::Enum type, OwnedPtr<ElementDefinition>&& definition, LeftParameter left_parameter)
 		: name(name)
 		, types(type)
 		, left_parameter(left_parameter.value)
+		, definition(definition)
 	{ }
 
-	ElementDeclaration(ElementName name, ElementType::Enum type, LeftParameter left_parameter, std::vector<ElementParameter> right_parameters)
+	ElementDeclaration(ElementName name, ElementType::Enum type, OwnedPtr<ElementDefinition>&& definition, LeftParameter left_parameter, std::vector<ElementParameter> right_parameters)
 		: name(name)
 		, types(type)
 		, left_parameter(left_parameter.value)
 		, right_parameters(right_parameters)
+		, definition(definition)
 	{ }
 
 	operator std::pair<ElementName, ElementDeclaration>()
