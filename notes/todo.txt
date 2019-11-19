@@ -4,6 +4,7 @@ command
 			unit types (select, build)
 			ability types (select, use)
 		prioritizing implied?
+			so you can say "healing ability" and either mean use or select units with
 		implied with left param
 		# check type of new node with left_parameter
 		# re-add attack left_parameter

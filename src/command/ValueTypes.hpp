@@ -4,6 +4,8 @@
 namespace Command
 {
 
+using Command = Functor<void, CommandContext>;
+
 // not actually used in command statements, but given to units
 enum class Action_Type
 {
@@ -89,39 +91,76 @@ struct Direction
 	int y;
 }
 
-struct Area // should this be a union type?
+struct Area_Interface
 {
-	virtual std::vector<Point> GetPointDistributionInArea(Number count) const;
+	virtual std::vector<Point> GetPointDistributionInArea(Number count) const = 0;
 
-	virtual bool Contains(Point point) const;
+	virtual bool Contains(Point point) const = 0;
 }
 
-struct Box : Area
+struct Box : Area_Interface
 {
 	Point topLeft;
 	Point bottomRight;
 }
 
-struct Circle : Area
+struct Circle : Area_Interface
 {
 	Point center;
 	Number radius;
 }
 
-struct Perimeter : Area
+struct Perimeter : Area_Interface
 {
 	Line perimeter;
 }
 
-struct AreaUnion : Area
+struct Area_Union : Area_Interface
 {
 	std::vector<Area> areas;
 }
 
-struct AreaIntersection : Area
+struct Area_Intersection : Area_Interface
 {
 	std::vector Area areas;
 }
+
+// should this be a union type?
+struct Area
+{
+	std::variant<Box, Circle, Perimeter, Area_Union, Area_Intersection> implementation;
+
+	Area_Interface * interface = &implementation;
+
+	std::vector<Point> GetPointDistributionInArea(Number count)
+	{
+		return implementation->GetPointDistributionInArea(count);
+	}
+
+	bool Contains(Point point)
+	{
+		return implementation->Contains(point);
+	}
+}
+
+using Location = std::variant<Point, Line, Direction, Area>;
+
+using Value = std::variant<
+	Command,
+	Action_Type,
+	UnitGroup,
+	Number,
+	Selector_Filter,
+	Selector_GroupSize,
+	Selector_Superlative,
+	Unit_Type unit_type,
+	Ability_Type,
+	Attribute_Type,
+	Location,
+	Point,
+	Line,
+	Direction,
+	Area>;
 
 // relying on the declaration parameter type checking
 // to verify that there is at least one for repeatable
@@ -137,6 +176,9 @@ using OptionalRepeatable = std::vector<T>;
 // we just pass that to the function instead
 template<typename T>
 using Optional = std::optional<T>;
+
+template<typename Ts...>
+using One_Of = std::variant<Ts...>;
 
 } // namespace Command
 

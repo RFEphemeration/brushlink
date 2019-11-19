@@ -108,7 +108,7 @@ struct ElementDefinitionReference : ElementDefinition
 struct ElementDefinitionWord : ElementDefinition
 {
 	std::vector<ElementName> definition_stream;
-	Parser definition_tree;
+	ElementNode definition_tree;
 
 	// we will probably want to collapse the definition tree into a Functor
 	// in which case this will end up being a typed pointer
@@ -121,7 +121,7 @@ struct ElementDefinitionWord : ElementDefinition
 		CommandContext sub_context{context};
 		// rmf todo: will probably move this to constructor for CommandContext
 		sub_context.parameter_reference_values = node.EvaluateParameters(context);
-		return definition_tree.root.Evalutate(context);
+		return definition_tree.Evalutate(context);
 	}
 }
 

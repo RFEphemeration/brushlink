@@ -180,6 +180,7 @@ void ElementNode::FillDefaultArguments()
 		}
 		if (!existsArgForParam)
 		{
+			// should we have different element indexes for default and implied?
 			Add({ { *param.default_value }, kNullElementIndex }, paramIndex);
 		}
 	}
@@ -375,6 +376,33 @@ ElementNode::ArgAndParamWalkResult ElementNode::WalkArgsAndParams(
 
 	return result;
 }
+
+ErrorOr<ElementNode> Parse(std::vector<ElementName> stream, bool commandRoot)
+{
+	Parser parser;
+	int streamIndex = 0;
+	if (!commandRoot)
+	{
+		parser.root = ElementNode{
+			{stream[streamIndex]},
+			kNullElementIndex};
+	}
+
+	for (; streamIndex < stream.size(); streamIndex++)
+	{
+		CHECK_RETURN(parser.Append({stream[streamIndex]}));
+	}
+
+	if (!parser.IsComplete())
+	{
+		return Error{"Failed to parse statement because it is incomplete"};
+	}
+
+	parser.FillDefaultArguments();
+
+	return parser.root;
+}
+
 
 void Parser::FillDefaultArguments()
 {

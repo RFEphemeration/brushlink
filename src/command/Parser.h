@@ -133,6 +133,8 @@ struct Parser
 
 	value_ptr<ASTWalkResult> mostRecentWalkResult;
 
+	static ErrorOr<ElementNode> Parse(std::vector<ElementName> stream, bool commandRoot = true);
+
 	void Reset();
 
 	ErrorOr<Success> Append(ElementToken nextToken);
