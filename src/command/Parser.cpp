@@ -90,6 +90,21 @@ int ElementNode::GetArgCountForParam(ParameterIndex index, bool excludeRightmost
 	return count;
 }
 
+std::vector<const ElementNode *> GetArgumentsForParam(ParameterIndex index) const
+{
+	std::vector<const ElementNode *> args;
+
+	for (const auto & pair : children)
+	{
+		if (pair.first == index)
+		{
+			args.push_back(&pair.second);
+		}
+	}
+
+	return args;
+}
+
 std::string ElementNode::GetPrintString(const ElementNode & e, std::string indentation, ParameterIndex argIndex)
 {
 	std::string printString = indentation + e.token.name.value;

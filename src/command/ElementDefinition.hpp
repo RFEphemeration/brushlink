@@ -47,7 +47,7 @@ struct ElementDefinitionAtom : ElementDefinition
 			starting_functor,
 			decl->GetMinParameterIndex()));
 
-		return curried_functor();
+		return Value{curried_functor()};
 	}
 
 	template<typename TNext, typename ... TRemaining>

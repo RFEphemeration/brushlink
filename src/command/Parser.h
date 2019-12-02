@@ -47,6 +47,8 @@ struct ElementNode
 
 	int GetArgCountForParam(ParameterIndex index, bool excludeRightmost = false) const;
 
+	std::vector<const ElementNode *> GetArgumentsForParam(ParameterIndex index) const;
+
 	ErrorOr<ElementNode *> Add(ElementNode child, ParameterIndex argIndex = kNullParameterIndex);
 
 	ParameterIndex RemoveLastChild();

@@ -180,6 +180,31 @@ using Optional = std::optional<T>;
 template<typename Ts...>
 using One_Of = std::variant<Ts...>;
 
+
+template<typename TValue>
+struct Underlying
+{
+	using Type = TValue;
+}
+
+template<typename TValue>
+struct Underlying<Repeatable<TValue> >
+{
+	using Type = TValue;
+}
+
+template<typename TValue>
+struct Underlying<Optional<TValue> >
+{
+	using Type = TValue;
+}
+
+template<typename TValue>
+struct Underlying<OptionalRepeatable<TValue> >
+{
+	using Type = TValue;
+}
+
 } // namespace Command
 
 #endif // BRUSHLINK_COMMAND_VALUE_TYPES_H
