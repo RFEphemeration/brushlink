@@ -128,7 +128,6 @@ struct Interpreter
 		ParameterIndex index)
 	{
 		auto args = node.GetArgumentsForParam(index);
-
 	}
 }
 

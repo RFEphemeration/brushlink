@@ -29,6 +29,16 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 			// what if some selectors aren't valid here?
 			// is it just that they're not valid yet?
 			// i.e. current_actor not valid until Command Arg 0 is complete?
+
+
+			// if set_current_selection is an action, and actions all have a left parameter of a selector
+			// why does command have an argument of a selector?
+			// is it just here to allow for inputing selections
+			// that will eventually end up as the left parameter for actions?
+			// that doesn't feel like it should be necessary
+			// maybe we should allow inputs that are left arguments for
+			// atoms that are the next argument
+			// does that open up our input space too much?
 			{ Selector, "Current_Selection" },
 			{ Action, "Set_Current_Selection" },
 			// how to require at least one of selector or action?
@@ -38,6 +48,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 			{ Termination }
 		}
 	}),
+
 
 	// Action
 	// it feels like there are two groups of actions
@@ -83,7 +94,9 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 		Left{{ Selector, "Current_Selection" }},
 		Right{
 			{ Ability_Type },
-			{ Location }
+			{ Location } // what if abilities have different input requirements?
+			// such as a line, or a unit
+			// could vary from one ability type to the next
 		}
 	}),
 
@@ -184,11 +197,13 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Tank", Unit_Type }),
 	Decl({ "Healer", Unit_Type }),
 	Decl({ "Support", Unit_Type }),
+	Decl({ "Transport", Unit_Type }),
 
 	// Attribute_Type
 	Decl({ "Health", Attribute_Type }),
 	Decl({ "Move_Speed", Attribute_Type }),
 	Decl({ "Range", Attribute_Type }),
+	Decl({ "Resource_Cost", Attribute_Type, Right{{ Resource_Type, "All_Resources" }} }),
 
 	// Ability_Type
 	Decl({ "Movement", Ability_Type }),
@@ -198,6 +213,16 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Spawn", Ability_Type }),
 	Decl({ "Buff", Ability_Type }),
 	Decl({ "Debuff", Ability_Type }),
+	Decl({ "Load", Ability_Type }),
+	Decl({ "Unload", Ability_Type }),
+
+	// Resource_Type
+	// it'd be nice if custom maps could define new resource types and they show up here. not really sure how to enable that.
+	Decl({ "Pigment", Resource_Type }),
+	Decl({ "Thinner", Resource_Type }),
+	Decl({ "Tools", Resource_Type }),
+	Decl({ "Supply", Resource_Type }),
+	Decl({ "All_Resources", Resource_Type }),
 
 	// Number
 	// tood: should probably add flag of Literal as requirement for left parameter
@@ -220,6 +245,9 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	Decl({ "Multiply", Number,
 		Left{{ Number }},
 		Right{{ Number }} }),
+	// is this a sum? min? max?
+	// how to do aggregation of numbers
+	// what selector is this applying to? should selector be a right parameter?
 	Decl({ "Attribute_Value", Number,
 		Right{{ Attribute_Type }} }),
 	Decl({ "Group_Size_Of", Number,

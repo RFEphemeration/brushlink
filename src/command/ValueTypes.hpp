@@ -4,7 +4,10 @@
 namespace Command
 {
 
-using Command = Functor<void, CommandContext>;
+using Command = Success;
+
+// these might need to be Ref<>s or ptrs
+using Action = Functor<void, CommandContext>;
 
 // not actually used in command statements, but given to units
 enum class Action_Type

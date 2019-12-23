@@ -42,16 +42,17 @@ enum Enum
 	Unit_Type =            1 << 12,
 	Attribute_Type =       1 << 13, // drop _Type?
 	Ability_Type =         1 << 14, // skill?
+	Resource_Type =        1 << 15,
 
-	Number =               1 << 15,
+	Number =               1 << 16,
 
-	Skip =                 1 << 16,
-	Termination =          1 << 17,
+	Skip =                 1 << 17,
+	Termination =          1 << 18,
 	// Begin_Word? End_Word?
 
-	Mouse_Input =          1 << 18,
+	Mouse_Input =          1 << 19,
 
-	Parameter_Reference =  1 << 19
+	Parameter_Reference =  1 << 20
 
 	// these are probably not appropriate types because of the way fields are compared
 	// but really I need to think about how to compare fields more thoroughly
