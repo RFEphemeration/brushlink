@@ -8,8 +8,8 @@ total_units = 50
 total_players = 1000
 max_team_size = 15
 
-seasons = 10
-seasons_to_print = 10
+seasons = 25
+seasons_to_print = 25
 
 min_unit_cost = 1.0
 average_unit_cost = total_unit_cost / total_units
@@ -19,9 +19,17 @@ average_team_size = wallet_initial / average_unit_cost
 max_starting_unit_cost = average_unit_cost * 3.5
 max_unit_valuation = wallet_initial * .8
 
+adjustment_seasons = 5
+starting_lerp_value = 0.2
+target_lerp_value = 0.1
+
 def debug_print(value):
 	#print(value)
 	pass
+
+
+def lerp(a, b, t):
+	return (a * (1.0 - t)) + (b * t)
 
 
 class Unit:
@@ -82,7 +90,7 @@ class Unit:
 		'''
 
 	@staticmethod
-	def calculate_unit_costs(units):
+	def calculate_unit_costs(units, season):
 		total_unit_uses = 0
 		for unit in units:
 			unit.cost_history.append(unit.cost)
@@ -95,19 +103,29 @@ class Unit:
 			# this is what percentage of all units picked were this unit
 			ratio_of_units_picked = unit.uses / total_unit_uses
 			# should we instead be using what percentage of players picked this unit?
-			ratio_of_player_picks = unit.uses / total_players
+			ratio_of_players_picked = unit.uses / total_players
 
 			# this ensures the sum is equal to the total_unit_cost
-			new_cost = ratio_of_units_picked * total_unit_cost
+			new_cost_a = ratio_of_units_picked * total_unit_cost
 			# but if they weren't picked because their previous cost was too high
 			# their new_cost might be way too low?
 
 			# this isn't going to sum to the correct level, is it?
 			# but I guess that's what normalization is for
-			new_cost_b = ratio_of_player_picks * wallet_initial
+			new_cost_b = ratio_of_players_picked \
+				* total_unit_cost \
+				* total_unit_cost \
+				/ wallet_initial \
+				/ total_units \
 
+			# does averaging help out at all? is this just a crutch or necessary?
+			lerp_value = target_lerp_value
+			if (season < adjustment_seasons):
+				lerp_value = lerp(starting_lerp_value, target_lerp_value, season/adjustment_seasons)
+			new_cost = lerp(unit.cost, new_cost_b, lerp_value)
 
 			debug_print ("calculated " + str(unit.uses) + ": " + str(unit.cost) + " -> " + str(new_cost))
+
 			unit.cost = new_cost
 
 
@@ -173,7 +191,7 @@ for season in range(seasons):
 		player.pick_unit_set(units)
 	for unit in units:
 		debug_print(unit.uses)
-	Unit.calculate_unit_costs(units)
+	Unit.calculate_unit_costs(units, season)
 	Unit.normalize_unit_costs(units)
 
 total_unit_value = sum([unit.value for unit in units])
@@ -192,4 +210,45 @@ for unit in units:
 		row += ("%.1f" % unit.cost_history[season]).rjust(4, ' ') + "\t"
 	print(row)
 
+
+import plotly.express as px
+import plotly.io as pio
+import pandas as pd
+
+'''
+df = px.data.gapminder()
+
+fig = px.line(df, x="year", y="lifeExp", color="continent", line_group="country", hover_name="country",
+        line_shape="spline", render_mode="svg")
+'''
+data = {
+	"season": [],
+	"cost": [],
+	"unit_id": [],
+	"value": []
+}
+
+def append_data(unit_id, season, cost, value):
+	data["season"].append(season)
+	data["cost"].append(cost)
+	data["unit_id"].append(unit_id)
+	data["value"].append(value)
+
+for unit_id in range(total_units):
+	unit = units[unit_id]
+	for season in range(seasons_to_print):
+		append_data(unit_id, season, unit.cost_history[season], unit.value)
+	append_data(unit_id, seasons_to_print, unit.cost, unit.value)
+	#append_data(unit_id, seasons_to_print+1, unit.value)
+
+fig = px.line(
+	data_frame=pd.DataFrame(data),
+	x="season",
+	y="cost",
+	line_group="unit_id",
+	color="unit_id",
+	hover_data=["value"]
+)
+
+pio.write_html(fig, "./market_output.html", include_plotlyjs='cdn')
 
