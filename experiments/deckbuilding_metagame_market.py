@@ -122,7 +122,7 @@ class Unit:
 			lerp_value = target_lerp_value
 			if (season < adjustment_seasons):
 				lerp_value = lerp(starting_lerp_value, target_lerp_value, season/adjustment_seasons)
-			new_cost = lerp(unit.cost, new_cost_a, lerp_value)
+			new_cost = lerp(unit.cost, new_cost_b, lerp_value)
 
 			debug_print ("calculated " + str(unit.uses) + ": " + str(unit.cost) + " -> " + str(new_cost))
 
