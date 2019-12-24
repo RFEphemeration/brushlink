@@ -3,9 +3,9 @@ from collections import namedtuple
 import random
 
 wallet_initial = 100.0
-total_unit_cost = 500.0
-total_units = 50
-total_players = 1000
+total_unit_cost = 5000.0
+total_units = 1000
+total_players = 10000
 max_team_size = 15
 
 seasons = 25
@@ -20,8 +20,8 @@ max_starting_unit_cost = average_unit_cost * 3.5
 max_unit_valuation = wallet_initial * .8
 
 adjustment_seasons = 5
-starting_lerp_value = 0.2
-target_lerp_value = 0.1
+starting_lerp_value = 0.25
+target_lerp_value = 0.11
 
 def debug_print(value):
 	#print(value)
