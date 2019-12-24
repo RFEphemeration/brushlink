@@ -5,11 +5,11 @@ import random
 wallet_initial = 100.0
 total_unit_cost = 500.0
 total_units = 50
-total_players = 50
+total_players = 1000
 max_team_size = 15
 
-seasons = 25
-seasons_to_print = 25
+seasons = 15
+seasons_to_print = 15
 
 min_unit_cost = 1.0
 average_unit_cost = total_unit_cost / total_units
@@ -122,7 +122,7 @@ class Unit:
 			lerp_value = target_lerp_value
 			if (season < adjustment_seasons):
 				lerp_value = lerp(starting_lerp_value, target_lerp_value, season/adjustment_seasons)
-			new_cost = lerp(unit.cost, new_cost_b, lerp_value)
+			new_cost = lerp(unit.cost, new_cost_a, lerp_value)
 
 			debug_print ("calculated " + str(unit.uses) + ": " + str(unit.cost) + " -> " + str(new_cost))
 
