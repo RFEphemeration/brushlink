@@ -5,7 +5,7 @@ import random
 wallet_initial = 100.0
 total_unit_cost = 500.0
 total_units = 50
-total_players = 1000
+total_players = 50
 max_team_size = 15
 
 seasons = 25
