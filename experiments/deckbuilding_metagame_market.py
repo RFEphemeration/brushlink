@@ -3,9 +3,9 @@ from collections import namedtuple
 import random
 
 wallet_initial = 100.0
-total_unit_cost = 5000.0
-total_units = 1000
-total_players = 10000
+total_unit_cost = 500.0
+total_units = 50
+total_players = 1000
 max_team_size = 15
 
 seasons = 25
@@ -247,7 +247,8 @@ fig = px.line(
 	y="cost",
 	line_group="unit_id",
 	color="unit_id",
-	hover_data=["value"]
+	hover_data=["value"],
+	title="Unit Cost Adjustment"
 )
 
 pio.write_html(fig, "./market_output.html", include_plotlyjs='cdn')
