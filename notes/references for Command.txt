@@ -18,3 +18,7 @@ https://concatenative.org/wiki/view/Concatenative%20language
 
 https://ruslanspivak.com/lsbasi-part3/
 https://craftinginterpreters.com/contents.html
+
+
+
+FFXII Gambits - if units health falls below 50% perform this action
