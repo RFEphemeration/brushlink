@@ -24,23 +24,86 @@ average_team_size = wallet_initial / average_unit_cost
 max_starting_unit_cost = average_unit_cost * 3.5
 max_unit_valuation = wallet_initial * .8
 
-adjustment_seasons = 3
-starting_lerp_value = 0.15
-target_lerp_value = 0.15
+target_value_method = "b"
 
-adjustment_method = "b"
+# for damped adjustments using target value only
+adjustment_seasons = 0
+starting_lerp_value = 0.5
+target_lerp_value = 0.5
+
+new_cost_method = "bisection"
+
+secant_close_lerp_force_range = 0.5
+secant_clamp_lerp_value = 0.65
+secant_sign_lerp_value = 0.65
+secant_close_lerp_value = 0.35
+
+bisection_extrapolation_lerp_value = 0.5
+bisection_history_depth = 2
+
+# personal approximation of the secant method
+'''
+find the pair of points in our history depth that are the closest
+to having force 0, but have one point have force + and the other -
+interpolate between their costs based on the magnitude of their forces
+which is the secant method
+if you can only find points with the same sign of force
+if the closer one has smaller force, maybe also use the secant method?
+or just go 50% of the way of the force
+we should try mapping actual cost, uses, and force for units of different value
+to find what transformation function to apply to the force to get an actual change
+in value
+'''
 
 #log = open("log.txt","w+")
 
 def debug_print(value):
 	#log.write(str(value) + "\n")
-	#print(value)
+	print(value)
 	pass
 
 
 def lerp(a, b, t):
 	return (a * (1.0 - t)) + (b * t)
 
+
+def sign(a):
+	return a > 0.0
+
+
+def secant_method_root_step(x1, x2, fx1, fx2):
+	'''
+	returns xn using xn-1, xn-2, f(xn-1), f(xn-2)
+	designed to be used iteratively until f(xn) is small enough
+	'''
+	# return (x2 * fx1 - x1 * fx2) / (fx1 - fx2)
+	
+	x = x1 - fx1 * (x1 - x2) / (fx1 - fx2)
+	debug_print("secant: (%.1f, %.1f) (%.1f, %.1f) = %.1f" % (x2, fx2, x1, fx1, x))
+	return x
+
+def bisection_method_root_step(x_history, x, xt):
+	if xt > x:
+		x_next_biggest = xt
+		found = False
+		for x_past in x_history:
+			if x_past > x and x_past < x_next_biggest:
+				x_next_biggest = x_past
+				found = True
+		if found:
+			return (x + x_next_biggest) / 2.0, "bisection"
+	else:
+		x_next_smallest = xt
+		found = False
+		for x_past in x_history:
+			if x_past < x and x_past > x_next_smallest:
+				x_next_smallest = x_past
+				found = True
+		if found:
+			return (x + x_next_smallest) / 2.0, "bisection"
+
+	# we are extrapolating here towards fx which is an imprecise overcorrection
+	return lerp(x, xt, bisection_extrapolation_lerp_value), "bisection extrapolation"
 
 class Unit:
 	
@@ -68,6 +131,7 @@ class Unit:
 		self.costs = [cost]
 		self.uses = []
 		self.target_costs = []
+		self.adjustment_case = []
 
 	@staticmethod
 	def normalize_unit_costs(units):
@@ -173,29 +237,77 @@ class Unit:
 
 			# other terms to look up, kalman filter, classical control theory, data assimilation
 
-			debug_print("a: %.1f b: %.1f" % (new_cost_a, new_cost_b))
+			# debug_print("a: %.1f b: %.1f" % (new_cost_a, new_cost_b))
 			target_cost = {
 				"a": new_cost_a,
 				"b": new_cost_b,
-				"c": new_cost_c
+				"c": new_cost_c,
 				}
-			unit.target_costs.append(target_cost[adjustment_method])
+			unit.target_costs.append(target_cost[target_value_method])
 
 	@staticmethod
 	def apply_target_costs_as_new_cost(units, season):
-		lerp_value = target_lerp_value
-		if season < adjustment_seasons:
-			lerp_value = lerp(
-				starting_lerp_value,
-				target_lerp_value,
-				season/adjustment_seasons)
+		# secant method requires 2 previous points
+		if season < 2 or new_cost_method == "damped_target":
+			lerp_value = target_lerp_value
+			if season < adjustment_seasons:
+				lerp_value = lerp(
+					starting_lerp_value,
+					target_lerp_value,
+					season/adjustment_seasons)
 
-		for unit in units:
-			new_cost = lerp(unit.costs[-1], unit.target_costs[-1], lerp_value)
+			for unit in units:
+				new_cost = lerp(unit.costs[-1], unit.target_costs[-1], lerp_value)
+				debug_print ("calculated " + str(unit.uses[-1]) + ": " + str(unit.costs[-1]) + " -> " + str(new_cost))
+				unit.costs.append(new_cost)
+				unit.adjustment_case.append("damped_target: %.1f" % lerp_value)
+		elif new_cost_method == "secant":
+			for unit in units:
+				# secant method fails when gradient is shallow
+				# fall back on bisection
+				# also for when we are close enough, force < 1
+				force_1 = unit.target_costs[-1] - unit.costs[-1]
+				force_2 = unit.target_costs[-1] - unit.costs[-2]
+				if abs(force_1 - force_2) < 0.1:
+					new_cost, method = bisection_method_root_step(
+						unit.costs[-(bisection_history_depth+1):-1],
+						unit.costs[-1],
+						unit.target_costs[-1])
+					unit.adjustment_case.append("secant / 0 " + method)
+				elif abs(force_1) < secant_close_lerp_force_range:
+					unit.adjustment_case.append("secant close lerp")
+					new_cost = unit.costs[-1] + force_1 * secant_close_lerp_value
+				else:
+					new_cost = secant_method_root_step(
+						unit.costs[-1],
+						unit.costs[-2],
+						force_1,
+						unit.target_costs[-2] - unit.costs[-2])
+					proposed_change = new_cost - unit.costs[-1]
+					if sign(force_1) != sign(proposed_change):
+						unit.adjustment_case.append("secant sign lerp")
+						new_cost = lerp(
+							unit.costs[-1],
+							unit.target_costs[-1],
+							secant_sign_lerp_value)
+					if abs(force_1) < abs(proposed_change):
+						unit.adjustment_case.append("secant clamped lerp")
+						new_cost = lerp(
+							unit.costs[-1],
+							unit.target_costs[-1],
+							secant_clamp_lerp_value)
+					else:
+						unit.adjustment_case.append("secant")
 
-			debug_print ("calculated " + str(unit.uses[-1]) + ": " + str(unit.costs[-1]) + " -> " + str(new_cost))
-
-			unit.costs.append(new_cost)
+				unit.costs.append(new_cost)
+		elif new_cost_method == "bisection":
+			for unit in units:
+				new_cost, method = bisection_method_root_step(
+					unit.costs[-(bisection_history_depth+1):-1],
+					unit.costs[-1],
+					unit.target_costs[-1])
+				unit.costs.append(new_cost)
+				unit.adjustment_case.append(method)
 
 
 class Player:
@@ -253,15 +365,15 @@ class Player:
 class Simulation:
 	def __init__(self, units = None, players = None, adjustment_method_override = None):
 		# messy, but okay for now
-		global adjustment_method
+		global target_value_method
 		
 		self.units = units or [ Unit(id=id) for id in range(total_units)]
 		self.players = players or [ Player(id=id, units=self.units) for id in range(total_players)]
 		self.total_unit_value = sum([unit.value for unit in self.units])
 		self.adjustments_normalization_factor = []
 		
-		adjustment_method = adjustment_method_override or adjustment_method
-		debug_print("adjustment " + adjustment_method)
+		target_value_method = adjustment_method_override or target_value_method
+		debug_print("adjustment " + target_value_method)
 
 	def run(self):
 		Unit.normalize_unit_costs(self.units)
@@ -319,8 +431,6 @@ class Simulation:
 
 
 	def graph(self, file_name):
-		global adjustment_method
-
 		file_name = file_name or "./market_output.html"
 
 		data = {
@@ -330,7 +440,8 @@ class Simulation:
 			"value": [],
 			"type": [],
 			"uses": [],
-			"force": []
+			"force": [],
+			"case": []
 		}
 
 		def append_data(unit_id, season, cost, uses):
@@ -344,6 +455,10 @@ class Simulation:
 			data["force"].append(
 				unit.target_costs[season]
 				- unit.costs[season])
+			if len(unit.adjustment_case) > season:
+				data["case"].append(unit.adjustment_case[season])
+			else:
+				data["case"].append("none")
 
 		for unit_id in range(total_units):
 			unit = self.units[unit_id]
@@ -365,8 +480,8 @@ class Simulation:
 			y="cost",
 			line_group="unit_id",
 			color="unit_id",
-			hover_data=["value", "type", "uses", "force"],
-			title="Unit Cost Adjustment " + adjustment_method 
+			hover_data=["value", "type", "uses", "force", "case"],
+			title="Unit Cost Adjustment " + target_value_method 
 		)
 
 		pio.write_html(fig, file_name, include_plotlyjs='cdn')
@@ -387,16 +502,16 @@ players = [ Player(id=id, units=units) for id in range(total_players)]
 units2 = copy.deepcopy(units)
 players2 = copy.deepcopy(players)
 
-simA = Simulation(units, players, "c")
-simA.run()
-simA.graph("./market_output.html")
-simA.output_equilibrium()
+sim1 = Simulation(units, players, "b")
+sim1.run()
+sim1.graph("./market_output.html")
+#simA.output_equilibrium()
 
 
 
-simB = Simulation(units2, players2, "b")
-simB.run()
-simB.graph("./market_output_b.html")
+#sim2 = Simulation(units2, players2, "b")
+#sim2.run()
+#sim2.graph("./market_output_b.html")
 
 #'''
 
