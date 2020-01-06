@@ -11,7 +11,7 @@ wallet_initial = 100.0
 total_unit_cost = 500.0
 total_units = 50
 total_players = 1000
-max_team_size = 15
+max_team_size = 30
 
 seasons = 15
 seasons_to_print = 15
@@ -31,7 +31,8 @@ adjustment_seasons = 0
 starting_lerp_value = 0.5
 target_lerp_value = 0.5
 
-new_cost_method = "bisection"
+# damped_target bisection secant cased
+new_cost_method = "cased"
 
 secant_close_lerp_force_range = 0.5
 secant_clamp_lerp_value = 0.65
@@ -40,6 +41,28 @@ secant_close_lerp_value = 0.35
 
 bisection_extrapolation_lerp_value = 0.5
 bisection_history_depth = 2
+
+cased_history_depth = 2
+cased_interpolation_bias = 0.65
+cased_extrapolation_lerp_value = 0.65
+cased_min_lerp_value = 0.1
+
+
+#log = open("log.txt","w+")
+
+def debug_print(value):
+	#log.write(str(value) + "\n")
+	#print(value)
+	pass
+
+
+def lerp(a, b, t):
+	return (a * (1.0 - t)) + (b * t)
+
+
+def sign(a):
+	return a > 0.0
+
 
 # personal approximation of the secant method
 '''
@@ -54,22 +77,31 @@ we should try mapping actual cost, uses, and force for units of different value
 to find what transformation function to apply to the force to get an actual change
 in value
 '''
+def cased_root_step(prev_costs, prev_forces, current_cost, current_force):
+	past = None
+	for step in range(len(prev_costs)):
+		if sign(prev_forces[step]) != sign(current_force):
+			if past is None or abs(prev_forces[step]) < abs(prev_forces[past]):
+				past = step
 
-#log = open("log.txt","w+")
+	if past is not None:
+		# this is the secant method, with points on either side of the root
+		amount = prev_forces[past] / (prev_forces[past] - current_force)
+		new_cost = lerp(prev_costs[past], current_cost, amount)
+		if (new_cost - current_cost) / current_force > cased_min_lerp_value:
+			return new_cost, "cased interpolation %.2f" % amount
+		return current_cost + current_force * cased_min_lerp_value, "cased min lerp"
 
-def debug_print(value):
-	#log.write(str(value) + "\n")
-	print(value)
-	pass
+	# for damped method, if cost is < 10 we should take smaller percentage steps
+	# if cost is > 10 we should consider larger percentage steps
+	# maybe scale between 0.3 and 0.8?
+	return current_cost + current_force * cased_extrapolation_lerp_value, "cased extrapolation"
 
-
-def lerp(a, b, t):
-	return (a * (1.0 - t)) + (b * t)
-
-
-def sign(a):
-	return a > 0.0
-
+	'''
+	for step in history:
+		if past is None or abs(step.force) < abs(past.force)
+		if (step.cost - current.cost) + step.force
+	'''
 
 def secant_method_root_step(x1, x2, fx1, fx2):
 	'''
@@ -122,7 +154,7 @@ class Unit:
 	def __init__(self, id):
 		self.id = id
 		# archetype testing should come after testing player valuation
-		self.archetype = random.choice(list(Unit.archetypes.keys()))
+		self.archetype = "Basic" #random.choice(list(Unit.archetypes.keys()))
 		self.value = random.gauss(average_unit_cost + min_unit_cost, average_unit_cost )
 		cost = random.uniform(min_unit_cost, max_starting_unit_cost)
 		cost = lerp(cost, 10.0, 0.6)
@@ -131,18 +163,30 @@ class Unit:
 		self.costs = [cost]
 		self.uses = []
 		self.target_costs = []
+		self.forces = []
 		self.adjustment_case = []
 
 	@staticmethod
+	def check_normalization_ratio(units):
+		total_unit_cost_actual = sum([unit.costs[-1] for unit in units])
+		ratio = total_unit_cost / total_unit_cost_actual
+		extra_to_remove = 0.0
+		print("normalization ratio would be: %.2f" % ratio)
+
+
+	@staticmethod
 	def normalize_unit_costs(units):
+		
 		for unit in units:
 			if unit.costs[-1] < min_unit_cost:
 				unit.costs[-1] = min_unit_cost
 		total_unit_cost_actual = sum([unit.costs[-1] for unit in units])
 		ratio = total_unit_cost / total_unit_cost_actual
 		extra_to_remove = 0.0
+		print("normalization with ratio: %.2f" % ratio)
 		if ratio > 0.999 and ratio < 1.001:
 			return
+		
 		for unit in units:
 			new_cost = unit.costs[-1] * ratio
 			if new_cost < min_unit_cost:
@@ -163,6 +207,7 @@ class Unit:
 				extra_to_remove -= unit.cost - new_cost
 				unit.cost = new_cost
 		'''
+		pass
 
 	@staticmethod
 	def normalize_target_costs(units):
@@ -170,6 +215,7 @@ class Unit:
 		ratio = total_unit_cost / total_target
 		for unit in units:
 			unit.target_costs[-1] = unit.target_costs[-1] * ratio
+			unit.forces.append(unit.target_costs[-1] - unit.costs[-1])
 
 	"""
 	@staticmethod
@@ -248,7 +294,17 @@ class Unit:
 	@staticmethod
 	def apply_target_costs_as_new_cost(units, season):
 		# secant method requires 2 previous points
-		if season < 2 or new_cost_method == "damped_target":
+		if new_cost_method == "cased":
+			for unit in units:
+				new_cost, method = cased_root_step(
+					unit.costs[-(cased_history_depth+1):-1],
+					unit.forces[-(cased_history_depth+1):-1],
+					unit.costs[-1],
+					unit.forces[-1])
+				unit.costs.append(new_cost)
+				unit.adjustment_case.append(method)
+
+		elif season < 2 or new_cost_method == "damped_target":
 			lerp_value = target_lerp_value
 			if season < adjustment_seasons:
 				lerp_value = lerp(
@@ -344,6 +400,7 @@ class Player:
 		# maybe ordering by difference between cost and player's valuation
 		# but it's still fine to pick greedily
 		#random.shuffle(unit_choices)
+		random.shuffle(unit_choices)
 		unit_choices = sorted(unit_choices, key=(lambda id: self.unit_valuations[id] - units[id].costs[-1]), reverse=True)
 
 		for unit_id in unit_choices:
@@ -387,7 +444,8 @@ class Simulation:
 			Unit.calculate_target_costs(self.units, season)
 			Unit.normalize_target_costs(self.units)
 			Unit.apply_target_costs_as_new_cost(self.units, season)
-			Unit.normalize_unit_costs(self.units)
+			# Unit.normalize_unit_costs(self.units)
+			Unit.check_normalization_ratio(self.units)
 		Unit.calculate_target_costs(self.units, season)
 		Unit.normalize_target_costs(self.units)
 
