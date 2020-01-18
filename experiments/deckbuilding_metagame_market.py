@@ -43,9 +43,11 @@ bisection_extrapolation_lerp_value = 0.5
 bisection_history_depth = 2
 
 cased_history_depth = 2
-cased_interpolation_bias = 0.65
-cased_extrapolation_lerp_value = 0.65
+cased_interpolation_bias = 0.15
+cased_extrapolation_lerp_value = 0.45
 cased_min_lerp_value = 0.1
+
+normalize_costs = True
 
 
 #log = open("log.txt","w+")
@@ -78,18 +80,28 @@ to find what transformation function to apply to the force to get an actual chan
 in value
 '''
 def cased_root_step(prev_costs, prev_forces, current_cost, current_force):
+	def dir_compare(a, b):
+		if current_force > 0:
+			return a > b
+		else:
+			return a < b
 	past = None
 	for step in range(len(prev_costs)):
 		if sign(prev_forces[step]) != sign(current_force):
-			if past is None or abs(prev_forces[step]) < abs(prev_forces[past]):
+			# we're not taking the one with the smaller force,
+			# we're taking the one with the closest cost to the current one
+			# but with a force in the correct direction
+			if past is None or dir_compare(prev_costs[past], prev_costs[step]):
 				past = step
 
 	if past is not None:
 		# this is the secant method, with points on either side of the root
-		amount = prev_forces[past] / (prev_forces[past] - current_force)
-		new_cost = lerp(prev_costs[past], current_cost, amount)
+		force_differences = prev_forces[past] - current_force
+		lerp_amount = prev_forces[past] / force_differences
+		lerp_amount = lerp_amount * (1.0 - cased_interpolation_bias)
+		new_cost = lerp(prev_costs[past], current_cost, lerp_amount)
 		if (new_cost - current_cost) / current_force > cased_min_lerp_value:
-			return new_cost, "cased interpolation %.2f" % amount
+			return new_cost, "cased interpolation %.2f" % lerp_amount
 		return current_cost + current_force * cased_min_lerp_value, "cased min lerp"
 
 	# for damped method, if cost is < 10 we should take smaller percentage steps
@@ -157,7 +169,7 @@ class Unit:
 		self.archetype = "Basic" #random.choice(list(Unit.archetypes.keys()))
 		self.value = random.gauss(average_unit_cost + min_unit_cost, average_unit_cost )
 		cost = random.uniform(min_unit_cost, max_starting_unit_cost)
-		cost = lerp(cost, 10.0, 0.6)
+		cost = lerp(cost, 10.0, -0.1)
 		if (self.value < min_unit_cost):
 			self.value = min_unit_cost
 		self.costs = [cost]
@@ -183,10 +195,10 @@ class Unit:
 		total_unit_cost_actual = sum([unit.costs[-1] for unit in units])
 		ratio = total_unit_cost / total_unit_cost_actual
 		extra_to_remove = 0.0
-		print("normalization with ratio: %.2f" % ratio)
-		if ratio > 0.999 and ratio < 1.001:
+		if ratio > 0.95 and ratio < 1.05:
+			print("normalization skipped with ratio: %.2f" % ratio)
 			return
-		
+		print("normalization with ratio: %.2f" % ratio)
 		for unit in units:
 			new_cost = unit.costs[-1] * ratio
 			if new_cost < min_unit_cost:
@@ -215,7 +227,7 @@ class Unit:
 		ratio = total_unit_cost / total_target
 		for unit in units:
 			unit.target_costs[-1] = unit.target_costs[-1] * ratio
-			unit.forces.append(unit.target_costs[-1] - unit.costs[-1])
+			unit.forces[-1] = unit.target_costs[-1] - unit.costs[-1]
 
 	"""
 	@staticmethod
@@ -290,6 +302,7 @@ class Unit:
 				"c": new_cost_c,
 				}
 			unit.target_costs.append(target_cost[target_value_method])
+			unit.forces.append(unit.target_costs[-1] - unit.costs[-1])
 
 	@staticmethod
 	def apply_target_costs_as_new_cost(units, season):
@@ -444,8 +457,10 @@ class Simulation:
 			Unit.calculate_target_costs(self.units, season)
 			Unit.normalize_target_costs(self.units)
 			Unit.apply_target_costs_as_new_cost(self.units, season)
-			# Unit.normalize_unit_costs(self.units)
-			Unit.check_normalization_ratio(self.units)
+			if normalize_costs:
+				Unit.normalize_unit_costs(self.units)
+			else:
+				Unit.check_normalization_ratio(self.units)
 		Unit.calculate_target_costs(self.units, season)
 		Unit.normalize_target_costs(self.units)
 
