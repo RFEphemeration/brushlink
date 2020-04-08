@@ -23,3 +23,8 @@ command
 	interpreter
 		execute element definitions
 		define elements
+	elements
+		select units currently taking an action (move, attack, etc)
+		sequence of actions
+		concurrent actions (with order of priority?)
+		conditionals

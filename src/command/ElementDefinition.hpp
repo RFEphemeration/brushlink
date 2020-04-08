@@ -4,13 +4,21 @@
 namespace Command
 {
 
-struct Value
-{
-
-}
-
 struct ElementDefinition
 {
+	template<typename TVal>
+	ErrorOr<TVal> EvaluateAs(
+		const CommandContext & context,
+		const ElementNode & node) const
+	{
+		Value value = CHECK_RETURN(Evaluate(context, node));
+		if (!std::holds_alternative<T>(value))
+		{
+			return Error("Element is of unexpected type");
+		}
+		return std::get<T>(value);
+	}
+
 	virtual ErrorOr<Value> Evaluate(
 		const CommandContext & context,
 		const ElementNode & node) const;
