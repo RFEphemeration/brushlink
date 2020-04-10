@@ -3,6 +3,8 @@
 namespace Command
 {
 
+
+
 std::set<ElementType> CommandElement::ParameterAllowedTypes(int index)
 {
 	if (index >= ParameterCount())

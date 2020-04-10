@@ -1,41 +1,54 @@
 
+struct CommandElement;
+
+
 struct CommandContext
 {
 	UnitGroup current_selection;
 
-	UnitGroup actors;
+	std::list<UnitGroup> actors_stack;
 
-	Functor * command;
+	std::unique_ptr<CommandElement> command;
 
-	// Actions
-	void SetCurrentSelection(UnitGroup units);
+	std::unordered_map<HString, std::unique_ptr<CommandElement> > element_dictionary;
+
+	void InitElementDictionary();
+
+	void HandleToken(ElementToken token);
+	ErrorOr<std::unique_ptr<CommandElement> > GetNewCommandElement(HString name);
+
+	void PushActors(UnitGroup group);
+	void PopActors();
+
+	// Action
+	void Select(UnitGroup units);
 	void Move(UnitGroup actors, Location target);
 	void Attack(UnitGroup actors, UnitGroup target);
-	// Hidden, Implied Action
-	void SetActors(UnitGroup group);
+	void SetCommandGroup(UnitGroup actors, Number group);
+	void AddToCommandGroup(UnitGroup actors, Number group);
+	void RemoveFromCommandGroup(UnitGroup actors, Number group);
 
-	// Starting Sets, up to one, default is context dependent
+	// Selector_Base
 	UnitGroup Enemies();
 	UnitGroup Allies();
 	UnitGroup CurrentSelection();
 	UnitGroup Actors();
-
-	// Filters, can have many
+	UnitGroup CommandGroup(Number group);
+	
+	// Selector_Filter, can have many
 	UnitGroup WithinActorsRange(Number distance_modifier, UnitGroup set);
 	UnitGroup OnScreen(UnitGroup set);
 
-	// Group Sizes, up to one
+	// Selector_GroupSize, up to one
 	UnitGroup GroupSize(Number size, UnitGroup set);
 	UnitGroup GroupRatio(Number ratio, UnitGroup set); // implied 1/
 
-	// Superlatives, up to one
+	// Selector_Superlative, up to one
 	UnitGroup ClosestToActors(UnitGroup set);
 
-	// Locations
+	// Location
 	Location PositionOf(UnitGroup group);
 	Location MousePosition();
 
-	// Helper Functions
-	void HandleToken(ElementToken token);
 
 }

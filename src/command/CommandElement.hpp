@@ -32,6 +32,9 @@ struct CommandElement
 
 	ElementType Type() { return type; }
 
+	// what are these functions for if not to assist with
+	// building the command tree?
+
 	int ParameterCount() { return parameters.size(); }
 
 	std::set<ElementType> ParameterAllowedTypes(int index);
@@ -60,7 +63,7 @@ struct Literal : CommandElement
 	TVal value;
 
 	Literal(ElemetType type, TVal value)
-		: CommandElement(type, nullptr, {})
+		: CommandElement(type, {})
 		, value(value)
 	{ }
 
@@ -68,6 +71,13 @@ struct Literal : CommandElement
 	{
 		return value;
 	}
+}
+
+template<typename TVal>
+std::unique_ptr<ElementDefinition> MakeLiteral(
+	TVal value)
+{
+	return new Literal<TVal>{ GetElementType<TVal>(), value };
 }
 
 struct Select : CommandElement
@@ -79,7 +89,7 @@ struct Select : CommandElement
 			ElementType.Action,
 			// @Feature default sub elements like Selector_Base "Allies"
 			{new ParamSingleRequired(ElementType.Selector)})
-	{}
+	{ }
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 }
@@ -121,14 +131,14 @@ struct ContextFunction : CommandElement
 	ErrorOr<Value> Evaluate(CommandContext & context) override
 	{
 		if constexpr(sizeof...(TArgs) == 0)
-		{ 
-			(context->*func)()
+		{
+			return CHECK_RETURN((context->*func)())
 		}
 		else if constexpr(sizeof...(TArgs) == 1)
 		{
 			auto one = CHECK_RETURN(
 				parameters[0]->EvaluateAs<NthTypeOf<0, TArgs...> >(context));
-			(context->*func)(one);
+			return CHECK_RETURN((context->*func)(one));
 		}
 		else if constexpr(sizeof...(TArgs) == 2)
 		{
@@ -136,7 +146,7 @@ struct ContextFunction : CommandElement
 				parameters[0]->EvaluateAs<NthTypeOf<0, TArgs...> >(context));
 			auto two = CHECK_RETURN(
 				parameters[1]->EvaluateAs<NthTypeOf<1, TArgs...> >(context));
-			(context->*func)(one, two);
+			return CHECK_RETURN((context->*func)(one, two));
 		}
 		else if constexpr(sizeof...(TArgs) == 3)
 		{
@@ -146,7 +156,7 @@ struct ContextFunction : CommandElement
 				parameters[1]->EvaluateAs<NthTypeOf<1, TArgs...> >(context));
 			auto three = CHECK_RETURN(
 				parameters[2]->EvaluateAs<NthTypeOf<2, TArgs...> >(context));
-			(context->*func)(one, two, three);
+			return CHECK_RETURN((context->*func)(one, two, three));
 		}
 		else
 		{
@@ -163,6 +173,83 @@ std::unique_ptr<ElementDefinition> MakeContextFunction(
 {
 	return new ContextFunction{ type, func, params };
 }
+
+template<typename TRet, typename TArgs...>
+struct ContextFunctionWithActors : CommandElement
+{
+	ErrorOr<TRet> (CommandContext::*func)(TArgs...);
+
+	ContextFunction(ElementType type,
+		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
+		std::vector<CommandParameter> params)
+		: CommandElement(type, params)
+		, func(func)
+	{
+		if (sizeof...(TArgs) != params.size())
+		{
+			// todo: error here
+		}
+	}
+
+	ErrorOr<Value> Evaluate(CommandContext & context) override
+	{
+		if constexpr(sizeof...(TArgs) == 0)
+		{
+			static_assert(false, "ContextFunctionWithActors is expected to have at least 1 parameter for the actors");
+		}
+		UnitGroup actors = CHECK_RETURN(
+				parameters[0]->EvaluateAs<UnitGroup >(context));
+		context.PushActors(actors);
+		ErrorOr<TRet> result;
+		if constexpr(sizeof...(TArgs) == 1)
+		{
+			result = (context->*func)(actors);
+		}
+		else if constexpr(sizeof...(TArgs) == 2)
+		{
+			auto two = parameters[1]->EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+			if (two.IsError())
+			{
+				result = two.GetError();
+			}
+			else
+			{	result = (context->*func)(actors, two.GetValue());
+		}
+		else if constexpr(sizeof...(TArgs) == 3)
+		{
+			auto two = parameters[1]->EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+			auto three = parameters[2]->EvaluateAs<NthTypeOf<2, TArgs...> >(context);
+			if (two.IsError())
+			{
+				result = two.GetError();
+			}
+			else if (three.IsError())
+			{
+				result = three.GetError();
+			}
+			else
+			{
+				result = (context->*func)(actors, two.GetValue(), three.GetValue());
+			}
+		}
+		else
+		{
+			static_assert(false, "Add more parameters to ContextFunctionWithActors");
+		}
+		context.PopActors();
+		return CHECK_RETURN(result);
+	}
+}
+
+template<typename TRet, typename ... TArgs>
+std::unique_ptr<ElementDefinition> MakeContextFunctionWithActors(
+	ElementType type,
+	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
+	std::vector<CommandParameter> params)
+{
+	return new ContextFunctionWithActors{ type, func, params };
+}
+
 
 struct CurrentSelection : CommandElement
 {
