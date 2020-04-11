@@ -35,7 +35,7 @@ Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
 					allowed[pair.key] = pair.value;
 				}
 			}
-			if (argument->IsSatisfied())
+			if (argument->ParametersSatisfied())
 			{
 				allowed_next = true;
 			}
@@ -49,10 +49,9 @@ Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
 
 	for (int index = last_param_with_args + 1; index < parameters.size(); index++)
 	{
-		
 		// there are no arguments in any of these parameters
 		// so we just ask the parameter directly
-		for (auto type : parameters[index].GetAllowedTypes())
+		for (auto type : parameters[index]->GetAllowedTypes())
 		{
 			if (allowed.contains(type))
 			{
@@ -71,6 +70,53 @@ Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
 	}
 
 	return allowed;
+}
+
+ErrorOr<bool> CommandElement::AppendArgument(std::unique_ptr<CommandElement> * next, int & skip_count)
+{
+	int last_param_with_args = -1;
+	for (int index = parameters.size() - 1; index >= 0 ; index--)
+	{
+		// earlier arguments to parameters can't be revisited
+		CommandElement * argument = parameters[index].GetLastArgument();
+		if (argument != nullptr)
+		{
+			last_param_with_args = index;
+			bool result = CHECK_RETURN(argument->AppendArgument(next, skip_count));
+			if (result)
+			{
+				return true;
+			}
+			/*
+			// this check should already be handled by calls down the chain with the
+			// error message below
+			if (!argument->ParametersSatisfied())
+			{
+				return Error("Can't append because a preceding element has not had all parameters satisfied");
+			}
+			*/
+		}
+	}
+
+	for (int index = last_param_with_args+1; index < parameters.size(); index++)
+	{
+		auto types = parameters[index].GetAllowedTypes();
+		if (types.contains(next->Type()))
+		{
+			if (skip_count == 0)
+			{
+				parameters[index].SetArgument(next);
+				return true;
+			}
+			skip_count--;
+		}
+		// @Incomplete permutable
+		if (parameters[index].IsRequired())
+		{
+			return Error("Can't append because a preceding parameter has not been satisfied");
+		}
+	}
+	return false;
 }
 
 Set<ElementType> CommandElement::ParameterAllowedTypes(int index)

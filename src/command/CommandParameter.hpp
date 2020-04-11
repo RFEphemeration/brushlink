@@ -34,11 +34,11 @@ struct CommandParameter
 		return std::get<T>(value);
 	}
 
+	virtual bool IsRequired() = 0;
+
 	// todo: should this take into consideration the current state of parameters?
 	// should probably have a separate function for that
 	virtual std::set<ElementType> GetAllowedTypes() = 0;
-
-	virtual bool IsRequired() = 0;
 
 	virtual bool IsSatisfied() = 0;
 
@@ -48,7 +48,7 @@ struct CommandParameter
 
 	virtual ErrorOr<Value> Evaluate(CommandContext & context) = 0;
 
-	virtual ErrorOr<Repeatable<Value>> EvaluateRepeatable(CommandContext & context)
+	virtual ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context)
 	{
 		Value value = CHECK_RETURN(Evaluate(context));
 		return {value};
@@ -64,11 +64,25 @@ struct ParamSingleRequired : CommandParameter
 		: type(type)
 	{ }
 
-	std::set<ElementType> GetAllowedTypes() override { return {type}; }
+	std::set<ElementType> GetAllowedTypes() override
+	{
+		if (argument == nullptr)
+		{
+			return {type};
+		}
+		else
+		{
+			return {};
+		}
+	}
 
 	bool IsRequired() override { return true; }
 
-	bool IsSatisfied() override { return argument != nullptr; }
+	bool IsSatisfied() override
+	{
+		return argument != nullptr
+		&& argument->ParametersSatisfied();
+	}
 
 	CommandElement * GetLastArgument() override { return argument; }
 
@@ -90,7 +104,7 @@ struct ParamSingleOptional : ParamSingleRequired
 
 	bool IsRequired() override { return false; }
 
-	bool IsSatisfied() override { return true; }
+	bool IsSatisfied() override { return argument == nullptr || argument->ParametersSatisfied(); }
 
 	ErrorOr<Value> Evaluate(CommandContext & context);
 }
@@ -108,7 +122,11 @@ struct ParamRepeatableRequired : CommandParameter
 
 	bool IsRequired() override { return true; }
 
-	bool IsSatisfied() override { return !arguments.empty(); }
+	bool IsSatisfied() override
+	{
+		return !arguments.empty()
+			&& arguments[arguments.size()-1]->ParametersSatisfied();
+	}
 
 	CommandElement * GetLastArgument() override;
 
@@ -131,7 +149,11 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 		// todo: assert default value is of correct type
 	}
 
-	bool IsSatisfied() override { return true; }
+	bool IsSatisfied() override
+	{
+		return arguments.empty()
+			|| arguments[arguments.size()-1]->ParametersSatisfied();
+	}
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
@@ -140,7 +162,7 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 
 struct OneOf : CommandParameter
 {
-	std::vector<OwnedPtr<CommandParameter> > possibilities;
+	std::vect or<OwnedPtr<CommandParameter> > possibilities;
 	int chosen_index;
 
 	OneOf(std::vector<OwnedPtr<CommandParameter> > possibilities)

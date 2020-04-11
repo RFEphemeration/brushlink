@@ -140,6 +140,10 @@ bool OneOf::IsRequired()
 
 bool OneOf::IsSatisfied()
 {
+	if (chosen_index != -1)
+	{
+		return possibilities[chosen_index]->IsSatisfied();
+	}
 	for (auto parameter : possibilities)
 	{
 		if (parameter->IsSatisfied())
@@ -156,24 +160,21 @@ ErrorOr<Success> OneOf::SetArgumentInternal(CommandElement * argument)
 	{
 		return possibilities[chosen_index]->SetArgument(argument);
 	}
-	else
+	for (int index = 0; index < possibilities.size(); index++)
 	{
-		for (int index = 0; index < possibilities.size(); index++)
+		auto parameter = possibilities[index];
+		auto result = parameter->SetArgument(argument)
+		if (!result.IsError())
 		{
-			auto parameter = possibilities[index];
-			auto result = parameter->SetArgument(argument)
-			if (!result.IsError())
-			{
-				chosen_index = index;
-				break;
-			}
+			chosen_index = index;
+			break;
 		}
-		if (chosen_index == -1)
-		{
-			return Error("Could not find a valid parameter for argument in OneOf");
-		}
-		return Success();
 	}
+	if (chosen_index == -1)
+	{
+		return Error("Could not find a valid parameter for argument in OneOf");
+	}
+	return Success();
 }
 
 CommandElement * OneOf::GetLastArgument()
