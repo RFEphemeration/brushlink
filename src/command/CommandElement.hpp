@@ -32,6 +32,20 @@ struct CommandElement
 
 	ElementType Type() { return type; }
 
+	// these functions follow down the tree
+
+	// not going to bother with keeping track of index locations
+	// though I could consider an array of pointers to Parameters
+	// but that seems a little precarious
+	// I also considered paths through the element arguments
+	// but that seems messier / more annoying than traversing twice
+
+	// this map value is the number of occurances
+	// so that we can take skip count into consideration
+	// @Incomplete: decide skip behavior, I am currently working
+	// on the assumption that it is only used for shared types
+	Map<ElementType, int> GetAllowedArgumentTypes();
+
 	// what are these functions for if not to assist with
 	// building the command tree?
 
@@ -78,37 +92,6 @@ std::unique_ptr<ElementDefinition> MakeLiteral(
 	TVal value)
 {
 	return new Literal<TVal>{ GetElementType<TVal>(), value };
-}
-
-struct Select : CommandElement
-{
-	CommandElement * actors;
-
-	Select()
-		: CommandElement (
-			ElementType.Action,
-			// @Feature default sub elements like Selector_Base "Allies"
-			{new ParamSingleRequired(ElementType.Selector)})
-	{ }
-
-	ErrorOr<Value> Evaluate(CommandContext & context) override;
-}
-
-struct Move : CommandElement
-{
-	CommandElement * actors;
-	CommandElement * location;
-
-	Move()
-		: CommandElement(
-			ElementType.Action,
-			{
-				new ParamSingleRequired(ElementType.Selector),
-				new ParamSingleRequired(ElementType.Location)
-			})
-	{ }
-
-	ErrorOr<Value> Evaluate(CommandContext & context) override;
 }
 
 template<typename TRet, typename TArgs...>

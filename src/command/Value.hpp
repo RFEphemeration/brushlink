@@ -22,7 +22,11 @@ enum class Action_Type
 }
 
 // not actually used in command statements
-using UnitID = NamedType<int, NAMED_TYPE_TAG(UnitID)>;
+struct UnitIDTag
+{
+	static HString GetName() { return "Command::UnitID"; }
+}
+using UnitID = NamedType<int, UnitIDTag>;
 
 struct UnitGroup
 {

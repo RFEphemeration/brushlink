@@ -28,22 +28,22 @@ struct CommandContext
 	void AddToCommandGroup(UnitGroup actors, Number group);
 	void RemoveFromCommandGroup(UnitGroup actors, Number group);
 
-	// Selector_Base
+	// Set
 	UnitGroup Enemies();
 	UnitGroup Allies();
 	UnitGroup CurrentSelection();
 	UnitGroup Actors();
 	UnitGroup CommandGroup(Number group);
 	
-	// Selector_Filter, can have many
+	// Filter, can have many
 	UnitGroup WithinActorsRange(Number distance_modifier, UnitGroup set);
 	UnitGroup OnScreen(UnitGroup set);
 
-	// Selector_GroupSize, up to one
+	// Group_Size, up to one
 	UnitGroup GroupSize(Number size, UnitGroup set);
 	UnitGroup GroupRatio(Number ratio, UnitGroup set); // implied 1/
 
-	// Selector_Superlative, up to one
+	// Superlative, up to one
 	UnitGroup ClosestToActors(UnitGroup set);
 
 	// Location

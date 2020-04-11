@@ -54,6 +54,15 @@ ErrorOr<Success> ParamRepeatableRequired::SetArgumentInternal(CommandElement * a
 	return Success();
 }
 
+CommandElement * ParamRepeatableRequired::GetLastArgument()
+{
+	if (arguments.size() > 0)
+	{
+		return arguments[arguments.size() - 1];
+	}
+	return nullptr;
+}
+
 ErrorOr<Value> ParamRepeatableRequired::Evaluate(CommandContext & context)
 {
 	if (arguments.size() > 1)
@@ -165,6 +174,15 @@ ErrorOr<Success> OneOf::SetArgumentInternal(CommandElement * argument)
 		}
 		return Success();
 	}
+}
+
+CommandElement * OneOf::GetLastArgument()
+{
+	if (chosen_index == -1)
+	{
+		return nullptr
+	}
+	return possibilities[chosen_index]->GetLastArgument();
 }
 
 ErrorOr<Value> OneOf::Evaluate(CommandContext & context)

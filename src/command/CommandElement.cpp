@@ -3,9 +3,77 @@
 namespace Command
 {
 
+Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
+{
+	Map<ElementType, int> allowed;
+	int last_param_with_args = -1;
+	bool allowed_next = false;
 
+	// find the last parameter that has arguments.
+	// we can't go backwards (for now, until we implement permutable)
+	// perhaps a way to implement permutable parameters would be to
+	// move the first parameter in a permutable sequence to the front
+	// that sounds not too hard to do and maintains the structure here
+	// @Incomplete: permutable parameters
+	// we could even use this to allow users to set the parameter order
+	// perhaps trivially as a new word w/ the same name and swapped params
+	for (int index = parameters.size() - 1; index >= 0 ; index--)
+	{
+		// earlier arguments to parameters can't be revisited
+		CommandElement * argument = parameters[index].GetLastArgument();
+		if (argument != nullptr)
+		{
+			last_param_with_args = index;
+			for (auto pair : argument->GetAllowedArgumentTypes())
+			{
+				if (allowed.contains(pair.key))
+				{
+					allowed[pair.key] += pair.value;
+				}
+				else
+				{
+					allowed[pair.key] = pair.value;
+				}
+			}
+			if (argument->IsSatisfied())
+			{
+				allowed_next = true;
+			}
+			break;
+		}
+	}
+	if (!allowed_next)
+	{
+		return allowed;
+	}
 
-std::set<ElementType> CommandElement::ParameterAllowedTypes(int index)
+	for (int index = last_param_with_args + 1; index < parameters.size(); index++)
+	{
+		
+		// there are no arguments in any of these parameters
+		// so we just ask the parameter directly
+		for (auto type : parameters[index].GetAllowedTypes())
+		{
+			if (allowed.contains(type))
+			{
+				allowed[pair.key] += 1;
+			}
+			else
+			{
+				allowed[pair.key] = 1;
+			}
+		}
+		// @Incomplete permutable
+		if (parameters[index].IsRequired())
+		{
+			break;
+		}
+	}
+
+	return allowed;
+}
+
+Set<ElementType> CommandElement::ParameterAllowedTypes(int index)
 {
 	if (index >= ParameterCount())
 	{

@@ -42,6 +42,8 @@ struct CommandParameter
 
 	virtual bool IsSatisfied() = 0;
 
+	virtual CommandElement * GetLastArgument() = 0;
+
 	virtual ErrorOr<Success> SetArgumentInternal(CommandElement * argument) = 0;
 
 	virtual ErrorOr<Value> Evaluate(CommandContext & context) = 0;
@@ -56,7 +58,7 @@ struct CommandParameter
 struct ParamSingleRequired : CommandParameter
 {
 	const ElementType type;
-	OwnedPtr<CommandElement> argument;
+	std::unique_ptr<CommandElement> argument;
 
 	ParamSingleRequired(ElementType type)
 		: type(type)
@@ -67,6 +69,8 @@ struct ParamSingleRequired : CommandParameter
 	bool IsRequired() override { return true; }
 
 	bool IsSatisfied() override { return argument != nullptr; }
+
+	CommandElement * GetLastArgument() override { return argument; }
 
 	ErrorOr<Success> SetArgumentInternal(CommandElement * argument) override;
 
@@ -105,6 +109,8 @@ struct ParamRepeatableRequired : CommandParameter
 	bool IsRequired() override { return true; }
 
 	bool IsSatisfied() override { return !arguments.empty(); }
+
+	CommandElement * GetLastArgument() override;
 
 	// todo: should this be passed in as a unique_ptr?
 	ErrorOr<Success> SetArgumentInternal(CommandElement * argument) override;
@@ -149,6 +155,8 @@ struct OneOf : CommandParameter
 	bool IsSatisfied() override;
 
 	ErrorOr<Success> SetArgumentInternal(CommandElement * argument) override;
+
+	CommandElement * GetLastArgument() override;
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 

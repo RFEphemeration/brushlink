@@ -11,7 +11,56 @@ void CommandContext::InitElementDictionary()
 		{"Select", MakeContextFunctionWithActors(
 			ElementType.Action,
 			CommandContext::Select,
-			{{ParamSingleRequired(ElementType.Selector)}})}
+			{{ParamSingleRequired(ElementType.Selector)}}
+		)},
+		{"Move", MakeContextFunctionWithActors(
+			ElementType.Action,
+			CommandContext::Move,
+			{
+				{ParamSingleRequired(ElementType.Selector)},
+				{ParamSingleRequired(ElementType.Location)}
+			}
+		)},
+		{"Attack", MakeContextFunctionWithActors(
+			ElementType.Action,
+			CommandContext::Move,
+			{
+				{ParamSingleRequired(ElementType.Selector)},
+				{ParamSingleRequired(ElementType.Selector)}
+			}
+		)},
+		{"SetCommandGroup", MakeContextFunctionWithActors(
+			ElementType.Action,
+			CommandContext::SetCommandGroup,
+			{
+				{ParamSingleRequired(ElementType.Selector)}
+			}
+		)},
+		{"Enemies", MakeContextFunction(
+			ElementType.Set,
+			CommandContext::Enemies,
+			{}
+		)},
+		{"Allies", MakeContextFunction(
+			ElementType.Set,
+			CommandContext::Allies,
+			{}
+		)},
+		{"CurrentSelection", MakeContextFunction(
+			ElementType.Set,
+			CommandContext::CurrentSelection,
+			{}
+		)},
+		{"Actors", MakeContextFunction(
+			ElementType.Set,
+			CommandContext::Actors,
+			{}
+		)},
+		{"CommandGroup", MakeContextFunction(
+			ElementType.Set,
+			CommandContext::CommandGroup,
+			{ParamSingleRequired(ElementType.Number)}
+		)},
 		// maybe numbers shouldn't be literals because of left parameter for *10
 		{"Zero", MakeLiteral(Number(0))},
 		{"One", MakeLiteral(Number(1))}
