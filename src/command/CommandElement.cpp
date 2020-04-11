@@ -63,7 +63,7 @@ Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
 			}
 		}
 		// @Incomplete permutable
-		if (parameters[index].IsRequired())
+		if (parameters[index]->IsRequired())
 		{
 			break;
 		}
@@ -78,7 +78,7 @@ ErrorOr<bool> CommandElement::AppendArgument(std::unique_ptr<CommandElement> * n
 	for (int index = parameters.size() - 1; index >= 0 ; index--)
 	{
 		// earlier arguments to parameters can't be revisited
-		CommandElement * argument = parameters[index].GetLastArgument();
+		CommandElement * argument = parameters[index]->GetLastArgument();
 		if (argument != nullptr)
 		{
 			last_param_with_args = index;
@@ -100,18 +100,18 @@ ErrorOr<bool> CommandElement::AppendArgument(std::unique_ptr<CommandElement> * n
 
 	for (int index = last_param_with_args+1; index < parameters.size(); index++)
 	{
-		auto types = parameters[index].GetAllowedTypes();
+		auto types = parameters[index]->GetAllowedTypes();
 		if (types.contains(next->Type()))
 		{
 			if (skip_count == 0)
 			{
-				parameters[index].SetArgument(next);
+				parameters[index]->SetArgument(next);
 				return true;
 			}
 			skip_count--;
 		}
 		// @Incomplete permutable
-		if (parameters[index].IsRequired())
+		if (parameters[index]->IsRequired())
 		{
 			return Error("Can't append because a preceding parameter has not been satisfied");
 		}
@@ -138,19 +138,19 @@ bool CommandElement::AddArgument(int index, CommandElement * argument)
 	{
 		return false;
 	}
-	if (!parameters[index].GetAllowedTypes().contains(argument->Type()))
+	if (!parameters[index]->GetAllowedTypes().contains(argument->Type()))
 	{
 		return false;
 	}
 
-	parameters[index].SetArgument(argument);
+	parameters[index]->SetArgument(argument);
 }
 
 bool CommandElement::ParametersSatisfied()
 {
 	for (auto parameter : parameters)
 	{
-		if (!parameter.IsSatisfied())
+		if (!parameter->IsSatisfied())
 		{
 			return false;
 		}

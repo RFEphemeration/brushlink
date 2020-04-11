@@ -7,6 +7,24 @@ namespace Command
 {
 
 struct CommandElement;
+struct CommandParameter;
+
+// @Incomplete optional without default value
+// @Incomplete is this even necessary? or should we instead have identity defaults
+std::unique_ptr<CommandParameter> Param(
+	ElementType type,
+	ElementName default_value,
+	OccurrenceFlags flags = 0x0);
+
+std::unique_ptr<CommandParameter> Param(ElementType type, ElementName default_value)
+{
+	return Param(type, default_value, OccurrenceFlags.Optional);
+}
+
+std::unique_ptr<CommandParameter> Param(ElementType type, OccurrenceFlags flags = 0x0)
+{
+	return Param(type, "", flags);
+}
 
 struct CommandParameter
 {

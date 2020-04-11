@@ -13,7 +13,7 @@ struct CommandElement
 	// todo: think more about left parameter here
 	// out of scope idea: left parameter OneOf causing dependent type.
 	const std::unique_ptr<CommandParameter> left_parameter;
-	const std::vector<CommandParameter> parameters;
+	const std::vector<std::unique_ptr<CommandParameter> > parameters;
 
 	CommandElement(ElementType type,
 		std::unique_ptr<CommandParameter> left_parameter,
@@ -227,7 +227,7 @@ struct ContextFunctionWithActors : CommandElement
 }
 
 template<typename TRet, typename ... TArgs>
-std::unique_ptr<ElementDefinition> MakeContextFunctionWithActors(
+std::unique_ptr<ElementDefinition> MakeContextAction(
 	ElementType type,
 	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
 	std::vector<CommandParameter> params)

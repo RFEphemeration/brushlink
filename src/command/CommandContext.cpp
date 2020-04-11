@@ -3,37 +3,41 @@
 namespace Command
 {
 
+using ElementType;
+
 void CommandContext::InitElementDictionary()
 {
 	element_dictionary.clear();
 
 	element_dictionary.insert({
-		{"Select", MakeContextFunctionWithActors(
-			ElementType.Action,
+		{"Select", MakeContextAction(
+			Action,
 			CommandContext::Select,
-			{{ParamSingleRequired(ElementType.Selector)}}
+			{
+				Param(Selector)
+			}
 		)},
-		{"Move", MakeContextFunctionWithActors(
+		{"Move", MakeContextAction(
+			Action,
+			CommandContext::Move,
+			{
+				Param(Selector),
+				Param(Location)
+			}
+		)},
+		{"Attack", MakeContextAction(
 			ElementType.Action,
 			CommandContext::Move,
 			{
-				{ParamSingleRequired(ElementType.Selector)},
-				{ParamSingleRequired(ElementType.Location)}
+				Param(Selector),
+				Param(Selector)
 			}
 		)},
-		{"Attack", MakeContextFunctionWithActors(
-			ElementType.Action,
-			CommandContext::Move,
-			{
-				{ParamSingleRequired(ElementType.Selector)},
-				{ParamSingleRequired(ElementType.Selector)}
-			}
-		)},
-		{"SetCommandGroup", MakeContextFunctionWithActors(
+		{"SetCommandGroup", MakeContextAction(
 			ElementType.Action,
 			CommandContext::SetCommandGroup,
 			{
-				{ParamSingleRequired(ElementType.Selector)}
+				Param(Selector)
 			}
 		)},
 		{"Enemies", MakeContextFunction(
@@ -59,7 +63,9 @@ void CommandContext::InitElementDictionary()
 		{"CommandGroup", MakeContextFunction(
 			ElementType.Set,
 			CommandContext::CommandGroup,
-			{ParamSingleRequired(ElementType.Number)}
+			{
+				Param(Number)
+			}
 		)},
 		// maybe numbers shouldn't be literals because of left parameter for *10
 		{"Zero", MakeLiteral(Number(0))},
