@@ -86,7 +86,7 @@ struct Literal : CommandElement
 	{ }
 
 
-	std::unique_ptr<CommandElement> CommandElement::DeepCopy() override
+	std::unique_ptr<CommandElement> DeepCopy() override
 	{
 		// no need to copy parameters because there are none
 		return new Literal(type, value);
@@ -122,7 +122,7 @@ struct ContextFunction : CommandElement
 		}
 	}
 
-	std::unique_ptr<CommandElement> CommandElement::DeepCopy() override
+	std::unique_ptr<CommandElement> DeepCopy() override
 	{
 		std::vector<std::unique_ptr<CommandParameter> > params_copy;
 		for (auto param : parameters)
@@ -197,7 +197,7 @@ struct ContextFunctionWithActors : CommandElement
 	}
 
 
-	std::unique_ptr<CommandElement> CommandElement::DeepCopy() override
+	std::unique_ptr<CommandElement> DeepCopy() override
 	{
 		std::vector<std::unique_ptr<CommandParameter> > params_copy;
 		for (auto param : parameters)
@@ -265,6 +265,39 @@ std::unique_ptr<ElementDefinition> MakeContextAction(
 	std::vector<CommandParameter> params)
 {
 	return new ContextFunctionWithActors{ type, func, params };
+}
+
+struct EmptyCommandElement : CommandElement
+{
+	EmptyCommandElement(ElementType type,
+		std::vector<CommandParameter> params)
+		: CommandElement(type, params)
+	{ }
+
+	std::unique_ptr<CommandElement> DeepCopy() override
+	{
+		std::vector<std::unique_ptr<CommandParameter> > params_copy;
+		for (auto param : parameters)
+		{
+			params_copy.append(param->DeepCopy());
+		}
+		auto * copy = new ContextFunctionWithActors(type, func, params_copy);
+		return copy;
+	}
+
+	ErrorOr<Value> Evaluate(CommandContext & context) override
+	{
+		if (left_parameter != nullptr)
+		{
+			CHECK_RETURN(left_parameter->Evaluate(context));
+		}
+		for (auto && param : parameters)
+		{
+			CHECK_RETURN(param->Evaluate(context))
+		}
+		return Success();
+	}
+
 }
 
 } // namespace Command

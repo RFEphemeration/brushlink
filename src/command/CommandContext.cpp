@@ -10,6 +10,15 @@ void CommandContext::InitElementDictionary()
 	element_dictionary.clear();
 
 	element_dictionary.insert({
+		{"Command", EmptyCommandElement(
+			Command,
+			{
+				OneOf(
+				{
+					Param(Action)
+				})
+			}
+		)},
 		{"Select", MakeContextAction(
 			Action,
 			CommandContext::Select,

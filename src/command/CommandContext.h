@@ -4,18 +4,15 @@ struct CommandElement;
 
 struct CommandContext
 {
-	// some of these should probably be moved to an in-game player
+	// these should probably be moved to an in-game player
 	UnitGroup current_selection;
 	Map<int, UnitGroup> command_groups;
-
 	std::unordered_map<HString, std::unique_ptr<CommandElement> > element_dictionary;
 
+
 	std::list<UnitGroup> actors_stack;
-
 	std::unique_ptr<CommandElement> command;
-
 	Map<ElementType, int> allowed_next_elements;
-
 	int skip_count;
 
 	void InitElementDictionary();
