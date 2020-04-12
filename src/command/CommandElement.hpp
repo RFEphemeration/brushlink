@@ -30,6 +30,8 @@ struct CommandElement
 		, parameters(parameters)
 	{ }
 
+	virtual std::unique_ptr<CommandElement> DeepCopy() = 0;
+
 	ElementType Type() { return type; }
 
 	// these functions follow down the tree
@@ -83,7 +85,14 @@ struct Literal : CommandElement
 		, value(value)
 	{ }
 
-	ErrorOr<Value> Evaluate(const CommandContext & context)
+
+	std::unique_ptr<CommandElement> CommandElement::DeepCopy() override
+	{
+		// no need to copy parameters because there are none
+		return new Literal(type, value);
+	}
+
+	ErrorOr<Value> Evaluate(const CommandContext & context) override
 	{
 		return value;
 	}
@@ -103,7 +112,7 @@ struct ContextFunction : CommandElement
 
 	ContextFunction(ElementType type,
 		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-		std::vector<CommandParameter> params)
+		std::vector<std::unique_ptr<CommandParameter> > params)
 		: CommandElement(type, params)
 		, func(func)
 	{
@@ -111,6 +120,17 @@ struct ContextFunction : CommandElement
 		{
 			// todo: error here
 		}
+	}
+
+	std::unique_ptr<CommandElement> CommandElement::DeepCopy() override
+	{
+		std::vector<std::unique_ptr<CommandParameter> > params_copy;
+		for (auto param : parameters)
+		{
+			params_copy.append(param->DeepCopy());
+		}
+		auto * copy = new ContextFunction(type, func, params_copy);
+		return copy;
 	}
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override
@@ -176,6 +196,18 @@ struct ContextFunctionWithActors : CommandElement
 		}
 	}
 
+
+	std::unique_ptr<CommandElement> CommandElement::DeepCopy() override
+	{
+		std::vector<std::unique_ptr<CommandParameter> > params_copy;
+		for (auto param : parameters)
+		{
+			params_copy.append(param->DeepCopy());
+		}
+		auto * copy = new ContextFunctionWithActors(type, func, params_copy);
+		return copy;
+	}
+
 	ErrorOr<Value> Evaluate(CommandContext & context) override
 	{
 		if constexpr(sizeof...(TArgs) == 0)
@@ -233,19 +265,6 @@ std::unique_ptr<ElementDefinition> MakeContextAction(
 	std::vector<CommandParameter> params)
 {
 	return new ContextFunctionWithActors{ type, func, params };
-}
-
-
-struct CurrentSelection : CommandElement
-{
-	CurrentSelection()
-		: CommandElement(ElementType.Selector_Base, {})
-	{}
-
-	ErrorOr<Value> Evaluate(CommandContext & context) override
-	{
-		return context.CurrentSelection();
-	}
 }
 
 } // namespace Command

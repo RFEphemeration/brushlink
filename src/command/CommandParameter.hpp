@@ -52,6 +52,8 @@ struct CommandParameter
 		return std::get<T>(value);
 	}
 
+	virtual std::unique_ptr<CommandParameter> DeepCopy() = 0;
+
 	virtual bool IsRequired() = 0;
 
 	// todo: should this take into consideration the current state of parameters?
@@ -82,6 +84,16 @@ struct ParamSingleRequired : CommandParameter
 		: type(type)
 	{ }
 
+	std::unique_ptr<CommandParameter> DeepCopy() override
+	{
+		auto * copy = new ParamSingleRequired(type);
+		if (argument != nullptr)
+		{
+			copy.argument = argument->DeepCopy();
+		}
+		return copy;
+	}
+
 	std::set<ElementType> GetAllowedTypes() override
 	{
 		if (argument == nullptr)
@@ -111,6 +123,7 @@ struct ParamSingleRequired : CommandParameter
 
 struct ParamSingleOptional : ParamSingleRequired
 {
+	// @Incomplete should optional without default value be possible?
 	ElementName default_value;
 
 	ParamSingleOptional(ElementType type, ElementName default_value)
@@ -118,6 +131,16 @@ struct ParamSingleOptional : ParamSingleRequired
 		, default_value(default_value)
 	{
 		// todo: check default value is of correct type
+	}
+
+	std::unique_ptr<CommandParameter> DeepCopy() override
+	{
+		auto * copy = new ParamSingleOptional(type, default_value);
+		if (argument != nullptr)
+		{
+			copy.argument = argument->DeepCopy();
+		}
+		return copy;
 	}
 
 	bool IsRequired() override { return false; }
@@ -130,11 +153,21 @@ struct ParamSingleOptional : ParamSingleRequired
 struct ParamRepeatableRequired : CommandParameter
 {
 	const ElementType type;
-	Repeatable<OwnedPtr<CommandElement> > arguments;
+	std::vector<std::unique_ptr<CommandElement> > arguments;
 
 	ParamRepeatableRequired(ElementType type)
 		: type(type)
 	{ }
+
+	std::unique_ptr<CommandParameter> DeepCopy() override
+	{
+		auto * copy = new ParamRepeatableRequired(type);
+		for (auto * arg : arguments)
+		{
+			copy->arguments.append(arg->DeepCopy());
+		}
+		return copy;
+	}
 
 	std::set<ElementType> GetAllowedTypes() override { return {type}; }
 
@@ -167,6 +200,16 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 		// todo: assert default value is of correct type
 	}
 
+	std::unique_ptr<CommandParameter> DeepCopy() override
+	{
+		auto * copy = new ParamRepeatableOptional(type, default_value);
+		for (auto * arg : arguments)
+		{
+			copy->arguments.append(arg->DeepCopy());
+		}
+		return copy;
+	}
+
 	bool IsSatisfied() override
 	{
 		return arguments.empty()
@@ -180,13 +223,25 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 
 struct OneOf : CommandParameter
 {
-	std::vect or<OwnedPtr<CommandParameter> > possibilities;
+	std::vector<std::unique_ptr<CommandParameter> > possibilities;
 	int chosen_index;
 
 	OneOf(std::vector<OwnedPtr<CommandParameter> > possibilities)
 		: possibilities(possibilities)
 		, chosen_index(-1)
 	{ }
+
+	std::unique_ptr<CommandParameter> DeepCopy() override
+	{
+		std::vector<std::unique_ptr<CommandParameter> > options_copy;
+		for (auto && option : possibilities)
+		{
+			options_copy.push_back(option->DeepCopy());
+		}
+		auto * copy = new OneOf(options_copy);
+		copy.chosen_index = chosen_index;
+		return copy;
+	}
 
 	std::set<ElementType> GetAllowedTypes() override;
 
