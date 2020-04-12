@@ -4,18 +4,23 @@ struct CommandElement;
 
 struct CommandContext
 {
+	// some of these should probably be moved to an in-game player
 	UnitGroup current_selection;
+	Map<int, UnitGroup> command_groups;
+
+	std::unordered_map<HString, std::unique_ptr<CommandElement> > element_dictionary;
 
 	std::list<UnitGroup> actors_stack;
 
 	std::unique_ptr<CommandElement> command;
 
-	std::unordered_map<HString, std::unique_ptr<CommandElement> > element_dictionary;
+	Map<ElementType, int> allowed_next_elements;
+
+	int skip_count;
 
 	void InitElementDictionary();
-
-	void HandleToken(ElementToken token);
 	ErrorOr<std::unique_ptr<CommandElement> > GetNewCommandElement(HString name);
+	ErrorOr<Success> HandleToken(ElementToken token);
 
 	void PushActors(UnitGroup group);
 	void PopActors();
