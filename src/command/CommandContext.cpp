@@ -76,9 +76,62 @@ void CommandContext::InitElementDictionary()
 				Param(Number)
 			}
 		)},
+		{"WithinActorsRange", MakeContextFunction(
+			ElementType.Filter,
+			CommandContext::WithinActorsRange,
+			{
+				Param(Number)
+			}
+		)},
+		{"OnScreen", MakeContextFunction(
+			ElementType.Filter,
+			CommandContext::OnScreen,
+			{}
+		)},
+		{"GroupSize", MakeContextFunction(
+			ElementType.GroupSize,
+			CommandContext::GroupSize,
+			{
+				Param(Number)
+			}
+		)},
+		{"GroupRatio", MakeContextFunction(
+			ElementType.GroupSize,
+			CommandContext::GroupRatio,
+			{
+				Param(Number)
+			}
+		)},
+		{"ClosestToActors", MakeContextFunction(
+			ElementType.Superlative,
+			CommandContext::ClosestToActors,
+			{ }
+		)},
+		{"PositionOf", MakeContextFunction(
+			ElementType.Location,
+			CommandContext::PositionOf,
+			{
+				Param(Selector)
+			}
+		)},
+		/*
+		{"MouseInputPosition", MakeContextFunction(
+			ElementType.Location,
+			CommandContext::MouseInputPosition,
+			{ }
+		)},
+		*/
 		// maybe numbers shouldn't be literals because of left parameter for *10
 		{"Zero", MakeLiteral(Number(0))},
-		{"One", MakeLiteral(Number(1))}
+		{"One", MakeLiteral(Number(1))},
+		{"Two", MakeLiteral(Number(2))},
+		{"Three", MakeLiteral(Number(3))},
+		{"Four", MakeLiteral(Number(4))},
+		{"Five", MakeLiteral(Number(5))},
+		{"Six", MakeLiteral(Number(6))},
+		{"Seven", MakeLiteral(Number(7))},
+		{"Eight", MakeLiteral(Number(8))},
+		{"Nine", MakeLiteral(Number(9))}
 	});
 
 	// todo: load user defined words from save
@@ -160,5 +213,54 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 	}
 	allowed_next_elements[ElementType.Cancel] = 1;
 }
+
+
+void CommandContext::PushActors(UnitGroup group)
+{
+	actors_stack.push_back(group);
+}
+
+void CommandContext::PopActors()
+{
+	actors_stack.pop_back();
+}
+
+//Action
+void CommandContext::Select(UnitGroup units)
+{
+	current_selection = units;
+}
+
+void CommandContext::Move(UnitGroup actors, Location target)
+{
+	// @Incomplete implement
+	std::cout << "Move " << actors.members[0];
+}
+
+void CommandContext::Attack(UnitGroup actors, UnitGroup target);
+void CommandContext::SetCommandGroup(UnitGroup actors, Number group);
+// void AddToCommandGroup(UnitGroup actors, Number group);
+// void RemoveFromCommandGroup(UnitGroup actors, Number group);
+
+// Set
+UnitGroup CommandContext::Enemies();
+UnitGroup CommandContext::Allies();
+UnitGroup CommandContext::CurrentSelection();
+UnitGroup CommandContext::Actors();
+UnitGroup CommandContext::CommandGroup(Number group);
+
+// Filter, can have many
+UnitGroup CommandContext::WithinActorsRange(UnitGroup set, Number distance_modifier);
+UnitGroup CommandContext::OnScreen(UnitGroup set);
+
+// Group_Size, up to one
+UnitGroup CommandContext::GroupSize(UnitGroup set, Number size);
+UnitGroup CommandContext::GroupRatio(UnitGroup set, Number ratio); // implied 1/
+
+// Superlative, up to one
+UnitGroup CommandContext::ClosestToActors(UnitGroup set);
+
+// Location
+Location CommandContext::PositionOf(UnitGroup group);
 
 } // namespace Command
