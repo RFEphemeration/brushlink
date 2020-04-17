@@ -17,6 +17,11 @@ struct CommandContext
 
 	void InitElementDictionary();
 	ErrorOr<std::unique_ptr<CommandElement> > GetNewCommandElement(HString name);
+	ErrorOr<ElementToken> GetTokenForName(ElementName name);
+	
+	ErrorOr<Success> InitNewCommand();
+	ErrorOr<Success> RefreshAllowedTypes();
+	ErrorOr<Success> GetAllowedNextElements(std::set<ElementName> & allowed);
 	ErrorOr<Success> HandleToken(ElementToken token);
 
 	void PushActors(UnitGroup group);

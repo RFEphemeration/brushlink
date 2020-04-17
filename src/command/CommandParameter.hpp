@@ -58,6 +58,8 @@ struct CommandParameter
 		return ret;
 	}
 
+	virtual std::string CommandElement::GetPrintString(std::string line_prefix) = 0;
+
 	virtual std::unique_ptr<CommandParameter> DeepCopy() = 0;
 
 	virtual bool IsRequired() = 0;
@@ -89,6 +91,18 @@ struct ParamSingleRequired : CommandParameter
 	ParamSingleRequired(ElementType type)
 		: type(type)
 	{ }
+
+	std::string CommandElement::GetPrintString(std::string line_prefix) override
+	{
+		if (argument != nullptr)
+		{
+			return argument->GetPrintString(line_prefix);
+		}
+		else
+		{
+			return "";
+		}
+	}
 
 	std::unique_ptr<CommandParameter> DeepCopy() override
 	{
@@ -139,6 +153,22 @@ struct ParamSingleOptional : ParamSingleRequired
 		// todo: check default value is of correct type
 	}
 
+	std::string CommandElement::GetPrintString(std::string line_prefix) override
+	{
+		if (argument != nullptr)
+		{
+			return argument->GetPrintString(line_prefix);
+		}
+		else if (!default_value.IsEmpty())
+		{
+			return line_prefix + "(" + default_value + ")\n";
+		}
+		else
+		{
+			return "";
+		}
+	}
+
 	std::unique_ptr<CommandParameter> DeepCopy() override
 	{
 		auto * copy = new ParamSingleOptional(type, default_value);
@@ -165,10 +195,20 @@ struct ParamRepeatableRequired : CommandParameter
 		: type(type)
 	{ }
 
+	std::string CommandElement::GetPrintString(std::string line_prefix) override
+	{
+		std::string print_string = "";
+		for (auto arg : arguments)
+		{
+			print_string += art->GetPrintString(line_prefix);
+		}
+		return print_string;
+	}
+
 	std::unique_ptr<CommandParameter> DeepCopy() override
 	{
 		auto * copy = new ParamRepeatableRequired(type);
-		for (auto * arg : arguments)
+		for (auto arg : arguments)
 		{
 			copy->arguments.append(arg->DeepCopy());
 		}
@@ -206,6 +246,23 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 		// todo: assert default value is of correct type
 	}
 
+	std::string CommandElement::GetPrintString(std::string line_prefix) override
+	{
+		std::string print_string = "";
+		for (auto arg : arguments)
+		{
+			print_string += art->GetPrintString(line_prefix);
+		}
+		return print_string;
+		
+		if (arguments.empty() && !default_value.IsEmpty())
+		{
+			print_string += line_prefix + "(" + default_value + ")\n";
+		}
+
+		return print_string;
+	}
+
 	std::unique_ptr<CommandParameter> DeepCopy() override
 	{
 		auto * copy = new ParamRepeatableOptional(type, default_value);
@@ -236,6 +293,17 @@ struct OneOf : CommandParameter
 		: possibilities(possibilities)
 		, chosen_index(-1)
 	{ }
+
+	std::string CommandElement::GetPrintString(std::string line_prefix) override
+	{
+		std::string print_string = "";
+		if (chosen_index != -1)
+		{
+			print_string += possibilities[chosen_index]->GetPrintString(line_prefix);
+		}
+		// @Incomplete: default value for one of the possibilities
+		return print_string;
+	}
 
 	std::unique_ptr<CommandParameter> DeepCopy() override
 	{

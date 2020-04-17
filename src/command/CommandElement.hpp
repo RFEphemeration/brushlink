@@ -9,6 +9,8 @@ namespace Command
 
 struct CommandElement
 {
+	// @Incomplete make name const and pass through constructor chain
+	ElementName name;
 	const ElementType type;
 	// todo: think more about left parameter here
 	// out of scope idea: left parameter OneOf causing dependent type.
@@ -60,6 +62,8 @@ struct CommandElement
 	bool AddArgument(int index, CommandElement * argument);
 
 	bool ParametersSatisfied();
+
+	std::string GetPrintString(std::string line_prefix);
 
 	template<typename T>
 	ErrorOr<T> EvaluateAs(const CommandContext & context)

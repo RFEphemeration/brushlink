@@ -4,8 +4,7 @@
 #include <assert.h> 
 
 #include "../../../farb/tests/RegisterTest.hpp"
-#include "../../src/command/Parser.h"
-#include "../../src/command/ElementDictionary.h"
+#include "../../src/command/CommandContext.h"
 
 using namespace Farb;
 
@@ -24,23 +23,27 @@ public:
 
 		std::string line;
 
-		Parser parser;
+		CommandContext context;
+		context.InitElementDictionary();
+		context.InitNewCommand();
 
 		std::set<ElementName> validNextElements;
 
 		while (true)
 		{
+
 			auto criteria = parser.GetNextTokenCriteria();
 
-			ElementDictionary::GetAllowedNextElements(criteria, validNextElements);
+			context.GetAllowedNextElements(validNextElements);
 
 			if (validNextElements.size() == 0)
 			{
-				if (!parser.IsComplete())
+				if (!context.command->ParametersSatisfied())
 				{
 					std::cout << "no valid elements and the statement is still incomplete" << std::endl;
 					return false;
 				}
+				/*
 				else
 				{
 					std::cout << "command is complete" << std::endl;
@@ -52,6 +55,7 @@ public:
 					parser.Reset();
 					continue;
 				}
+				*/
 			}
 			
 			std::cout << "Valid Next - ";
@@ -67,21 +71,21 @@ public:
 			{
 				return true;
 			}
-			ElementName name{line};
-			auto decl = ElementDictionary::GetDeclaration({line});
-			if (decl == nullptr)
-			{
-				std::cout << "invalid element name." << std::endl;
-				continue;
-			}
-			auto result = parser.Append({name, decl->types});
+			auto result = context.GetTokenForName(ElementName{line});
 			if (result.IsError())
 			{
 				result.GetError().Log();
 				continue;
 			}
+
+			auto result = context.HandleToken(result.GetValue());
+			if (result.IsError())
+			{
+				result.GetError().Log()
+				continue;
+			}
 			std::cout << "AST - " << std::endl;
-			std::string printString = ElementNode::GetPrintString(parser.root, "    ");
+			std::string printString = context.command->GetPrintString("    ");
 			std::cout << printString;
 		}
 	}

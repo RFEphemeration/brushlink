@@ -170,13 +170,56 @@ ErrorOr<std::unique_ptr<CommandElement> > CommandContext::GetNewCommandElement(H
 {
 	if (element_dictionary.contains(name))
 	{
-		return element_dictionary[name].DeepCopy();
+		auto copy = element_dictionary[name].DeepCopy();
+		// @Incomplete, name should be passed through constructor
+		copy->name = name;
+		return copy;
 	}
 	else
 	{
-		return Error("Couldn't find element with name" + name.ToCString())
+		return Error("Couldn't find element with name" + name);
 	}
 }
+
+ErrorOr<ElementToken> CommandContext::GetTokenForName(ElementName name)
+{
+	if (element_dictionary.contains(name))
+	{
+		return ElementToken{element_dictionary[name]->GetType(), name};
+	}
+	else
+	{
+		return Error("Couldn't find element with name" + name.value);
+	}
+}
+
+ErrorOr<Success> CommandContext::InitNewCommand()
+{
+	command = CHECK_RETURN(GetNewCommandElement("Command"));
+	return RefreshAllowedTypes();
+}
+
+
+ErrorOr<Success> CommandContext::RefreshAllowedTypes()
+{
+	allowed_next_elements = command->GetAllowedArgumentTypes();
+	int max_type_count = 1;
+	for (auto pair : allowed_next_elements)
+	{
+		if (pair.value > max_type_count)
+		{
+			max_type_count = pair.value;
+		}
+	}
+	allowed_next_elements[ElementType.Skip] = max_type_count - 1;
+	if (command->ParametersSatisfied())
+	{
+		allowed_next_elements[ElementType.Termination] = 1;
+	}
+	allowed_next_elements[ElementType.Cancel] = 1;
+	return Success();
+}
+
 
 ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 {
@@ -226,21 +269,7 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 			break;
 	}
 
-	allowed_next_elements = command->GetAllowedArgumentTypes();
-	int max_type_count = 1;
-	for (auto pair : allowed_next_elements)
-	{
-		if (pair.value > max_type_count)
-		{
-			max_type_count = pair.value;
-		}
-	}
-	allowed_next_elements[ElementType.Skip] = max_type_count - 1;
-	if (command->ParametersSatisfied())
-	{
-		allowed_next_elements[ElementType.Termination] = 1;
-	}
-	allowed_next_elements[ElementType.Cancel] = 1;
+	return RefreshAllowedTypes();
 }
 
 

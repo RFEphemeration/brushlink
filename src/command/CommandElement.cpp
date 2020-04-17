@@ -158,6 +158,17 @@ bool CommandElement::ParametersSatisfied()
 	return true;
 }
 
+std::string CommandElement::GetPrintString(std::string line_prefix)
+{
+	std::string print_string = line_prefix + name + "\n";
+	line_prefix += "    ";
+	for (auto & parameter : parameters)
+	{
+		print_string += parameter->GetPrintString(line_prefix);
+	}
+	return print_string;
+}
+
 ErrorOr<Value> Select::Evaluate(CommandContext & context)
 {
 	UnitGroup actor_units = CHECK_RETURN(parameters[0]->EvaluateAs<UnitGroup>(context));

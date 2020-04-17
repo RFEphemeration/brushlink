@@ -1,7 +1,7 @@
 
 #include <iostream>
 
-#include "./command/TestASTParsing.hpp"
+// #include "./command/TestASTParsing.hpp"
 #include "./command/InteractiveTestNextTokens.hpp"
 
 /*
@@ -14,7 +14,6 @@ int main(void)
 	std::cout << "Beginning Tests" << std::endl;
 	
 	bool success = Run<
-		TestASTParsing,
 		InteractiveTestNextTokens>(true);
 	
 	std::cout << "All Tests Passed" << std::endl;
