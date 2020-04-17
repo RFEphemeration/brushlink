@@ -161,7 +161,7 @@ using Value = std::variant<
 	Selector_Filter,
 	Selector_GroupSize,
 	Selector_Superlative,
-	Unit_Type unit_type,
+	Unit_Type,
 	Ability_Type,
 	Attribute_Type,
 	Location,

@@ -51,19 +51,21 @@ struct CommandContext
 	UnitGroup Actors();
 	UnitGroup CommandGroup(Number group);
 	
+	// the filter, groupsize, and superlative types
+	// make it difficult to allow users to define new ones
+	// @Feature reconsider private/internal arguments for elements
+
 	// Filter, can have many
-	Filter FilterIdentity(UnitGroup set);
-	Filter WithinActorsRange(UnitGroup set, Number distance_modifier);
-	Filter OnScreen(UnitGroup set);
+	Filter WithinActorsRange(Number distance_modifier);
+	Filter OnScreen();
 
 	// GroupSize, up to one
-	GroupSize GroupSizeIdentity(UnitGroup set);
-	GroupSize GroupSize(UnitGroup set, Number size);
-	GroupSize GroupActorsRatio(UnitGroup set, Number ratio); // implied 1/
+	GroupSize GroupSizeLiteral(Number size);
+	GroupSize GroupActorsRatio(Number ratio); // implied 1/
 
 	// Superlative, up to one
-	Superlative SuperlativeRandom(UnitGroup set, Number size);
-	Superlative ClosestToActors(UnitGroup set, Number size);
+	Superlative SuperlativeRandom();
+	Superlative ClosestToActors();
 
 	// Location
 	Location PositionOf(UnitGroup group);

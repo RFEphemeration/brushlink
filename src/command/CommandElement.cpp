@@ -237,14 +237,40 @@ ErrorOr<Value> SelectorCommandElement::Evaluate(CommandContext & context)
 	
 	UnitGroup units = CHECK_RETURN(parameters[0]->EvaluateAs<UnitGroup>(context));
 	Repeatable<Filter> filters = CHECK_RETURN(parameters[1]->EvaluateAsRepeatable<Filter>(context));
-	GroupSize size = CHECK_RETURN(parameters[2]->EvaluateAs<Number>(context));
-	Superlative superlative = CHECK_RETURN(parameters[3]->EvaluateAs<Superlative>(context));
 
 	for (auto filter : filters)
 	{
 		units = filter(units);
 	}
-	units = superlative(units, size(units));
+
+	int count = 0;
+	if (parameters[2]->GetLastArgument() != nullptr)
+	{
+		// group size is optional and doesn't have a default
+		// so we can only evaluate it if it has an argument
+		GroupSize size = CHECK_RETURN(parameters[2]->EvaluateAs<Number>(context));
+		count = size(units);
+	}
+	else if (parameters[3]->GetLastArgument() != nullptr)
+	{
+		// if GroupSize is not set but Superlative is, target a single unit
+		count = 1;
+	}
+	else
+	{
+		// default, with no GroupSize or Superlative set, just take all the units
+		count = units.members.size();
+	}
+
+	// only apply superlative if we have too many units
+	if (units.members.size() > count)
+	{
+		// superlatives should have a default value, so even if there isn't 
+		// a last argument, we should be able to evaluate
+		Superlative superlative = CHECK_RETURN(parameters[3]->EvaluateAs<Superlative>(context));
+
+		units = superlative(units, Number(count));
+	}
 	
 	return units;
 }
