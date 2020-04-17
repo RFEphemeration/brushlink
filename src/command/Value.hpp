@@ -39,9 +39,10 @@ struct NumberTag
 }
 using Number = NamedType<int, Number>;
 
-using Selector_Filter = Functor<UnitGroup, CommandContext, UnitGroup>;
-using Selector_GroupSize = Functor<Number, CommandContext, UnitGroup>; // is this just a number?
-using Selector_Superlative = Functor<UnitGroup, CommandContext, Number, UnitGroup>;
+using Filter = std::function<UnitGroup, UnitGroup>;
+// is GroupSize this just a number?
+using GroupSize = std::function<Number, UnitGroup>;
+using Superlative = std::function<UnitGroup, Number, UnitGroup>;
 
 // each unit can have multiple types
 enum class Unit_Type

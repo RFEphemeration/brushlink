@@ -23,14 +23,14 @@ void CommandContext::InitElementDictionary()
 			Action,
 			CommandContext::Select,
 			{
-				Param(Selector)
+				Param(Selector, "SelectorFriendly")
 			}
 		)},
 		{"Move", MakeContextAction(
 			Action,
 			CommandContext::Move,
 			{
-				Param(Selector),
+				Param(Selector, "SelectorActors"),
 				Param(Location)
 			}
 		)},
@@ -38,17 +38,39 @@ void CommandContext::InitElementDictionary()
 			ElementType.Action,
 			CommandContext::Move,
 			{
-				Param(Selector),
-				Param(Selector)
+				Param(Selector, "SelectorActors"),
+				Param(Selector, "SelectorTarget")
 			}
 		)},
 		{"SetCommandGroup", MakeContextAction(
 			ElementType.Action,
 			CommandContext::SetCommandGroup,
 			{
-				Param(Selector)
+				Param(Selector, "SelectorActors")
 			}
 		)},
+		{"Selector", new SelectorCommandElement{}},
+		// is this an appropriate way to do context sensitive defaults?
+		// it doesn't feel great
+		// maybe we should be using child command contexts
+		{"SelectorActors", new SelectorCommandElement{
+			Param(ElementType.Set, "CurrentSelection"),
+			Param(ElementType.Filter, "FilterIdentity", OccurrenceFlags.Repeatable),
+			Param(ElementType.GroupSize, "GroupSizeIdentity"),
+			Param(ElementType.Superlative, "SuperlativeRandom")
+		}},
+		{"SelectorFriendly", new SelectorCommandElement{
+			Param(ElementType.Set, "Allies"),
+			Param(ElementType.Filter, "FilterIdentity", OccurrenceFlags.Repeatable),
+			Param(ElementType.GroupSize, "GroupSizeIdentity"),
+			Param(ElementType.Superlative, "SuperlativeRandom")
+		}},
+		{"SelectorTarget", new SelectorCommandElement{
+			Param(ElementType.Set, "Enemies"),
+			Param(ElementType.Filter, "FilterIdentity", OccurrenceFlags.Repeatable),
+			Param(ElementType.GroupSize, "GroupSizeIdentity"),
+			Param(ElementType.Superlative, "SuperlativeRandom")
+		}},
 		{"Enemies", MakeContextFunction(
 			ElementType.Set,
 			CommandContext::Enemies,
@@ -76,6 +98,10 @@ void CommandContext::InitElementDictionary()
 				Param(Number)
 			}
 		)},
+		{"FilterIdentity", MakeContextFunction(
+			ElementType.Filter,
+			CommandContext::FilterIdentity, {}
+		)},
 		{"WithinActorsRange", MakeContextFunction(
 			ElementType.Filter,
 			CommandContext::WithinActorsRange,
@@ -86,7 +112,12 @@ void CommandContext::InitElementDictionary()
 		{"OnScreen", MakeContextFunction(
 			ElementType.Filter,
 			CommandContext::OnScreen,
-			{}
+			{ }
+		)},
+		{"GroupSizeIdentity", MakeContextFunction(
+			ElementType.GroupSize,
+			CommandContext::GroupSizeIdentity,
+			{ }
 		)},
 		{"GroupSize", MakeContextFunction(
 			ElementType.GroupSize,
@@ -102,6 +133,11 @@ void CommandContext::InitElementDictionary()
 				Param(Number)
 			}
 		)},
+		{"SuperlativeRandom", MakeContextFunction(
+			ElementType.Superlative,
+			CommandContext::SuperlativeRandom,
+			{ }
+		)},
 		{"ClosestToActors", MakeContextFunction(
 			ElementType.Superlative,
 			CommandContext::ClosestToActors,
@@ -111,6 +147,7 @@ void CommandContext::InitElementDictionary()
 			ElementType.Location,
 			CommandContext::PositionOf,
 			{
+				// the default for this selector
 				Param(Selector)
 			}
 		)},
@@ -237,30 +274,134 @@ void CommandContext::Move(UnitGroup actors, Location target)
 	std::cout << "Move " << actors.members[0];
 }
 
-void CommandContext::Attack(UnitGroup actors, UnitGroup target);
-void CommandContext::SetCommandGroup(UnitGroup actors, Number group);
+void CommandContext::Attack(UnitGroup actors, UnitGroup target)
+{
+	// @Incomplete implement
+	std::cout << "Attack " << actors.members[0] << " " << target.members[0];
+}
+void CommandContext::SetCommandGroup(UnitGroup actors, Number group)
+{
+	command_groups[group.value] = actors;
+}
 // void AddToCommandGroup(UnitGroup actors, Number group);
 // void RemoveFromCommandGroup(UnitGroup actors, Number group);
 
 // Set
-UnitGroup CommandContext::Enemies();
-UnitGroup CommandContext::Allies();
-UnitGroup CommandContext::CurrentSelection();
-UnitGroup CommandContext::Actors();
-UnitGroup CommandContext::CommandGroup(Number group);
+UnitGroup CommandContext::Enemies()
+{
+	// @Incomplete implement
+	return UnitGroup{{
+		0, 2, 4, 6, 8, 10, 12
+	}};
+}
+UnitGroup CommandContext::Allies()
+{
+	// @Incomplete implement
+	return UnitGroup{{
+		1, 3, 5, 7, 9, 11, 13
+	}};
+}
+UnitGroup CommandContext::CurrentSelection()
+{
+	return current_selection;
+}
+UnitGroup CommandContext::Actors()
+{
+	return actors_stack[actors_stack.size() - 1];
+}
+UnitGroup CommandContext::CommandGroup(Number group)
+{
+	if (command_groups.contains(group.value))
+	{
+		return command_groups[group.value];
+	}
+	return UnitGroup{};
+}
 
 // Filter, can have many
-UnitGroup CommandContext::WithinActorsRange(UnitGroup set, Number distance_modifier);
-UnitGroup CommandContext::OnScreen(UnitGroup set);
+Filter CommandContext::FilterIdentity()
+{
+	return [](UnitGroup set) -> UnitGroup { return set; };
+}
+Filter CommandContext::WithinActorsRange(Number distance_modifier)
+{
+	std::cout << "WithinActorsRange " << distance_modifier.value << std::endl;
+	// @Incomplete implement
+	return [](UnitGroup set) -> UnitGroup { return set; };
+}
+Filter CommandContext::OnScreen()
+{
+	// @Incomplete implement
+	UnitGroup on_screen{};
+
+	for (auto id : set.members)
+	{
+		if (id <= 5)
+		{
+			on_screen.members.push_back(id);
+		}
+	}
+	// @Incomplete implement
+	return [](UnitGroup set) -> UnitGroup
+	{
+		return set;
+	};
+	return on_screen;
+}
 
 // Group_Size, up to one
-UnitGroup CommandContext::GroupSize(UnitGroup set, Number size);
-UnitGroup CommandContext::GroupRatio(UnitGroup set, Number ratio); // implied 1/
+Number CommandContext::GroupSizeIdentity(UnitGroup set)
+{
+	return [](UnitGroup set) -> Number { return set.members.size(); };
+}
+
+Number CommandContext::GroupSize(UnitGroup set, Number size)
+{
+	return [=](UnitGroup set) -> Number
+	{
+		return set.members.size();
+	};
+	if (set.size() > size.value)
+	{
+		return size;
+	}
+	return set.size();
+}
+// Could probably implement this as a word, SizeOf Actors DividedBy ratio
+// is UnitGroup even the right return type for GroupSize?
+// maybe it should just be a number...
+Number CommandContext::GroupActorsRatio(UnitGroup set, Number ratio) // implied 1/
+{
+	int size = Actors().members.size() / ratio.value;
+	if (size == 0)
+	{
+		size = 1;
+	}
+
+	return GroupSize(set, size);
+}
 
 // Superlative, up to one
-UnitGroup CommandContext::ClosestToActors(UnitGroup set);
+UnitGroup SuperlativeRandom(UnitGroup set, Number size)
+{
+	if (set.members.size() <= size)
+	{
+		return set;
+	}
+	std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(set.members.begin(), set.members.end(), g);
+
+	set.members.resize(size);
+	return set;
+}
+
+UnitGroup CommandContext::ClosestToActors(UnitGroup set, Number size)
+{
+
+}
 
 // Location
-Location CommandContext::PositionOf(UnitGroup group);
+Location CommandContext::PositionOf(UnitGroup group, Number size);
 
 } // namespace Command

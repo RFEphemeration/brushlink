@@ -188,4 +188,65 @@ ErrorOr<Value> CurrentSelection::Evaluate(CommandContext & context)
 	return context.CurrentSelection();
 }
 
+
+
+std::unique_ptr<CommandElement> EmptyCommandElement::DeepCopy()
+{
+	std::vector<std::unique_ptr<CommandParameter> > params_copy;
+	for (auto param : parameters)
+	{
+		params_copy.append(param->DeepCopy());
+	}
+	auto * copy = new ContextFunctionWithActors(type, func, params_copy);
+	return copy;
+}
+
+ErrorOr<Value> EmptyCommandElement::Evaluate(CommandContext & context)
+{
+	if (left_parameter != nullptr)
+	{
+		CHECK_RETURN(left_parameter->Evaluate(context));
+	}
+	for (auto && param : parameters)
+	{
+		CHECK_RETURN(param->Evaluate(context))
+	}
+	return Success();
+}
+
+std::unique_ptr<CommandElement> SelectorCommandElement::DeepCopy()
+{
+	std::vector<std::unique_ptr<CommandParameter> > params_copy;
+	for (auto param : parameters)
+	{
+		params_copy.append(param->DeepCopy());
+	}
+	return new SelectorCommandElement(params_copy);
+}
+
+ErrorOr<Value> SelectorCommandElement::Evaluate(CommandContext & context)
+{
+	// an alternative format for this could be to allow elements
+	// to have private parameters that don't return in the get allowed types
+	// and don't prevent the user from moving on
+	// but then would throw errors during evaluation
+
+	// context dependent defaults should happen here
+	// maybe CommandElements should have a pointer to their parent?
+	// we had considered that for access to actors and everything
+	
+	UnitGroup units = CHECK_RETURN(parameters[0]->EvaluateAs<UnitGroup>(context));
+	Repeatable<Filter> filters = CHECK_RETURN(parameters[1]->EvaluateAsRepeatable<Filter>(context));
+	GroupSize size = CHECK_RETURN(parameters[2]->EvaluateAs<Number>(context));
+	Superlative superlative = CHECK_RETURN(parameters[3]->EvaluateAs<Superlative>(context));
+
+	for (auto filter : filters)
+	{
+		units = filter(units);
+	}
+	units = superlative(units, size(units));
+	
+	return units;
+}
+
 } // namespace Command

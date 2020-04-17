@@ -42,6 +42,10 @@ ErrorOr<Value> ParamSingleOptional::Evaluate(CommandContext & context)
 {
 	if (argument == nullptr)
 	{
+		if (default_value.IsEmpty())
+		{
+			return UnsetOptional();
+		}
 		// todo: get value for default
 	}
 	return argument->Evaluate(context);
@@ -96,7 +100,7 @@ ErrorOr<Value> ParamRepeatableOptional::Evaluate(CommandContext & context)
 	}
 	if (arguments.size() == 0)
 	{
-		// todo: get default value;
+		// @Incomplete: get default value
 	}
 	return arguments[0]->Evaluate(context);
 }
@@ -108,6 +112,10 @@ ErrorOr<Repeatable<Value> > ParamRepeatableOptional::EvaluateRepeatable(CommandC
 	for (auto argument : arguments)
 	{
 		values.append(CHECK_RETURN(argument->Evaluate(context)));
+	}
+	if (arguments.size() == 0 && !default_value.IsEmpty())
+	{
+		// @Incomplete: get default value
 	}
 	return values;
 }

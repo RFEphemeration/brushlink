@@ -267,6 +267,7 @@ std::unique_ptr<ElementDefinition> MakeContextAction(
 	return new ContextFunctionWithActors{ type, func, params };
 }
 
+// used for Command, maybe nothing else
 struct EmptyCommandElement : CommandElement
 {
 	EmptyCommandElement(ElementType type,
@@ -274,30 +275,37 @@ struct EmptyCommandElement : CommandElement
 		: CommandElement(type, params)
 	{ }
 
-	std::unique_ptr<CommandElement> DeepCopy() override
-	{
-		std::vector<std::unique_ptr<CommandParameter> > params_copy;
-		for (auto param : parameters)
-		{
-			params_copy.append(param->DeepCopy());
-		}
-		auto * copy = new ContextFunctionWithActors(type, func, params_copy);
-		return copy;
-	}
+	std::unique_ptr<CommandElement> DeepCopy() override;
 
-	ErrorOr<Value> Evaluate(CommandContext & context) override
-	{
-		if (left_parameter != nullptr)
-		{
-			CHECK_RETURN(left_parameter->Evaluate(context));
-		}
-		for (auto && param : parameters)
-		{
-			CHECK_RETURN(param->Evaluate(context))
-		}
-		return Success();
-	}
+	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
+}
+
+struct SelectorCommandElement : CommandElement
+{
+	/*
+	SelectorCommandElement()
+		: CommandElement(ElementType.Selector, {
+			Param(ElementType.Set,
+				OccurrenceFlags.Optional),
+			Param(ElementType.Filter,
+				OccurrenceFlags.Optional & OccurrenceFlags.Repeatable),
+			Param(ElementType.GroupSize,
+				OccurrenceFlags.Optional),
+			Param(ElementType.Superlative,
+				OccurrenceFlags.Optional)
+		})
+	{ }
+	*/
+
+	SelectorCommandElement(std::vector<CommandParameter> params)
+		: CommandElement(ElementType.selector, params)
+	{ }
+
+public:
+	std::unique_ptr<CommandElement> DeepCopy() override;
+
+	ErrorOr<Value> Evaluate(CommandContext & context) override;
 }
 
 } // namespace Command

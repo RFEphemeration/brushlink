@@ -52,15 +52,18 @@ struct CommandContext
 	UnitGroup CommandGroup(Number group);
 	
 	// Filter, can have many
-	UnitGroup WithinActorsRange(UnitGroup set, Number distance_modifier);
-	UnitGroup OnScreen(UnitGroup set);
+	Filter FilterIdentity(UnitGroup set);
+	Filter WithinActorsRange(UnitGroup set, Number distance_modifier);
+	Filter OnScreen(UnitGroup set);
 
-	// Group_Size, up to one
-	UnitGroup GroupSize(UnitGroup set, Number size);
-	UnitGroup GroupRatio(UnitGroup set, Number ratio); // implied 1/
+	// GroupSize, up to one
+	GroupSize GroupSizeIdentity(UnitGroup set);
+	GroupSize GroupSize(UnitGroup set, Number size);
+	GroupSize GroupActorsRatio(UnitGroup set, Number ratio); // implied 1/
 
 	// Superlative, up to one
-	UnitGroup ClosestToActors(UnitGroup set);
+	Superlative SuperlativeRandom(UnitGroup set, Number size);
+	Superlative ClosestToActors(UnitGroup set, Number size);
 
 	// Location
 	Location PositionOf(UnitGroup group);

@@ -9,7 +9,7 @@ namespace Command
 struct CommandElement;
 struct CommandParameter;
 
-// @Incomplete optional without default value
+
 // @Incomplete is this even necessary? or should we instead have identity defaults
 std::unique_ptr<CommandParameter> Param(
 	ElementType type,
@@ -23,6 +23,7 @@ std::unique_ptr<CommandParameter> Param(ElementType type, ElementName default_va
 
 std::unique_ptr<CommandParameter> Param(ElementType type, OccurrenceFlags flags = 0x0)
 {
+	// @Incomplete optional without default value
 	return Param(type, "", flags);
 }
 
@@ -44,12 +45,17 @@ struct CommandParameter
 	template<typename T>
 	ErrorOr<Repeatable<T> > EvaluateAsRepeatable(CommandContext & context)
 	{
-		Value value = CHECK_RETURN(EvaluateRepeatable(context));
-		if (!std::holds_alternative<T>(value))
+		Repeatable<Value> values = CHECK_RETURN(EvaluateRepeatable(context));
+		Repeatable<T> ret;
+		for (auto value : values)
 		{
-			return Error("Element is of unexpected type");
+			if (!std::holds_alternative<T>(value))
+			{
+				return Error("Element is of unexpected type");
+			}
+			ret.push_back(std::get<T>(value));
 		}
-		return std::get<T>(value);
+		return ret;
 	}
 
 	virtual std::unique_ptr<CommandParameter> DeepCopy() = 0;
