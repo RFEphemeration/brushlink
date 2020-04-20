@@ -1,3 +1,11 @@
+#ifndef BRUSHLINK_COMMAND_CONTEXT_H
+#define BRUSHLINK_COMMAND_CONTEXT_H
+
+#include "Value.hpp"
+
+namespace Command
+{
+
 
 struct CommandElement;
 
@@ -77,4 +85,8 @@ struct CommandContext
 	// Location MousePosition();
 
 
-}
+} // struct CommandContext;
+
+} // namespace Command
+
+#endif // BRUSHLINK_COMMAND_CONTEXT_H

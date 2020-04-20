@@ -108,7 +108,7 @@ struct ElementToken
 	}
 };
 
-enum OccurrenceFlags
+enum class OccurrenceFlags
 {
 	Optional =   1 << 0,
 	Permutable = 1 << 1,

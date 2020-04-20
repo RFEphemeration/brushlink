@@ -2,6 +2,8 @@
 #define COMMAND_PARAMETER_HPP
 
 #include "ErrorOr.hpp"
+#include "ElementType.h"
+#include "CommandContext.h"
 
 namespace Command
 {
@@ -12,16 +14,16 @@ struct CommandParameter;
 
 // @Incomplete is this even necessary? or should we instead have identity defaults
 std::unique_ptr<CommandParameter> Param(
-	ElementType type,
+	ElementType::Enum type,
 	ElementName default_value,
-	OccurrenceFlags flags = 0x0);
+	OccurrenceFlags flags = static_cast<OccurrenceFlags>(0x0));
 
-std::unique_ptr<CommandParameter> Param(ElementType type, ElementName default_value)
+std::unique_ptr<CommandParameter> Param(ElementType::Enum type, ElementName default_value)
 {
-	return Param(type, default_value, OccurrenceFlags.Optional);
+	return Param(type, default_value, OccurrenceFlags::Optional);
 }
 
-std::unique_ptr<CommandParameter> Param(ElementType type, OccurrenceFlags flags = 0x0)
+std::unique_ptr<CommandParameter> Param(ElementType::Enum type, OccurrenceFlags flags = static_cast<OccurrenceFlags>(0x0))
 {
 	// @Incomplete optional without default value
 	return Param(type, "", flags);
@@ -66,7 +68,7 @@ struct CommandParameter
 
 	// todo: should this take into consideration the current state of parameters?
 	// should probably have a separate function for that
-	virtual std::set<ElementType> GetAllowedTypes() = 0;
+	virtual std::set<ElementType::Enum> GetAllowedTypes() = 0;
 
 	virtual bool IsSatisfied() = 0;
 
@@ -85,10 +87,10 @@ struct CommandParameter
 
 struct ParamSingleRequired : CommandParameter
 {
-	const ElementType type;
+	const ElementType::Enum type;
 	std::unique_ptr<CommandElement> argument;
 
-	ParamSingleRequired(ElementType type)
+	ParamSingleRequired(ElementType::Enum type)
 		: type(type)
 	{ }
 
@@ -114,7 +116,7 @@ struct ParamSingleRequired : CommandParameter
 		return copy;
 	}
 
-	std::set<ElementType> GetAllowedTypes() override
+	std::set<ElementType::Enum> GetAllowedTypes() override
 	{
 		if (argument == nullptr)
 		{
@@ -146,7 +148,7 @@ struct ParamSingleOptional : ParamSingleRequired
 	// @Incomplete should optional without default value be possible?
 	ElementName default_value;
 
-	ParamSingleOptional(ElementType type, ElementName default_value)
+	ParamSingleOptional(ElementType::Enum type, ElementName default_value)
 		: ParamSingleRequired(type)
 		, default_value(default_value)
 	{
@@ -188,10 +190,10 @@ struct ParamSingleOptional : ParamSingleRequired
 
 struct ParamRepeatableRequired : CommandParameter
 {
-	const ElementType type;
+	const ElementType::Enum type;
 	std::vector<std::unique_ptr<CommandElement> > arguments;
 
-	ParamRepeatableRequired(ElementType type)
+	ParamRepeatableRequired(ElementType::Enum type)
 		: type(type)
 	{ }
 
@@ -215,7 +217,7 @@ struct ParamRepeatableRequired : CommandParameter
 		return copy;
 	}
 
-	std::set<ElementType> GetAllowedTypes() override { return {type}; }
+	std::set<ElementType::Enum> GetAllowedTypes() override { return {type}; }
 
 	bool IsRequired() override { return true; }
 
@@ -239,8 +241,8 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 {
 	ElementName default_value;
 
-	ParamRepeatableOptional(ElementType type, ElementName default_value)
-		: ParamRepeatableRequired(ElementType type)
+	ParamRepeatableOptional(ElementType::Enum type, ElementName default_value)
+		: ParamRepeatableRequired(ElementType::Enum type)
 		, default_value(default_value)
 	{
 		// todo: assert default value is of correct type
@@ -317,7 +319,7 @@ struct OneOf : CommandParameter
 		return copy;
 	}
 
-	std::set<ElementType> GetAllowedTypes() override;
+	std::set<ElementType::Enum> GetAllowedTypes() override;
 
 	bool IsRequired() override;
 
