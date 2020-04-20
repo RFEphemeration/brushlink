@@ -93,21 +93,9 @@ enum class Attribute_Type
 	Movement_Speed
 };
 
-struct Point
-{
-	int x;
-	int y;
-
-	Point operator + (const Point & other)
-	{
-		return Point(x + other.x, y + other.y);
-	}
-
-	Point operator / (const int divisor)
-	{
-		return Point(x / divisor, y / divisor);
-	}
-};
+// int positions? fixed point float?
+// int is probably granular enough for any closed map
+using Point = Point2D<int>;
 
 struct Line
 {
@@ -138,12 +126,14 @@ struct Area_Interface
 
 	virtual bool Contains(Point point) const = 0;
 
+	// maybe these should all return a single struct since sometimes
+	// they're best computed together? see Perimeter
 	virtual Point GetCenter() const = 0;
 
-	// this currently returns a diameter, but maybe it should be a radius
-	virtual double GetLargestDimension() const = 0;
-
 	virtual double GetArea() const = 0;
+
+	// this currently returns a diameter, but maybe it should be a radius
+	virtual double GetDistanceToFarthestPoint(Point from) const = 0;
 };
 
 struct Box : Area_Interface
@@ -155,7 +145,7 @@ struct Box : Area_Interface
 
 	Point GetCenter() const;
 
-	double GetLargestDimension() const;
+	double GetDistanceToFarthestPoint(Point from) const;
 
 	double GetArea() const;
 };
@@ -169,7 +159,7 @@ struct Circle : Area_Interface
 
 	Point GetCenter() const;
 
-	double GetLargestDimension() const;
+	double GetDistanceToFarthestPoint(Point from) const;
 
 	double GetArea() const;
 };
@@ -182,11 +172,18 @@ struct Perimeter : Area_Interface
 
 	Point GetCenter() const;
 
-	double GetLargestDimension() const;
+	double GetDistanceToFarthestPoint(Point from) const;
 
 	double GetArea() const;
 };
 
+// @Incomplete perhaps Union and Intersection should be done by
+// constructing a new perimeter approximation rather than
+// by trying to compute
+// for now, we're going to assume that Area_Union is disjoint
+// and that if it were intersecting, we would just have just created
+// a new perimeter approximation
+// which means that Area_Intersection isn't necessary
 struct Area_Union : Area_Interface
 {
 	// can these be disjoint?
@@ -196,11 +193,12 @@ struct Area_Union : Area_Interface
 
 	Point GetCenter() const;
 
-	double GetLargestDimension() const;
+	double GetDistanceToFarthestPoint(Point from) const;
 
 	double GetArea() const;
 };
 
+/*
 struct Area_Intersection : Area_Interface
 {
 	// what happens if these are disjoint?
@@ -210,15 +208,16 @@ struct Area_Intersection : Area_Interface
 
 	Point GetCenter() const;
 
-	double GetLargestDimension() const;
+	double GetDistanceToFarthestPoint(Point from) const;
 
 	double GetArea() const;
 };
+*/
 
 // should this be a union type?
 struct Area
 {
-	std::variant<Box, Circle, Perimeter, Area_Union, Area_Intersection> implementation;
+	std::variant<Box, Circle, Perimeter, Area_Union> implementation;
 
 	Area_Interface * interface = &implementation;
 

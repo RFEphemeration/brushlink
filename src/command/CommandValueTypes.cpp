@@ -12,9 +12,9 @@ Area_Interface::std::vector<Point> GetPointDistributionInArea(Number count) cons
 	const int height = (topLeft.y - bottomRight.y);
 
 	const double area = GetArea();
-	const double max_dimension = GetLargestDimension();
 	const Point center = GetCenter();
-
+	const double max_dimension = GetDistanceToFarthestPoint(center);
+	
 	std::unique_ptr<PointDistributionGenerator> generator;
 
 	static const PointDistributionMethod distribution = PointDistributionMethod.Fibonacci;
@@ -67,9 +67,16 @@ Point Box::GetCenter() const
 	return (topLeft + bottomRight) / 2;
 }
 
-double Box::GetLargestDimension() const
+double Box::GetDistanceToFarthestPoint(Point from) const
 {
-	return static_cast<double>(std::max(bottomRight.x - topLeft.x, topLeft.y - bottomRight.y));
+	double max_dist_squared = (from - bottomRight).MagnitudeSquared();
+	max_dist_squared = std::max(max_dist_squared,
+		(from - topLeft).MagnitudeSquared());
+	max_dist_squared = std::max(max_dist_squared,
+		(from - Point{bottomRight.x, topLeft.y}).MagnitudeSquared());
+	max_dist_squared = std::max(max_dist_squared,
+		(from - Point{topLeft.x, bottomRight.y}).MagnitudeSquared());
+	return std::sqrt(max_dist_squared);
 }
 
 double Box::GetArea() const
@@ -92,9 +99,9 @@ Point Circle::GetCenter() const
 	return center;
 }
 
-double Circle::GetLargestDimension() const
+double Circle::GetDistanceToFarthestPoint(Point from) const
 {
-	return static_cast<double>(radius.value * 2.0);
+	return static_cast<double>(radius.value + (from - center).Magnitude());
 }
 
 double Circle::GetArea() const
@@ -149,7 +156,7 @@ Point Perimeter::GetCenter() const
 	return center;
 }
 
-double Perimeter::GetLargestDimension() const
+double Perimeter::GetDistanceToFarthestPoint(Point from) const
 {
 	// @Incomplete this assumes convex, I think. and equidistant perimeter points
 	int count = perimeter.size();
@@ -158,30 +165,15 @@ double Perimeter::GetLargestDimension() const
 		return 0.0;
 	}
 	double max_squared = 0.0;
-	for (int i = 0; i < count / 2; ++i)
+	for (int i = 0; i < count; ++i)
 	{
-		Point a = perimeter[i];
-		Point b = perimeter[(i + count) % count];
-		double distance_squared = (a - b).MagnitudeSquared();
+		double distance_squared = (perimeter[i] - from).MagnitudeSquared();
 		if (distance_squared > max_squared)
 		{
 			max_squared = distance_squared;
 		}
 	}
 	return std::sqrt(max_squared);
-}
-
-
-function polygonArea(X, Y, numPoints) 
-{ 
-area = 0;   // Accumulates area 
-j = numPoints-1; 
-
-for (i=0; i<numPoints; i++)
-{ area +=  (X[j]+X[i]) * (Y[j]-Y[i]); 
-  j = i;  //j is previous vertex to i
-}
-  return area/2;
 }
 
 double Perimeter::GetArea() const
@@ -207,10 +199,68 @@ struct Area_Union : Area_Interface
 	std::vector<std::unique_ptr<Area_Interface>> areas;
 };
 
-struct Area_Intersection : Area_Interface
+bool Area_Union::Contains(Point point) const
 {
-	std::vector<std::unique_ptr<Area_Interface>> areas;
-};
+	for (auto area : areas)
+	{
+		if (area->Contains(point))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+Point Area_Union::GetCenter() const
+{
+	if (areas.size() == 0)
+	{
+		return Point();
+	}
+	double total_weight;
+	Point2D<double> weighted_center;
+	for (auto area : areas)
+	{
+		double area_weight = area->GetArea();
+		Point center = area->GetCenter();
+
+		total_weight += area_weight;
+		weighted_center.x += static_cast<double>(center.x) * area_weight;
+		weighted_center.y += static_cast<double>(center.y) * area_weight;
+	}
+	return Point{
+		std::nearestint(weighted_center.x / total_weight),
+		std::nearestint(weighted_center.y / total_weight)};
+}
+
+double Area_Union::GetDistanceToFarthestPoint(Point from) const
+{
+	if (areas.size() == 0)
+	{
+		return 0.0;
+	}
+	double max_distance = 0.0;
+	for (auto area : areas)
+	{
+		double distance = area->GetDistanceToFarthestPoint(from);
+		if (distance > max_distance)
+		{
+			max_distance = distance;
+		}
+	}
+	return max_distance;
+}
+
+double Area_Union::GetArea() const
+{
+	// @Incomplete assumes disjoint, which we might later change
+	double total_area = 0.0;
+	for (auto area : areas)
+	{
+		total_area += area->GetArea();
+	}
+	return total_area;
+}
 
 } // namespace Command
 
