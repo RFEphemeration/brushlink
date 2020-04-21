@@ -8,7 +8,7 @@
 #include "BuiltinTypedefs.h"
 #include "ErrorOr.hpp"
 #include "NamedType.hpp"
-#include "Math.hpp"
+#include "MathUtils.h"
 
 using namespace Farb;
 
@@ -219,29 +219,46 @@ struct Area
 {
 	std::variant<Box, Circle, Perimeter, Area_Union> implementation;
 
-	Area_Interface * interface = &implementation;
+	Area_Interface * interface;
+
+	Area(Box b)
+		: implementation(b)
+		, interface(std::get_if<Box>(&implementation))
+	{ }
+	Area(Circle c)
+		: implementation(c)
+		, interface(std::get_if<Circle>(&implementation))
+	{ }
+	Area(Perimeter p)
+		: implementation(p)
+		, interface(std::get_if<Perimeter>(&implementation))
+	{ }
+	Area(Area_Union u)
+		: implementation(u)
+		, interface(std::get_if<Area_Union>(&implementation))
+	{ }
+
 
 	std::vector<Point> GetPointDistributionInArea(Number count)
 	{
-		return implementation->GetPointDistributionInArea(count);
+		return interface->GetPointDistributionInArea(count);
 	}
 
 	bool Contains(Point point)
 	{
-		return implementation->Contains(point);
+		return interface->Contains(point);
 	}
 };
 
 using Location = std::variant<Point, Line, Direction, Area>;
 
 using Value = std::variant<
-	Command,
-	Action_Type,
+	Success,
 	UnitGroup,
+	Filter,
+	GroupSize,
+	Superlative,
 	Number,
-	Selector_Filter,
-	Selector_GroupSize,
-	Selector_Superlative,
 	Unit_Type,
 	Ability_Type,
 	Attribute_Type,
@@ -266,7 +283,7 @@ using OptionalRepeatable = std::vector<T>;
 template<typename T>
 using Optional = std::optional<T>;
 
-template<typename Ts...>
+template<typename... Ts>
 using One_Of = std::variant<Ts...>;
 
 
@@ -288,11 +305,13 @@ struct Underlying<Optional<TValue> >
 	using Type = TValue;
 };
 
+/* // uncomment if OptionalRepeatable uses a different type than Repeatable
 template<typename TValue>
 struct Underlying<OptionalRepeatable<TValue> >
 {
 	using Type = TValue;
 };
+*/
 
 } // namespace Command
 

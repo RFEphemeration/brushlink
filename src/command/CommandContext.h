@@ -1,7 +1,10 @@
 #ifndef BRUSHLINK_COMMAND_CONTEXT_H
 #define BRUSHLINK_COMMAND_CONTEXT_H
 
-#include "Value.hpp"
+#include "CommandValueTypes.hpp"
+#include "ElementType.h"
+
+#include <list>
 
 namespace Command
 {
@@ -14,13 +17,13 @@ struct CommandContext
 {
 	// these should probably be moved to an in-game player
 	UnitGroup current_selection;
-	Map<int, UnitGroup> command_groups;
-	std::unordered_map<HString, std::unique_ptr<CommandElement> > element_dictionary;
+	Table<int, UnitGroup> command_groups;
+	Table<HString, std::unique_ptr<CommandElement> > element_dictionary;
 
 
 	std::list<UnitGroup> actors_stack;
 	std::unique_ptr<CommandElement> command;
-	Map<ElementType, int> allowed_next_elements;
+	Table<ElementType::Enum, int> allowed_next_elements;
 	int skip_count;
 
 	void InitElementDictionary();
@@ -29,7 +32,7 @@ struct CommandContext
 	
 	ErrorOr<Success> InitNewCommand();
 	ErrorOr<Success> RefreshAllowedTypes();
-	ErrorOr<Success> GetAllowedNextElements(std::set<ElementName> & allowed);
+	ErrorOr<Success> GetAllowedNextElements(Set<ElementName> & allowed);
 	ErrorOr<Success> HandleToken(ElementToken token);
 
 	void PushActors(UnitGroup group);
@@ -85,7 +88,7 @@ struct CommandContext
 	// Location MousePosition();
 
 
-} // struct CommandContext;
+}; // struct CommandContext;
 
 } // namespace Command
 

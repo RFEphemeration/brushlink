@@ -18,6 +18,34 @@ ErrorOr<Success> CommandParameter::SetArgument(CommandElement * argument)
 	return SetArgumentImplementation(argument);
 }
 
+std::string ParamSingleRequired::GetPrintString(std::string line_prefix)
+{
+	if (argument != nullptr)
+	{
+		return argument->GetPrintString(line_prefix);
+	}
+	else
+	{
+		return "";
+	}
+}
+
+std::unique_ptr<CommandParameter> ParamSingleRequired::DeepCopy()
+{
+	auto * copy = new ParamSingleRequired(type);
+	if (argument != nullptr)
+	{
+		copy->argument = argument->DeepCopy();
+	}
+	return copy;
+}
+
+bool ParamSingleRequired::IsSatisfied()
+{
+	return argument != nullptr
+	&& argument->ParametersSatisfied();
+}
+
 ErrorOr<Success> ParamSingleRequired::SetArgumentInternal(CommandElement * argument)
 {
 	if (argument != nullptr)

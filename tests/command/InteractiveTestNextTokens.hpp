@@ -5,6 +5,7 @@
 
 #include "../../../farb/tests/RegisterTest.hpp"
 #include "../../src/command/CommandContext.h"
+#include "../../src/command/CommandElement.hpp"
 
 using namespace Farb;
 
@@ -27,13 +28,10 @@ public:
 		context.InitElementDictionary();
 		context.InitNewCommand();
 
-		std::set<ElementName> validNextElements;
+		Set<ElementName> validNextElements;
 
 		while (true)
 		{
-
-			auto criteria = parser.GetNextTokenCriteria();
-
 			context.GetAllowedNextElements(validNextElements);
 
 			if (validNextElements.size() == 0)

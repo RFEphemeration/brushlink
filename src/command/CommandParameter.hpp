@@ -60,7 +60,7 @@ struct CommandParameter
 		return ret;
 	}
 
-	virtual std::string CommandElement::GetPrintString(std::string line_prefix) = 0;
+	virtual std::string GetPrintString(std::string line_prefix) = 0;
 
 	virtual std::unique_ptr<CommandParameter> DeepCopy() = 0;
 
@@ -68,7 +68,7 @@ struct CommandParameter
 
 	// todo: should this take into consideration the current state of parameters?
 	// should probably have a separate function for that
-	virtual std::set<ElementType::Enum> GetAllowedTypes() = 0;
+	virtual Set<ElementType::Enum> GetAllowedTypes() = 0;
 
 	virtual bool IsSatisfied() = 0;
 
@@ -81,9 +81,9 @@ struct CommandParameter
 	virtual ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context)
 	{
 		Value value = CHECK_RETURN(Evaluate(context));
-		return {value};
+		return Repeatable<Value>{value};
 	}
-}
+};
 
 struct ParamSingleRequired : CommandParameter
 {
@@ -94,29 +94,11 @@ struct ParamSingleRequired : CommandParameter
 		: type(type)
 	{ }
 
-	std::string CommandElement::GetPrintString(std::string line_prefix) override
-	{
-		if (argument != nullptr)
-		{
-			return argument->GetPrintString(line_prefix);
-		}
-		else
-		{
-			return "";
-		}
-	}
+	std::string GetPrintString(std::string line_prefix) override;
 
-	std::unique_ptr<CommandParameter> DeepCopy() override
-	{
-		auto * copy = new ParamSingleRequired(type);
-		if (argument != nullptr)
-		{
-			copy.argument = argument->DeepCopy();
-		}
-		return copy;
-	}
+	std::unique_ptr<CommandParameter> DeepCopy() override;
 
-	std::set<ElementType::Enum> GetAllowedTypes() override
+	Set<ElementType::Enum> GetAllowedTypes() override
 	{
 		if (argument == nullptr)
 		{
@@ -130,18 +112,14 @@ struct ParamSingleRequired : CommandParameter
 
 	bool IsRequired() override { return true; }
 
-	bool IsSatisfied() override
-	{
-		return argument != nullptr
-		&& argument->ParametersSatisfied();
-	}
-
+	bool IsSatisfied() override;
+	
 	CommandElement * GetLastArgument() override { return argument; }
 
 	ErrorOr<Success> SetArgumentInternal(CommandElement * argument) override;
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
-}
+};
 
 struct ParamSingleOptional : ParamSingleRequired
 {
@@ -155,7 +133,7 @@ struct ParamSingleOptional : ParamSingleRequired
 		// todo: check default value is of correct type
 	}
 
-	std::string CommandElement::GetPrintString(std::string line_prefix) override
+	std::string GetPrintString(std::string line_prefix) override
 	{
 		if (argument != nullptr)
 		{
@@ -186,7 +164,7 @@ struct ParamSingleOptional : ParamSingleRequired
 	bool IsSatisfied() override { return argument == nullptr || argument->ParametersSatisfied(); }
 
 	ErrorOr<Value> Evaluate(CommandContext & context);
-}
+};
 
 struct ParamRepeatableRequired : CommandParameter
 {
@@ -217,7 +195,7 @@ struct ParamRepeatableRequired : CommandParameter
 		return copy;
 	}
 
-	std::set<ElementType::Enum> GetAllowedTypes() override { return {type}; }
+	Set<ElementType::Enum> GetAllowedTypes() override { return {type}; }
 
 	bool IsRequired() override { return true; }
 
@@ -235,7 +213,7 @@ struct ParamRepeatableRequired : CommandParameter
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
 	ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context) override;
-}
+};
 
 struct ParamRepeatableOptional : ParamRepeatableRequired
 {
@@ -284,7 +262,7 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
 	ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context) override;
-}
+};
 
 struct OneOf : CommandParameter
 {
@@ -296,7 +274,7 @@ struct OneOf : CommandParameter
 		, chosen_index(-1)
 	{ }
 
-	std::string CommandElement::GetPrintString(std::string line_prefix) override
+	std::string GetPrintString(std::string line_prefix) override
 	{
 		std::string print_string = "";
 		if (chosen_index != -1)
@@ -319,7 +297,7 @@ struct OneOf : CommandParameter
 		return copy;
 	}
 
-	std::set<ElementType::Enum> GetAllowedTypes() override;
+	Set<ElementType::Enum> GetAllowedTypes() override;
 
 	bool IsRequired() override;
 
@@ -332,8 +310,7 @@ struct OneOf : CommandParameter
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
 	ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context) override;
-}
-
+};
 
 } // namespace Command
 
