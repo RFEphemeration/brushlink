@@ -69,17 +69,17 @@ public:
 			{
 				return true;
 			}
-			auto result = context.GetTokenForName(ElementName{line});
-			if (result.IsError())
+			auto result_token = context.GetTokenForName(ElementName{line});
+			if (result_token.IsError())
 			{
-				result.GetError().Log();
+				result_token.GetError().Log();
 				continue;
 			}
 
-			auto result = context.HandleToken(result.GetValue());
-			if (result.IsError())
+			auto result_handle = context.HandleToken(result_token.GetValue());
+			if (result_handle.IsError())
 			{
-				result.GetError().Log()
+				result_handle.GetError().Log();
 				continue;
 			}
 			std::cout << "AST - " << std::endl;

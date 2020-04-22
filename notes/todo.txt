@@ -28,3 +28,5 @@ command
 		sequence of actions
 		concurrent actions (with order of priority?)
 		conditionals
+		stored values with names
+		named coroutines

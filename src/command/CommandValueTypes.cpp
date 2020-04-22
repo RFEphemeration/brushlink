@@ -6,7 +6,7 @@ namespace Command
 {
 
 
-Area_Interface::std::vector<Point> GetPointDistributionInArea(Number count) const
+std::vector<Point> AreaInterface::GetPointDistributionInArea(Number count) const
 {
 	const int width = (bottomRight.x - topLeft.x);
 	const int height = (topLeft.y - bottomRight.y);
@@ -194,10 +194,14 @@ double Perimeter::GetArea() const
 }
 
 
-struct Area_Union : Area_Interface
+Area_Union(const Area_Union & other)
 {
-	std::vector<std::unique_ptr<Area_Interface>> areas;
-};
+	Area_Union copy;
+	for (auto area : other.areas)
+	{
+		copy.areas.emplace(new)
+	}
+}
 
 bool Area_Union::Contains(Point point) const
 {

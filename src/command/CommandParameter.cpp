@@ -30,16 +30,6 @@ std::string ParamSingleRequired::GetPrintString(std::string line_prefix)
 	}
 }
 
-std::unique_ptr<CommandParameter> ParamSingleRequired::DeepCopy()
-{
-	auto * copy = new ParamSingleRequired(type);
-	if (argument != nullptr)
-	{
-		copy->argument = argument->DeepCopy();
-	}
-	return copy;
-}
-
 bool ParamSingleRequired::IsSatisfied()
 {
 	return argument != nullptr
@@ -66,6 +56,27 @@ ErrorOr<Value> ParamSingleRequired::Evaluate(CommandContext & context)
 }
 
 
+std::string ParamSingleOptional::GetPrintString(std::string line_prefix)
+{
+	if (argument != nullptr)
+	{
+		return argument->GetPrintString(line_prefix);
+	}
+	else if (!default_value.IsEmpty())
+	{
+		return line_prefix + "(" + default_value + ")\n";
+	}
+	else
+	{
+		return "";
+	}
+}
+
+bool ParamSingleOptional::IsSatisfied()
+{
+	return argument == nullptr || argument->ParametersSatisfied();
+}
+
 ErrorOr<Value> ParamSingleOptional::Evaluate(CommandContext & context)
 {
 	if (argument == nullptr)
@@ -78,6 +89,23 @@ ErrorOr<Value> ParamSingleOptional::Evaluate(CommandContext & context)
 	}
 	return argument->Evaluate(context);
 }
+
+std::string ParamRepeatableRequired::GetPrintString(std::string line_prefix)
+{
+	std::string print_string = "";
+	for (auto arg : arguments)
+	{
+		print_string += arg->GetPrintString(line_prefix);
+	}
+	return print_string;
+}
+
+bool ParamRepeatableRequired::IsSatisfied()
+{
+	return !arguments.empty()
+		&& arguments[arguments.size()-1]->ParametersSatisfied();
+}
+
 
 // todo: should this be passed in as a unique_ptr?
 ErrorOr<Success> ParamRepeatableRequired::SetArgumentInternal(CommandElement * argument)
@@ -119,6 +147,29 @@ ErrorOr<Repeatable<Value> > ParamRepeatableRequired::EvaluateRepeatable(CommandC
 	return values;
 }
 
+std::string ParamRepeatableOptional::GetPrintString(std::string line_prefix)
+{
+	std::string print_string = "";
+	for (auto arg : arguments)
+	{
+		print_string += arg->GetPrintString(line_prefix);
+	}
+	return print_string;
+	
+	if (arguments.empty() && !default_value.IsEmpty())
+	{
+		print_string += line_prefix + "(" + default_value + ")\n";
+	}
+
+	return print_string;
+}
+
+bool ParamRepeatableOptional::IsSatisfied()
+{
+	return arguments.empty()
+		|| arguments[arguments.size()-1]->ParametersSatisfied();
+}
+
 
 ErrorOr<Value> ParamRepeatableOptional::Evaluate(CommandContext & context)
 {
@@ -146,6 +197,29 @@ ErrorOr<Repeatable<Value> > ParamRepeatableOptional::EvaluateRepeatable(CommandC
 		// @Incomplete: get default value
 	}
 	return values;
+}
+
+std::string OneOf::GetPrintString(std::string line_prefix)
+{
+	std::string print_string = "";
+	if (chosen_index != -1)
+	{
+		print_string += possibilities[chosen_index]->GetPrintString(line_prefix);
+	}
+	else
+	{
+		for (auto && option : possibilities)
+		{
+			// OneOf defaults to first option with default
+			if (option->IsSatisfied())
+			{
+				print_string += option->GetPrintString(line_prefix);
+				break;
+			}
+		}
+	}
+	
+	return print_string;
 }
 
 std::set<ElementType> OneOf::GetAllowedTypes()

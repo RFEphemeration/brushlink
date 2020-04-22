@@ -9,6 +9,7 @@
 #include "ErrorOr.hpp"
 #include "NamedType.hpp"
 #include "MathUtils.h"
+#include "ElementType.h"
 
 using namespace Farb;
 
@@ -122,6 +123,11 @@ enum class PointDistributionMethod
 
 struct Area_Interface
 {
+	virtual ~Area_Interface() = 0;
+
+	// this is intended to only be used by value_ptr internals
+	virtual Area_Interface * clone() const = 0;
+
 	virtual std::vector<Point> GetPointDistributionInArea(Number count) const;
 
 	virtual bool Contains(Point point) const = 0;
@@ -141,13 +147,19 @@ struct Box : Area_Interface
 	Point topLeft;
 	Point bottomRight;
 
-	bool Contains(Point point) const;
+	// this is intended to only be used by value_ptr internals
+	virtual Area_Interface * clone() const override
+	{
+		return new Box(*this);
+	}
 
-	Point GetCenter() const;
+	bool Contains(Point point) const override;
 
-	double GetDistanceToFarthestPoint(Point from) const;
+	Point GetCenter() const override;
 
-	double GetArea() const;
+	double GetDistanceToFarthestPoint(Point from) const override;
+
+	double GetArea() const override;
 };
 
 struct Circle : Area_Interface
@@ -155,26 +167,38 @@ struct Circle : Area_Interface
 	Point center;
 	Number radius;
 
-	bool Contains(Point point) const;
+	// this is intended to only be used by value_ptr internals
+	virtual Area_Interface * clone() const override
+	{
+		return new Circle(*this);
+	}
 
-	Point GetCenter() const;
+	bool Contains(Point point) const override;
 
-	double GetDistanceToFarthestPoint(Point from) const;
+	Point GetCenter() const override;
 
-	double GetArea() const;
+	double GetDistanceToFarthestPoint(Point from) const override;
+
+	double GetArea() const override;
 };
 
 struct Perimeter : Area_Interface
 {
 	Line perimeter;
 
-	bool Contains(Point point) const;
+	// this is intended to only be used by value_ptr internals
+	virtual Area_Interface * clone() const override
+	{
+		return new Perimeter(*this);
+	}
 
-	Point GetCenter() const;
+	bool Contains(Point point) const override;
 
-	double GetDistanceToFarthestPoint(Point from) const;
+	Point GetCenter() const override;
 
-	double GetArea() const;
+	double GetDistanceToFarthestPoint(Point from) const override;
+
+	double GetArea() const override;
 };
 
 // @Incomplete perhaps Union and Intersection should be done by
@@ -187,15 +211,23 @@ struct Perimeter : Area_Interface
 struct Area_Union : Area_Interface
 {
 	// can these be disjoint?
-	std::vector<std::unique_ptr<Area_Interface>> areas;
+	std::vector<value_ptr<Area_Interface>> areas;
 
-	bool Contains(Point point) const;
+	// this is intended to only be used by value_ptr internals
+	virtual Area_Union * clone() const override
+	{
+		return new Area_Union(*this);
+	}
 
-	Point GetCenter() const;
+	Area_Union(const Area_Union & other);
 
-	double GetDistanceToFarthestPoint(Point from) const;
+	bool Contains(Point point) const override;
 
-	double GetArea() const;
+	Point GetCenter() const override;
+
+	double GetDistanceToFarthestPoint(Point from) const override;
+
+	double GetArea() const override;
 };
 
 /*
@@ -221,23 +253,14 @@ struct Area
 
 	Area_Interface * interface;
 
-	Area(Box b)
-		: implementation(b)
-		, interface(std::get_if<Box>(&implementation))
-	{ }
-	Area(Circle c)
-		: implementation(c)
-		, interface(std::get_if<Circle>(&implementation))
-	{ }
-	Area(Perimeter p)
-		: implementation(p)
-		, interface(std::get_if<Perimeter>(&implementation))
-	{ }
-	Area(Area_Union u)
-		: implementation(u)
-		, interface(std::get_if<Area_Union>(&implementation))
-	{ }
+	// could also consider just value_ptr<Area_Interface> implementation;
 
+	Area(std::variant<Box, Circle, Perimeter, Area_Union> implementation)
+		: implementation(implementation)
+		, interface(std::visit([](auto& arg){
+			return static_cast<Area_Interface*>(&arg);
+		}, implementation))
+	{ }
 
 	std::vector<Point> GetPointDistributionInArea(Number count)
 	{
@@ -267,6 +290,44 @@ using Value = std::variant<
 	Line,
 	Direction,
 	Area>;
+
+
+template<typename TVal>
+ElementType::Enum GetElementType()
+{
+	if constexpr(std::is_same_v<TVal, Number>)
+	{
+		return ElementType::Number;
+	}
+	else if constexpr(std::is_same_v<TVal, Unit_Type>)
+	{
+		return ElementType::Unit_Type;
+	}
+	else if constexpr(std::is_same_v<TVal, Ability_Type>)
+	{
+		return ElementType::Ability_Type;
+	}
+	else if constexpr(std::is_same_v<TVal, Attribute_Type>)
+	{
+		return ElementType::Attribute_Type;
+	}
+	else if constexpr(std::is_same_v<TVal, Point>)
+	{
+		return ElementType::Point;
+	}
+	else if constexpr(std::is_same_v<TVal, Line>)
+	{
+		return ElementType::Line;
+	}
+	else if constexpr(std::is_same_v<TVal, Direction>)
+	{
+		return ElementType::Direction;
+	}
+	else if constexpr(std::is_same_v<TVal, Area>)
+	{
+		return ElementType::Area;
+	}
+}
 
 // relying on the declaration parameter type checking
 // to verify that there is at least one for repeatable

@@ -36,23 +36,24 @@ enum Enum
 	Point =                1 << 9,
 	Line =                 1 << 10,
 	Area =                 1 << 11,
+	Direction =            1 << 12,
 
 	// Direction?
 
-	Unit_Type =            1 << 12,
-	Attribute_Type =       1 << 13, // drop _Type?
-	Ability_Type =         1 << 14, // skill?
-	Resource_Type =        1 << 15,
+	Unit_Type =            1 << 13,
+	Attribute_Type =       1 << 14, // drop _Type?
+	Ability_Type =         1 << 15, // skill?
+	Resource_Type =        1 << 16,
 
-	Number =               1 << 16,
+	Number =               1 << 17,
 
-	Skip =                 1 << 17,
-	Termination =          1 << 18,
+	Skip =                 1 << 18,
+	Termination =          1 << 19,
 	// Begin_Word? End_Word?
 
-	Mouse_Input =          1 << 19,
+	Mouse_Input =          1 << 20,
 
-	Parameter_Reference =  1 << 20
+	Parameter_Reference =  1 << 21
 
 	// these are probably not appropriate types because of the way fields are compared
 	// but really I need to think about how to compare fields more thoroughly
@@ -108,17 +109,20 @@ struct ElementToken
 	}
 };
 
-enum class OccurrenceFlags
-{
-	Optional =   1 << 0,
-	Permutable = 1 << 1,
-	Repeatable = 1 << 2
-};
 
-
-inline OccurrenceFlags operator|(OccurrenceFlags a, OccurrenceFlags b)
+namespace OccurrenceFlags
 {
-	return static_cast<OccurrenceFlags>(static_cast<int>(a) | static_cast<int>(b));
+	enum Enum
+	{
+		Optional =   1 << 0,
+		Permutable = 1 << 1,
+		Repeatable = 1 << 2
+	};
+}
+
+inline OccurrenceFlags::Enum operator|(OccurrenceFlags::Enum a, OccurrenceFlags::Enum b)
+{
+	return static_cast<OccurrenceFlags::Enum>(static_cast<int>(a) | static_cast<int>(b));
 }
 
 } // namespace Command

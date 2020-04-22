@@ -9,28 +9,22 @@ namespace Command
 {
 
 struct CommandElement;
-struct CommandParameter;
-
-
-// @Incomplete is this even necessary? or should we instead have identity defaults
-std::unique_ptr<CommandParameter> Param(
-	ElementType::Enum type,
-	ElementName default_value,
-	OccurrenceFlags flags = static_cast<OccurrenceFlags>(0x0));
-
-std::unique_ptr<CommandParameter> Param(ElementType::Enum type, ElementName default_value)
-{
-	return Param(type, default_value, OccurrenceFlags::Optional);
-}
-
-std::unique_ptr<CommandParameter> Param(ElementType::Enum type, OccurrenceFlags flags = static_cast<OccurrenceFlags>(0x0))
-{
-	// @Incomplete optional without default value
-	return Param(type, "", flags);
-}
 
 struct CommandParameter
 {
+	CommandParameter() = default;
+
+	CommandParameter(const CommandParameter & other) { }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandParameter * clone() const
+	{
+		// @Incomplete why can't we use abstract classes with value_ptr?
+		return nullptr;
+	}
+
+	virtual ~CommandParameter() = default;
+
 	ErrorOr<Success> SetArgument(CommandElement * argument);
 
 	template<typename T>
@@ -62,8 +56,6 @@ struct CommandParameter
 
 	virtual std::string GetPrintString(std::string line_prefix) = 0;
 
-	virtual std::unique_ptr<CommandParameter> DeepCopy() = 0;
-
 	virtual bool IsRequired() = 0;
 
 	// todo: should this take into consideration the current state of parameters?
@@ -85,22 +77,49 @@ struct CommandParameter
 	}
 };
 
+// @Incomplete is this even necessary? or should we instead have identity defaults
+value_ptr<CommandParameter> Param(
+	ElementType::Enum type,
+	ElementName default_value,
+	OccurrenceFlags::Enum flags = static_cast<OccurrenceFlags::Enum>(0x0));
+
+value_ptr<CommandParameter> Param(ElementType::Enum type, ElementName default_value)
+{
+	return Param(type, default_value, OccurrenceFlags::Optional);
+}
+
+value_ptr<CommandParameter> Param(ElementType::Enum type, OccurrenceFlags::Enum flags = static_cast<OccurrenceFlags::Enum>(0x0))
+{
+	// @Incomplete optional without default value
+	return Param(type, "", flags);
+}
+
 struct ParamSingleRequired : CommandParameter
 {
 	const ElementType::Enum type;
-	std::unique_ptr<CommandElement> argument;
+	value_ptr<CommandElement> argument;
 
 	ParamSingleRequired(ElementType::Enum type)
 		: type(type)
 	{ }
 
-	std::string GetPrintString(std::string line_prefix) override;
+	ParamSingleRequired(const ParamSingleRequired & other)
+		: CommandParameter(other)
+		, type(other.type)
+		, argument(other.argument)
+	{ }
 
-	std::unique_ptr<CommandParameter> DeepCopy() override;
+	// this is intended to only be used by value_ptr internals
+	virtual CommandParameter * clone() const override
+	{
+		return new ParamSingleRequired(*this);
+	}
+
+	std::string GetPrintString(std::string line_prefix) override;
 
 	Set<ElementType::Enum> GetAllowedTypes() override
 	{
-		if (argument == nullptr)
+		if (argument.get() == nullptr)
 		{
 			return {type};
 		}
@@ -113,8 +132,8 @@ struct ParamSingleRequired : CommandParameter
 	bool IsRequired() override { return true; }
 
 	bool IsSatisfied() override;
-	
-	CommandElement * GetLastArgument() override { return argument; }
+
+	CommandElement * GetLastArgument() override { return argument.get(); }
 
 	ErrorOr<Success> SetArgumentInternal(CommandElement * argument) override;
 
@@ -133,77 +152,54 @@ struct ParamSingleOptional : ParamSingleRequired
 		// todo: check default value is of correct type
 	}
 
-	std::string GetPrintString(std::string line_prefix) override
+	ParamSingleOptional(const ParamSingleOptional & other)
+		: ParamSingleRequired(other)
+		, default_value(other.default_value)
+	{ }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandParameter * clone() const override
 	{
-		if (argument != nullptr)
-		{
-			return argument->GetPrintString(line_prefix);
-		}
-		else if (!default_value.IsEmpty())
-		{
-			return line_prefix + "(" + default_value + ")\n";
-		}
-		else
-		{
-			return "";
-		}
+		return new ParamSingleOptional(*this);
 	}
 
-	std::unique_ptr<CommandParameter> DeepCopy() override
-	{
-		auto * copy = new ParamSingleOptional(type, default_value);
-		if (argument != nullptr)
-		{
-			copy.argument = argument->DeepCopy();
-		}
-		return copy;
-	}
+	std::string GetPrintString(std::string line_prefix) override;
 
 	bool IsRequired() override { return false; }
 
-	bool IsSatisfied() override { return argument == nullptr || argument->ParametersSatisfied(); }
+	bool IsSatisfied() override;
 
-	ErrorOr<Value> Evaluate(CommandContext & context);
+	ErrorOr<Value> Evaluate(CommandContext & context) override;
 };
 
 struct ParamRepeatableRequired : CommandParameter
 {
 	const ElementType::Enum type;
-	std::vector<std::unique_ptr<CommandElement> > arguments;
+	std::vector<value_ptr<CommandElement> > arguments;
 
 	ParamRepeatableRequired(ElementType::Enum type)
 		: type(type)
 	{ }
 
-	std::string CommandElement::GetPrintString(std::string line_prefix) override
+	ParamRepeatableRequired(const ParamRepeatableRequired & other)
+		: CommandParameter(other)
+		, type(other.type)
+		, arguments(other.arguments)
+	{ }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandParameter * clone() const override
 	{
-		std::string print_string = "";
-		for (auto arg : arguments)
-		{
-			print_string += art->GetPrintString(line_prefix);
-		}
-		return print_string;
+		return new ParamRepeatableRequired(*this);
 	}
 
-	std::unique_ptr<CommandParameter> DeepCopy() override
-	{
-		auto * copy = new ParamRepeatableRequired(type);
-		for (auto arg : arguments)
-		{
-			copy->arguments.append(arg->DeepCopy());
-		}
-		return copy;
-	}
+	std::string GetPrintString(std::string line_prefix) override;
 
 	Set<ElementType::Enum> GetAllowedTypes() override { return {type}; }
 
 	bool IsRequired() override { return true; }
 
-	bool IsSatisfied() override
-	{
-		return !arguments.empty()
-			&& arguments[arguments.size()-1]->ParametersSatisfied();
-	}
+	bool IsSatisfied() override;
 
 	CommandElement * GetLastArgument() override;
 
@@ -220,44 +216,26 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 	ElementName default_value;
 
 	ParamRepeatableOptional(ElementType::Enum type, ElementName default_value)
-		: ParamRepeatableRequired(ElementType::Enum type)
+		: ParamRepeatableRequired(type)
 		, default_value(default_value)
 	{
 		// todo: assert default value is of correct type
 	}
 
-	std::string CommandElement::GetPrintString(std::string line_prefix) override
-	{
-		std::string print_string = "";
-		for (auto arg : arguments)
-		{
-			print_string += art->GetPrintString(line_prefix);
-		}
-		return print_string;
-		
-		if (arguments.empty() && !default_value.IsEmpty())
-		{
-			print_string += line_prefix + "(" + default_value + ")\n";
-		}
+	ParamRepeatableOptional(const ParamRepeatableOptional & other)
+		: ParamRepeatableRequired(other)
+		, default_value(other.default_value)
+	{ }
 
-		return print_string;
+	// this is intended to only be used by value_ptr internals
+	virtual CommandParameter * clone() const override
+	{
+		return new ParamRepeatableOptional(*this);
 	}
 
-	std::unique_ptr<CommandParameter> DeepCopy() override
-	{
-		auto * copy = new ParamRepeatableOptional(type, default_value);
-		for (auto * arg : arguments)
-		{
-			copy->arguments.append(arg->DeepCopy());
-		}
-		return copy;
-	}
+	std::string GetPrintString(std::string line_prefix) override;
 
-	bool IsSatisfied() override
-	{
-		return arguments.empty()
-			|| arguments[arguments.size()-1]->ParametersSatisfied();
-	}
+	bool IsSatisfied() override;
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
@@ -266,36 +244,28 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 
 struct OneOf : CommandParameter
 {
-	std::vector<std::unique_ptr<CommandParameter> > possibilities;
+	std::vector<value_ptr<CommandParameter> > possibilities;
 	int chosen_index;
 
-	OneOf(std::vector<OwnedPtr<CommandParameter> > possibilities)
+	OneOf(std::vector<value_ptr<CommandParameter> > possibilities)
 		: possibilities(possibilities)
 		, chosen_index(-1)
 	{ }
 
-	std::string GetPrintString(std::string line_prefix) override
+	OneOf(const OneOf & other)
+		: CommandParameter(other)
+		, possibilities(other.possibilities)
+		, chosen_index(other.chosen_index)
+	{ }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandParameter * clone() const override
 	{
-		std::string print_string = "";
-		if (chosen_index != -1)
-		{
-			print_string += possibilities[chosen_index]->GetPrintString(line_prefix);
-		}
-		// @Incomplete: default value for one of the possibilities
-		return print_string;
+		return new OneOf(*this);
 	}
 
-	std::unique_ptr<CommandParameter> DeepCopy() override
-	{
-		std::vector<std::unique_ptr<CommandParameter> > options_copy;
-		for (auto && option : possibilities)
-		{
-			options_copy.push_back(option->DeepCopy());
-		}
-		auto * copy = new OneOf(options_copy);
-		copy.chosen_index = chosen_index;
-		return copy;
-	}
+
+	std::string GetPrintString(std::string line_prefix) override;
 
 	Set<ElementType::Enum> GetAllowedTypes() override;
 

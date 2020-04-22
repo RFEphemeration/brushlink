@@ -1,10 +1,12 @@
 #include "CommandContext.h"
+#include "CommandParameter.hpp"
+#include "CommandElement.hpp"
 
 namespace Command
 {
 
-using ElementType;
-using OccurrenceFlags;
+using namespace ElementType;
+using namespace OccurrenceFlags;
 
 void CommandContext::InitElementDictionary()
 {
@@ -12,9 +14,9 @@ void CommandContext::InitElementDictionary()
 
 	element_dictionary.insert({
 		{"Command", EmptyCommandElement(
-			Command,
+			ElementType::Command,
 			{
-				OneOf(
+				new OneOf(
 				{
 					Param(Action)
 				})

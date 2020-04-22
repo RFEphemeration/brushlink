@@ -72,7 +72,7 @@ Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
 	return allowed;
 }
 
-ErrorOr<bool> CommandElement::AppendArgument(std::unique_ptr<CommandElement> * next, int & skip_count)
+ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement> * next, int & skip_count)
 {
 	int last_param_with_args = -1;
 	for (int index = parameters.size() - 1; index >= 0 ; index--)
@@ -199,19 +199,6 @@ ErrorOr<Value> CurrentSelection::Evaluate(CommandContext & context)
 	return context.CurrentSelection();
 }
 
-
-
-std::unique_ptr<CommandElement> EmptyCommandElement::DeepCopy()
-{
-	std::vector<std::unique_ptr<CommandParameter> > params_copy;
-	for (auto param : parameters)
-	{
-		params_copy.append(param->DeepCopy());
-	}
-	auto * copy = new ContextFunctionWithActors(type, func, params_copy);
-	return copy;
-}
-
 ErrorOr<Value> EmptyCommandElement::Evaluate(CommandContext & context)
 {
 	if (left_parameter != nullptr)
@@ -223,16 +210,6 @@ ErrorOr<Value> EmptyCommandElement::Evaluate(CommandContext & context)
 		CHECK_RETURN(param->Evaluate(context))
 	}
 	return Success();
-}
-
-std::unique_ptr<CommandElement> SelectorCommandElement::DeepCopy()
-{
-	std::vector<std::unique_ptr<CommandParameter> > params_copy;
-	for (auto param : parameters)
-	{
-		params_copy.append(param->DeepCopy());
-	}
-	return new SelectorCommandElement(params_copy);
 }
 
 ErrorOr<Value> SelectorCommandElement::Evaluate(CommandContext & context)

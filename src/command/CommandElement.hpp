@@ -3,6 +3,7 @@
 
 #include "CommandParameter.hpp"
 #include "ErrorOr.hpp"
+#include "MapReduce.hpp"
 
 namespace Command
 {
@@ -11,30 +12,43 @@ struct CommandElement
 {
 	// @Incomplete make name const and pass through constructor chain
 	ElementName name;
-	const ElementType type;
+	const ElementType::Enum type;
 	// todo: think more about left parameter here
 	// out of scope idea: left parameter OneOf causing dependent type.
-	const std::unique_ptr<CommandParameter> left_parameter;
-	const std::vector<std::unique_ptr<CommandParameter> > parameters;
+	const value_ptr<CommandParameter> left_parameter;
+	const std::vector<value_ptr<CommandParameter> > parameters;
 
-	CommandElement(ElementType type,
-		std::unique_ptr<CommandParameter> left_parameter,
-		std::vector<CommandParameter> parameters)
+	CommandElement(ElementType::Enum type,
+		value_ptr<CommandParameter> left_parameter,
+		std::vector<value_ptr<CommandParameter> > parameters)
 		: type(type)
-		, left_parameter(left_parameter)
+		, left_parameter(std::move(left_parameter))
 		, parameters(parameters)
 	{ }
 
-	CommandElement(ElementType type,
-		std::vector<CommandParameter> parameters)
+	CommandElement(ElementType::Enum type,
+		std::vector<value_ptr<CommandParameter> > parameters)
 		: type(type)
 		, left_parameter(nullptr)
 		, parameters(parameters)
 	{ }
 
-	virtual std::unique_ptr<CommandElement> DeepCopy() = 0;
+	CommandElement(const CommandElement & other)
+		: name(other.name)
+		, type(other.type)
+		, left_parameter(other.left_parameter)
+		, parameters(other.parameters)
+	{ }
 
-	ElementType Type() { return type; }
+	virtual ~CommandElement() = default;
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandElement * clone() const
+	{
+		return new CommandElement(*this);
+	}
+
+	ElementType::Enum Type() { return type; }
 
 	// these functions follow down the tree
 
@@ -48,16 +62,16 @@ struct CommandElement
 	// so that we can take skip count into consideration
 	// @Incomplete: decide skip behavior, I am currently working
 	// on the assumption that it is only used for shared types
-	Map<ElementType, int> GetAllowedArgumentTypes();
+	Table<ElementType::Enum, int> GetAllowedArgumentTypes();
 
-	ErrorOr<bool> AppendArgument(std::unique_ptr<CommandElement> * argument, int &skip_count);
+	ErrorOr<bool> AppendArgument(value_ptr<CommandElement>&& argument, int &skip_count);
 
 	// what are these functions for if not to assist with
 	// building the command tree?
 
 	int ParameterCount() { return parameters.size(); }
 
-	std::set<ElementType> ParameterAllowedTypes(int index);
+	Set<ElementType::Enum> ParameterAllowedTypes(int index);
 
 	bool AddArgument(int index, CommandElement * argument);
 
@@ -66,7 +80,7 @@ struct CommandElement
 	std::string GetPrintString(std::string line_prefix);
 
 	template<typename T>
-	ErrorOr<T> EvaluateAs(const CommandContext & context)
+	ErrorOr<T> EvaluateAs(CommandContext & context)
 	{
 		Value value = CHECK_RETURN(Evaluate(context));
 		if (!std::holds_alternative<T>(value))
@@ -76,47 +90,56 @@ struct CommandElement
 		return std::get<T>(value);
 	}
 
-	virtual ErrorOr<Value> Evaluate(const CommandContext & context) = 0;
-}
+	virtual ErrorOr<Value> Evaluate(CommandContext & context)
+	{
+		// this seems like it's a problem.
+		// @Incomplete why can't we use abstract classes with value_ptr?
+		return Error("Base CommandElement shouldn't be instantiated");
+	}
+};
 
 template<typename TVal>
 struct Literal : CommandElement
 {
 	TVal value;
 
-	Literal(ElemetType type, TVal value)
+	Literal(ElementType::Enum type, TVal value)
 		: CommandElement(type, {})
 		, value(value)
 	{ }
 
+	Literal(const Literal & other)
+		: CommandElement(other)
+		, value(value)
+	{ }
 
-	std::unique_ptr<CommandElement> DeepCopy() override
+	// this is intended to only be used by value_ptr internals
+	virtual CommandElement * clone() const override
 	{
-		// no need to copy parameters because there are none
-		return new Literal(type, value);
+		return new Literal(*this);
 	}
 
-	ErrorOr<Value> Evaluate(const CommandContext & context) override
+	ErrorOr<Value> Evaluate(CommandContext & context) override
 	{
 		return value;
 	}
-}
+};
 
 template<typename TVal>
-std::unique_ptr<ElementDefinition> MakeLiteral(
+value_ptr<CommandElement> MakeLiteral(
 	TVal value)
 {
 	return new Literal<TVal>{ GetElementType<TVal>(), value };
 }
 
-template<typename TRet, typename TArgs...>
+template<typename TRet, typename ... TArgs>
 struct ContextFunction : CommandElement
 {
 	ErrorOr<TRet> (CommandContext::*func)(TArgs...);
 
-	ContextFunction(ElementType type,
+	ContextFunction(ElementType::Enum type,
 		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-		std::vector<std::unique_ptr<CommandParameter> > params)
+		std::vector<value_ptr<CommandParameter> > params)
 		: CommandElement(type, params)
 		, func(func)
 	{
@@ -126,71 +149,67 @@ struct ContextFunction : CommandElement
 		}
 	}
 
-	std::unique_ptr<CommandElement> DeepCopy() override
+	ContextFunction(const ContextFunction & other)
+		: CommandElement(other)
+		, func(other.func)
+	{ }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandElement * clone() const override
 	{
-		std::vector<std::unique_ptr<CommandParameter> > params_copy;
-		for (auto param : parameters)
-		{
-			params_copy.append(param->DeepCopy());
-		}
-		auto * copy = new ContextFunction(type, func, params_copy);
-		return copy;
+		return new ContextFunction(*this);
 	}
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override
 	{
 		if constexpr(sizeof...(TArgs) == 0)
 		{
-			return CHECK_RETURN((context->*func)())
+			return CHECK_RETURN((context->*func)());
 		}
 		else if constexpr(sizeof...(TArgs) == 1)
 		{
-			auto one = CHECK_RETURN(
-				parameters[0]->EvaluateAs<NthTypeOf<0, TArgs...> >(context));
-			return CHECK_RETURN((context->*func)(one));
+			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
+			return CHECK_RETURN((context->*func)(CHECK_RETURN(one)));
 		}
 		else if constexpr(sizeof...(TArgs) == 2)
 		{
-			auto one = CHECK_RETURN(
-				parameters[0]->EvaluateAs<NthTypeOf<0, TArgs...> >(context));
-			auto two = CHECK_RETURN(
-				parameters[1]->EvaluateAs<NthTypeOf<1, TArgs...> >(context));
-			return CHECK_RETURN((context->*func)(one, two));
+			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
+			auto two = parameters[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+
+			return CHECK_RETURN((context->*func)(
+				CHECK_RETURN(one),
+				CHECK_RETURN(two)));
 		}
 		else if constexpr(sizeof...(TArgs) == 3)
 		{
-			auto one = CHECK_RETURN(
-				parameters[0]->EvaluateAs<NthTypeOf<0, TArgs...> >(context));
-			auto two = CHECK_RETURN(
-				parameters[1]->EvaluateAs<NthTypeOf<1, TArgs...> >(context));
-			auto three = CHECK_RETURN(
-				parameters[2]->EvaluateAs<NthTypeOf<2, TArgs...> >(context));
-			return CHECK_RETURN((context->*func)(one, two, three));
-		}
-		else
-		{
-			static_assert(false, "Add more parameters to ContextFunction");
+			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
+			auto two = parameters[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+			auto three = parameters[2]->template EvaluateAs<NthTypeOf<2, TArgs...> >(context);
+			return CHECK_RETURN((context->*func)(
+				CHECK_RETURN(one),
+				CHECK_RETURN(two),
+				CHECK_RETURN(three)));
 		}
 	}
-}
+};
 
 template<typename TRet, typename ... TArgs>
-std::unique_ptr<ElementDefinition> MakeContextFunction(
-	ElementType type,
+value_ptr<CommandElement> MakeContextFunction(
+	ElementType::Enum type,
 	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
 	std::vector<CommandParameter> params)
 {
 	return new ContextFunction{ type, func, params };
 }
 
-template<typename TRet, typename TArgs...>
+template<typename TRet, typename ... TArgs>
 struct ContextFunctionWithActors : CommandElement
 {
 	ErrorOr<TRet> (CommandContext::*func)(TArgs...);
 
-	ContextFunction(ElementType type,
+	ContextFunctionWithActors(ElementType::Enum type,
 		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-		std::vector<CommandParameter> params)
+		std::vector<value_ptr<CommandParameter> > params)
 		: CommandElement(type, params)
 		, func(func)
 	{
@@ -200,26 +219,23 @@ struct ContextFunctionWithActors : CommandElement
 		}
 	}
 
+	ContextFunctionWithActors(const ContextFunctionWithActors & other)
+		: CommandElement(other)
+		, func(other.func)
+	{ }
 
-	std::unique_ptr<CommandElement> DeepCopy() override
+	// this is intended to only be used by value_ptr internals
+	virtual CommandElement * clone() const override
 	{
-		std::vector<std::unique_ptr<CommandParameter> > params_copy;
-		for (auto param : parameters)
-		{
-			params_copy.append(param->DeepCopy());
-		}
-		auto * copy = new ContextFunctionWithActors(type, func, params_copy);
-		return copy;
+		return new ContextFunctionWithActors(*this);
 	}
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override
 	{
-		if constexpr(sizeof...(TArgs) == 0)
-		{
-			static_assert(false, "ContextFunctionWithActors is expected to have at least 1 parameter for the actors");
-		}
+		static_assert(sizeof...(TArgs) != 0, "ContextFunctionWithActors is expected to have at least 1 parameter for the actors");
+
 		UnitGroup actors = CHECK_RETURN(
-				parameters[0]->EvaluateAs<UnitGroup >(context));
+				parameters[0]->template EvaluateAs<UnitGroup>(context));
 		context.PushActors(actors);
 		ErrorOr<TRet> result;
 		if constexpr(sizeof...(TArgs) == 1)
@@ -228,18 +244,20 @@ struct ContextFunctionWithActors : CommandElement
 		}
 		else if constexpr(sizeof...(TArgs) == 2)
 		{
-			auto two = parameters[1]->EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+			auto two = parameters[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
 			if (two.IsError())
 			{
 				result = two.GetError();
 			}
 			else
-			{	result = (context->*func)(actors, two.GetValue());
+			{
+				result = (context->*func)(actors, two.GetValue());
+			}
 		}
 		else if constexpr(sizeof...(TArgs) == 3)
 		{
-			auto two = parameters[1]->EvaluateAs<NthTypeOf<1, TArgs...> >(context);
-			auto three = parameters[2]->EvaluateAs<NthTypeOf<2, TArgs...> >(context);
+			auto two = parameters[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+			auto three = parameters[2]->template EvaluateAs<NthTypeOf<2, TArgs...> >(context);
 			if (two.IsError())
 			{
 				result = two.GetError();
@@ -253,64 +271,87 @@ struct ContextFunctionWithActors : CommandElement
 				result = (context->*func)(actors, two.GetValue(), three.GetValue());
 			}
 		}
+		static_assert(sizeof...(TArgs) <= 3, "Add more parameters to ContextFunctionWithActors");
+
+		context.PopActors();
+		if (result.IsError())
+		{
+			return result.GetError();
+		}
 		else
 		{
-			static_assert(false, "Add more parameters to ContextFunctionWithActors");
+			return Value(result.GetValue());
 		}
-		context.PopActors();
-		return CHECK_RETURN(result);
+		
 	}
-}
+};
 
 template<typename TRet, typename ... TArgs>
-std::unique_ptr<ElementDefinition> MakeContextAction(
-	ElementType type,
+value_ptr<CommandElement> MakeContextAction(
+	ElementType::Enum type,
 	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-	std::vector<CommandParameter> params)
+	std::vector<value_ptr<CommandParameter>> params)
 {
-	return new ContextFunctionWithActors{ type, func, params };
+	return new ContextFunctionWithActors<TRet, TArgs...>{ type, func, params };
 }
 
 // used for Command, maybe nothing else
 struct EmptyCommandElement : CommandElement
 {
-	EmptyCommandElement(ElementType type,
-		std::vector<CommandParameter> params)
+	EmptyCommandElement(ElementType::Enum type,
+		std::vector<value_ptr<CommandParameter>> params)
 		: CommandElement(type, params)
 	{ }
 
-	std::unique_ptr<CommandElement> DeepCopy() override;
+	EmptyCommandElement(const EmptyCommandElement & other)
+		: CommandElement(other)
+	{ }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandElement * clone() const override
+	{
+		return new EmptyCommandElement(*this);
+	}
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
-}
+};
 
 struct SelectorCommandElement : CommandElement
 {
 	/*
 	SelectorCommandElement()
-		: CommandElement(ElementType.Selector, {
-			Param(ElementType.Set,
-				OccurrenceFlags.Optional),
-			Param(ElementType.Filter,
-				OccurrenceFlags.Optional & OccurrenceFlags.Repeatable),
-			Param(ElementType.GroupSize,
-				OccurrenceFlags.Optional),
-			Param(ElementType.Superlative,
-				OccurrenceFlags.Optional)
+		: CommandElement(ElementType::Selector, {
+			Param(ElementType::Set,
+				OccurrenceFlags::Optional),
+			Param(ElementType::Filter,
+				OccurrenceFlags::Optional & OccurrenceFlags::Repeatable),
+			Param(ElementType::GroupSize,
+				OccurrenceFlags::Optional),
+			Param(ElementType::Superlative,
+				OccurrenceFlags::Optional)
 		})
 	{ }
 	*/
 
-	SelectorCommandElement(std::vector<CommandParameter> params)
-		: CommandElement(ElementType.selector, params)
+	SelectorCommandElement(std::vector<value_ptr<CommandParameter>>&& params)
+		: CommandElement(ElementType::Selector, params)
 	{ }
 
+	SelectorCommandElement(const SelectorCommandElement & other)
+		: CommandElement(other)
+	{ }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandElement * clone() const override
+	{
+		return new SelectorCommandElement(*this);
+	}
+
 public:
-	std::unique_ptr<CommandElement> DeepCopy() override;
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
-}
+};
 
 } // namespace Command
 
