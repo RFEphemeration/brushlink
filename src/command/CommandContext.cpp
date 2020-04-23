@@ -5,7 +5,7 @@
 namespace Command
 {
 
-using namespace ElementType;
+namespace ET = ElementType;
 using namespace OccurrenceFlags;
 
 void CommandContext::InitElementDictionary()
@@ -14,140 +14,145 @@ void CommandContext::InitElementDictionary()
 
 	element_dictionary.insert({
 		{"Command", EmptyCommandElement(
-			ElementType::Command,
+			ET::Command,
 			{
 				new OneOf(
 				{
-					Param(Action)
+					Param(ET::Action)
 				})
 			}
 		)},
 		{"Select", MakeContextAction(
-			Action,
-			CommandContext::Select,
+			ET::Action,
+			&CommandContext::Select,
 			{
-				Param(Selector, "SelectorFriendly")
+				Param(ET::Selector, "SelectorFriendly")
 			}
 		)},
 		{"Move", MakeContextAction(
-			Action,
-			CommandContext::Move,
+			ET::Action,
+			&CommandContext::Move,
 			{
-				Param(Selector, "SelectorActors"),
-				Param(Location)
+				Param(ET::Selector, "SelectorActors"),
+				Param(ET::Location)
 			}
 		)},
 		{"Attack", MakeContextAction(
-			ElementType.Action,
-			CommandContext::Move,
+			ET::Action,
+			&CommandContext::Move,
 			{
-				Param(Selector, "SelectorActors"),
-				Param(Selector, "SelectorTarget")
+				Param(ET::Selector, "SelectorActors"),
+				Param(ET::Selector, "SelectorTarget")
 			}
 		)},
 		{"SetCommandGroup", MakeContextAction(
-			ElementType.Action,
-			CommandContext::SetCommandGroup,
+			ET::Action,
+			&CommandContext::SetCommandGroup,
 			{
-				Param(Selector, "SelectorActors")
+				Param(ET::Selector, "SelectorActors")
 			}
 		)},
-		{"Selector", new SelectorCommandElement{}},
+		{"Selector", new SelectorCommandElement{{
+			Param(ET::Set, Optional),
+			Param(ET::Filter, Repeatable | Optional),
+			Param(ET::Group_Size, Optional),
+			Param(ET::Superlative, Optional)
+		}}},
 		// is this an appropriate way to do context sensitive defaults?
 		// it doesn't feel great
 		// maybe we should be using child command contexts
-		{"SelectorActors", new SelectorCommandElement{
-			Param(ElementType.Set, "CurrentSelection"),
-			Param(ElementType.Filter, Repeatable | Optional),
-			Param(ElementType.GroupSize, Optional),
-			Param(ElementType.Superlative, "SuperlativeRandom")
-		}},
-		{"SelectorFriendly", new SelectorCommandElement{
-			Param(ElementType.Set, "Allies"),
-			Param(ElementType.Filter, Repeatable | Optional),
-			Param(ElementType.GroupSize, Optional),
-			Param(ElementType.Superlative, "SuperlativeRandom")
-		}},
-		{"SelectorTarget", new SelectorCommandElement{
-			Param(ElementType.Set, "Enemies"),
-			Param(ElementType.Filter, Repeatable | Optional),
-			Param(ElementType.GroupSize, Optional),
-			Param(ElementType.Superlative, "SuperlativeRandom")
-		}},
+		{"SelectorActors", new SelectorCommandElement{{
+			Param(ET::Set, "CurrentSelection"),
+			Param(ET::Filter, Repeatable | Optional),
+			Param(ET::Group_Size, Optional),
+			Param(ET::Superlative, "SuperlativeRandom")
+		}}},
+		{"SelectorFriendly", new SelectorCommandElement{{
+			Param(ET::Set, "Allies"),
+			Param(ET::Filter, Repeatable | Optional),
+			Param(ET::Group_Size, Optional),
+			Param(ET::Superlative, "SuperlativeRandom")
+		}}},
+		{"SelectorTarget", new SelectorCommandElement{{
+			Param(ET::Set, "Enemies"),
+			Param(ET::Filter, Repeatable | Optional),
+			Param(ET::Group_Size, Optional),
+			Param(ET::Superlative, "SuperlativeRandom")
+		}}},
 		{"Enemies", MakeContextFunction(
-			ElementType.Set,
-			CommandContext::Enemies,
+			ET::Set,
+			&CommandContext::Enemies,
 			{}
 		)},
 		{"Allies", MakeContextFunction(
-			ElementType.Set,
-			CommandContext::Allies,
+			ET::Set,
+			&CommandContext::Allies,
 			{}
 		)},
 		{"CurrentSelection", MakeContextFunction(
-			ElementType.Set,
-			CommandContext::CurrentSelection,
+			ET::Set,
+			&CommandContext::CurrentSelection,
 			{}
 		)},
 		{"Actors", MakeContextFunction(
-			ElementType.Set,
-			CommandContext::Actors,
+			ET::Set,
+			&CommandContext::Actors,
 			{}
 		)},
 		{"CommandGroup", MakeContextFunction(
-			ElementType.Set,
-			CommandContext::CommandGroup,
+			ET::Set,
+			&CommandContext::CommandGroup,
 			{
-				Param(Number)
+				Param(ET::Number)
 			}
 		)},
 		{"WithinActorsRange", MakeContextFunction(
-			ElementType.Filter,
-			CommandContext::WithinActorsRange,
+			ET::Filter,
+			&CommandContext::WithinActorsRange,
 			{
-				Param(Number)
+				Param(ET::Number)
 			}
 		)},
 		{"OnScreen", MakeContextFunction(
-			ElementType.Filter,
-			CommandContext::OnScreen,
+			ET::Filter,
+			&CommandContext::OnScreen,
 			{ }
 		)},
 		{"GroupSizeLiteral", MakeContextFunction(
-			ElementType.GroupSize,
-			CommandContext::GroupSizeLiteral,
+			ET::Group_Size,
+			&CommandContext::GroupSizeLiteral,
 			{
-				Param(Number)
+				Param(ET::Number)
 			}
 		)},
 		{"GroupActorsRatio", MakeContextFunction(
-			ElementType.GroupSize,
-			CommandContext::GroupActorsRatio,
+			ET::Group_Size,
+			&CommandContext::GroupActorsRatio,
 			{
-				Param(Number)
+				Param(ET::Number)
 			}
 		)},
 		{"SuperlativeRandom", MakeContextFunction(
-			ElementType.Superlative,
-			CommandContext::SuperlativeRandom,
+			ET::Superlative,
+			&CommandContext::SuperlativeRandom,
 			{ }
 		)},
 		{"ClosestToActors", MakeContextFunction(
-			ElementType.Superlative,
-			CommandContext::ClosestToActors,
+			ET::Superlative,
+			&CommandContext::ClosestToActors,
 			{ }
 		)},
 		{"PositionOf", MakeContextFunction(
-			ElementType.Location,
-			CommandContext::PositionOf,
+			ET::Location,
+			&CommandContext::PositionOf,
 			{
 				// @Incomplete: the default for this selector
-				Param(Selector)
+				Param(ET::Selector)
 			}
 		)},
 		/*
 		{"MouseInputPosition", MakeContextFunction(
-			ElementType.Location,
+			ET::Location,
 			CommandContext::MouseInputPosition,
 			{ }
 		)},
@@ -213,12 +218,12 @@ ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 			max_type_count = pair.value;
 		}
 	}
-	allowed_next_elements[ElementType.Skip] = max_type_count - 1;
+	allowed_next_elements[ET::Skip] = max_type_count - 1;
 	if (command->ParametersSatisfied())
 	{
-		allowed_next_elements[ElementType.Termination] = 1;
+		allowed_next_elements[ET::Termination] = 1;
 	}
-	allowed_next_elements[ElementType.Cancel] = 1;
+	allowed_next_elements[ET::Cancel] = 1;
 	return Success();
 }
 
@@ -232,12 +237,12 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 	}
 	switch(token.type)
 	{
-		case ElementType.Skip:
+		case ET::Skip:
 			for (auto pair : allowed_next_elements)
 			{
 				// we probably need to make this an explicit list?
-				if (pair.first == ElementType.Termination
-					|| pair.first == ElementType.Cancel)
+				if (pair.first == ET::Termination
+					|| pair.first == ET::Cancel)
 				{
 					continue;
 				}
@@ -254,11 +259,11 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 			}
 			skip_count += 1;
 			return Success();
-		case ElementType.Termination:
+		case ET::Termination:
 			// @Incomplete what should we do if we can't terminate?
 			CHECK_RETURN(command->Evaluate());
 			// intentional fallthrough to cancel
-		case ElementType.Cancel:
+		case ET::Cancel:
 			command = CHECK_RETURN(GetNewCommandElement("Command"));
 			break;
 		default:
@@ -286,53 +291,57 @@ void CommandContext::PopActors()
 }
 
 //Action
-void CommandContext::Select(UnitGroup units)
+ErrorOr<Success> CommandContext::Select(UnitGroup units)
 {
 	current_selection = units;
+	return Success();
 }
 
-void CommandContext::Move(UnitGroup actors, Location target)
+ErrorOr<Success> CommandContext::Move(UnitGroup actors, Location target)
 {
 	// @Incomplete implement
 	std::cout << "Move " << actors.members[0];
+	return Success();
 }
 
-void CommandContext::Attack(UnitGroup actors, UnitGroup target)
+ErrorOr<Success> CommandContext::Attack(UnitGroup actors, UnitGroup target)
 {
 	// @Incomplete implement
 	std::cout << "Attack " << actors.members[0] << " " << target.members[0];
+	return Success();
 }
-void CommandContext::SetCommandGroup(UnitGroup actors, Number group)
+ErrorOr<Success> CommandContext::SetCommandGroup(UnitGroup actors, Number group)
 {
 	command_groups[group.value] = actors;
+	return Success();
 }
 // void AddToCommandGroup(UnitGroup actors, Number group);
 // void RemoveFromCommandGroup(UnitGroup actors, Number group);
 
 // Set
-UnitGroup CommandContext::Enemies()
+ErrorOr<UnitGroup> CommandContext::Enemies()
 {
 	// @Incomplete implement
 	return UnitGroup{{
 		0, 2, 4, 6, 8, 10, 12
 	}};
 }
-UnitGroup CommandContext::Allies()
+ErrorOr<UnitGroup> CommandContext::Allies()
 {
 	// @Incomplete implement
 	return UnitGroup{{
 		1, 3, 5, 7, 9, 11, 13
 	}};
 }
-UnitGroup CommandContext::CurrentSelection()
+ErrorOr<UnitGroup> CommandContext::CurrentSelection()
 {
 	return current_selection;
 }
-UnitGroup CommandContext::Actors()
+ErrorOr<UnitGroup> CommandContext::Actors()
 {
 	return actors_stack[actors_stack.size() - 1];
 }
-UnitGroup CommandContext::CommandGroup(Number group)
+ErrorOr<UnitGroup> CommandContext::CommandGroup(Number group)
 {
 	if (command_groups.contains(group.value))
 	{
@@ -342,17 +351,17 @@ UnitGroup CommandContext::CommandGroup(Number group)
 }
 
 // Filter, can have many
-Filter CommandContext::FilterIdentity()
+ErrorOr<Filter> CommandContext::FilterIdentity()
 {
 	return [](UnitGroup set) -> UnitGroup { return set; };
 }
-Filter CommandContext::WithinActorsRange(Number distance_modifier)
+ErrorOr<Filter> CommandContext::WithinActorsRange(Number distance_modifier)
 {
 	std::cout << "WithinActorsRange " << distance_modifier.value << std::endl;
 	// @Incomplete implement
 	return [distance_modifier](UnitGroup set) -> UnitGroup { return set; };
 }
-Filter CommandContext::OnScreen()
+ErrorOr<Filter> CommandContext::OnScreen()
 {
 	// @Incomplete implement
 	return [](UnitGroup set) -> UnitGroup
@@ -371,12 +380,12 @@ Filter CommandContext::OnScreen()
 }
 
 // Group_Size, up to one
-GroupSize CommandContext::GroupSizeIdentity()
+ErrorOr<GroupSize> CommandContext::GroupSizeIdentity()
 {
 	return [](UnitGroup set) -> Number { return set.members.size(); };
 }
 
-GroupSize CommandContext::GroupSizeLiteral(Number size)
+ErrorOr<GroupSize> CommandContext::GroupSizeLiteral(Number size)
 {
 	return [size](UnitGroup set) -> Number
 	{
@@ -386,7 +395,7 @@ GroupSize CommandContext::GroupSizeLiteral(Number size)
 // Could probably implement this as a word, SizeOf Actors DividedBy ratio
 // is UnitGroup even the right return type for GroupSize?
 // maybe it should just be a number...
-GroupSize CommandContext::GroupActorsRatio(UnitGroup set, Number ratio) // implied 1/
+ErrorOr<GroupSize> CommandContext::GroupActorsRatio(UnitGroup set, Number ratio) // implied 1/
 {
 	int size = Actors.members.size() / ratio.value;
 	if (size == 0)
@@ -397,7 +406,7 @@ GroupSize CommandContext::GroupActorsRatio(UnitGroup set, Number ratio) // impli
 }
 
 // Superlative, up to one
-Superlative SuperlativeRandom()
+ErrorOr<Superlative> SuperlativeRandom()
 {
 	return [](UnitGroup set, Number size)
 	{
@@ -414,7 +423,7 @@ Superlative SuperlativeRandom()
 	};
 }
 
-Superlative CommandContext::ClosestToActors()
+ErrorOr<Superlative> CommandContext::ClosestToActors()
 {
 	return [](UnitGroup set, Number size)
 	{
@@ -432,6 +441,6 @@ Superlative CommandContext::ClosestToActors()
 }
 
 // Location
-Location CommandContext::PositionOf(UnitGroup group, Number size);
+ErrorOr<Location> CommandContext::PositionOf(UnitGroup group, Number size);
 
 } // namespace Command

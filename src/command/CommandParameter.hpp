@@ -39,10 +39,10 @@ struct CommandParameter
 	}
 
 	template<typename T>
-	ErrorOr<Repeatable<T> > EvaluateAsRepeatable(CommandContext & context)
+	ErrorOr<std::vector<T> > EvaluateAsRepeatable(CommandContext & context)
 	{
-		Repeatable<Value> values = CHECK_RETURN(EvaluateRepeatable(context));
-		Repeatable<T> ret;
+		std::vector<Value> values = CHECK_RETURN(EvaluateRepeatable(context));
+		std::vector<T> ret;
 		for (auto value : values)
 		{
 			if (!std::holds_alternative<T>(value))
@@ -70,10 +70,10 @@ struct CommandParameter
 
 	virtual ErrorOr<Value> Evaluate(CommandContext & context) = 0;
 
-	virtual ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context)
+	virtual ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context)
 	{
 		Value value = CHECK_RETURN(Evaluate(context));
-		return Repeatable<Value>{value};
+		return std::vector<Value>{value};
 	}
 };
 
@@ -81,7 +81,7 @@ struct CommandParameter
 value_ptr<CommandParameter> Param(
 	ElementType::Enum type,
 	ElementName default_value,
-	OccurrenceFlags::Enum flags = static_cast<OccurrenceFlags::Enum>(0x0));
+	OccurrenceFlags::Enum flags);
 
 value_ptr<CommandParameter> Param(ElementType::Enum type, ElementName default_value)
 {
@@ -208,7 +208,7 @@ struct ParamRepeatableRequired : CommandParameter
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
-	ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context) override;
+	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) override;
 };
 
 struct ParamRepeatableOptional : ParamRepeatableRequired
@@ -239,7 +239,7 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
-	ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context) override;
+	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) override;
 };
 
 struct OneOf : CommandParameter
@@ -279,7 +279,7 @@ struct OneOf : CommandParameter
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
-	ErrorOr<Repeatable<Value> > EvaluateRepeatable(CommandContext & context) override;
+	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) override;
 };
 
 } // namespace Command

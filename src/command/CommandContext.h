@@ -53,38 +53,38 @@ struct CommandContext
 	// but we do need to get the actors out...
 	// maybe actors should be a function of a CommandElement
 	// and Actors() just asks for the most recent/distal child with actors
-	void Select(UnitGroup units);
-	void Move(UnitGroup actors, Location target);
-	void Attack(UnitGroup actors, UnitGroup target);
-	void SetCommandGroup(UnitGroup actors, Number group);
+	ErrorOr<Success> Select(UnitGroup units);
+	ErrorOr<Success> Move(UnitGroup actors, Location target);
+	ErrorOr<Success> Attack(UnitGroup actors, UnitGroup target);
+	ErrorOr<Success> SetCommandGroup(UnitGroup actors, Number group);
 	// void AddToCommandGroup(UnitGroup actors, Number group);
 	// void RemoveFromCommandGroup(UnitGroup actors, Number group);
 
 	// Set
-	UnitGroup Enemies();
-	UnitGroup Allies();
-	UnitGroup CurrentSelection();
-	UnitGroup Actors();
-	UnitGroup CommandGroup(Number group);
+	ErrorOr<UnitGroup> Enemies();
+	ErrorOr<UnitGroup> Allies();
+	ErrorOr<UnitGroup> CurrentSelection();
+	ErrorOr<UnitGroup> Actors();
+	ErrorOr<UnitGroup> CommandGroup(Number group);
 	
 	// the filter, groupsize, and superlative types
 	// make it difficult to allow users to define new ones
 	// @Feature reconsider private/internal arguments for elements
 
 	// Filter, can have many
-	Filter WithinActorsRange(Number distance_modifier);
-	Filter OnScreen();
+	ErrorOr<Filter> WithinActorsRange(Number distance_modifier);
+	ErrorOr<Filter> OnScreen();
 
 	// GroupSize, up to one
-	GroupSize GroupSizeLiteral(Number size);
-	GroupSize GroupActorsRatio(Number ratio); // implied 1/
+	ErrorOr<GroupSize> GroupSizeLiteral(Number size);
+	ErrorOr<GroupSize> GroupActorsRatio(Number ratio); // implied 1/
 
 	// Superlative, up to one
-	Superlative SuperlativeRandom();
-	Superlative ClosestToActors();
+	ErrorOr<Superlative> SuperlativeRandom();
+	ErrorOr<Superlative> ClosestToActors();
 
 	// Location
-	Location PositionOf(UnitGroup group);
+	ErrorOr<Location> PositionOf(UnitGroup group);
 	// Location MousePosition();
 
 

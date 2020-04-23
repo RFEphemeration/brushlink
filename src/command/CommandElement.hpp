@@ -197,7 +197,7 @@ template<typename TRet, typename ... TArgs>
 value_ptr<CommandElement> MakeContextFunction(
 	ElementType::Enum type,
 	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-	std::vector<CommandParameter> params)
+	std::vector<value_ptr<CommandParameter>> params)
 {
 	return new ContextFunction{ type, func, params };
 }
@@ -326,7 +326,7 @@ struct SelectorCommandElement : CommandElement
 				OccurrenceFlags::Optional),
 			Param(ElementType::Filter,
 				OccurrenceFlags::Optional & OccurrenceFlags::Repeatable),
-			Param(ElementType::GroupSize,
+			Param(ElementType::Group_Size,
 				OccurrenceFlags::Optional),
 			Param(ElementType::Superlative,
 				OccurrenceFlags::Optional)

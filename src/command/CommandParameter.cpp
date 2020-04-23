@@ -136,9 +136,9 @@ ErrorOr<Value> ParamRepeatableRequired::Evaluate(CommandContext & context)
 	return arguments[0]->Evaluate(context);
 }
 
-ErrorOr<Repeatable<Value> > ParamRepeatableRequired::EvaluateRepeatable(CommandContext & context)
+ErrorOr<std::vector<Value> > ParamRepeatableRequired::EvaluateRepeatable(CommandContext & context)
 {
-	Repeatable<Value> values;
+	std::vector<Value> values;
 
 	for (auto argument : arguments)
 	{
@@ -184,9 +184,9 @@ ErrorOr<Value> ParamRepeatableOptional::Evaluate(CommandContext & context)
 	return arguments[0]->Evaluate(context);
 }
 
-ErrorOr<Repeatable<Value> > ParamRepeatableOptional::EvaluateRepeatable(CommandContext & context)
+ErrorOr<std::vector<Value> > ParamRepeatableOptional::EvaluateRepeatable(CommandContext & context)
 {
-	Repeatable<Value> values;
+	std::vector<Value> values;
 
 	for (auto argument : arguments)
 	{
@@ -315,7 +315,7 @@ ErrorOr<Value> OneOf::Evaluate(CommandContext & context)
 	}
 }
 
-ErrorOr<Repeatable<Value> > OneOf::EvaluateRepeatable(CommandContext & context)
+ErrorOr<std::vector<Value> > OneOf::EvaluateRepeatable(CommandContext & context)
 {
 	if (chosen_index == -1)
 	{

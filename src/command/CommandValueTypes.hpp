@@ -332,6 +332,7 @@ ElementType::Enum GetElementType()
 // relying on the declaration parameter type checking
 // to verify that there is at least one for repeatable
 // but not optional parameters
+/*
 template<typename T>
 using Repeatable = std::vector<T>;
 
@@ -366,7 +367,7 @@ struct Underlying<Optional<TValue> >
 	using Type = TValue;
 };
 
-/* // uncomment if OptionalRepeatable uses a different type than Repeatable
+// uncomment if OptionalRepeatable uses a different type than Repeatable
 template<typename TValue>
 struct Underlying<OptionalRepeatable<TValue> >
 {

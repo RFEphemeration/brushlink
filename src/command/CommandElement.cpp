@@ -224,7 +224,7 @@ ErrorOr<Value> SelectorCommandElement::Evaluate(CommandContext & context)
 	// we had considered that for access to actors and everything
 	
 	UnitGroup units = CHECK_RETURN(parameters[0]->EvaluateAs<UnitGroup>(context));
-	Repeatable<Filter> filters = CHECK_RETURN(parameters[1]->EvaluateAsRepeatable<Filter>(context));
+	std::vector<Filter> filters = CHECK_RETURN(parameters[1]->EvaluateAsRepeatable<Filter>(context));
 
 	for (auto filter : filters)
 	{
