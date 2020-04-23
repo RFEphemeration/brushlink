@@ -6,52 +6,47 @@ namespace Command
 {
 
 
-std::vector<Point> AreaInterface::GetPointDistributionInArea(Number count) const
+std::vector<Point> Area_Interface::GetPointDistributionInArea(Number count) const
 {
-	const int width = (bottomRight.x - topLeft.x);
-	const int height = (topLeft.y - bottomRight.y);
-
 	const double area = GetArea();
 	const Point center = GetCenter();
 	const double max_dimension = GetDistanceToFarthestPoint(center);
 	
 	std::unique_ptr<PointDistributionGenerator> generator;
 
-	static const PointDistributionMethod distribution = PointDistributionMethod.Fibonacci;
+	static const PointDistributionMethod distribution = PointDistributionMethod::Fibonacci;
 	switch(distribution)
 	{
-		case PointDistributionMethod.Fibonacci:
-			generator = new FibonacciSpiralDiscGenerator(
+		case PointDistributionMethod::Fibonacci:
+			generator.reset(new FibonacciSpiralPointGenerator(
 				count.value,
 				area,
 				(double)center.x,
-				(double)center.y);
-		case PointDistributionMethod.Grid:
-			generator = new GridPointGenerator(
+				(double)center.y));
+		case PointDistributionMethod::Grid:
+			generator.reset(new GridPointGenerator(
 				count.value,
 				area,
 				(double)center.x,
-				(double)center.y);
-		case PointDistributionMethod.Random:
-			generator = new RandomPointGeneratior(
+				(double)center.y));
+		case PointDistributionMethod::Random:
+			generator.reset(new RandomPointGenerator(
 				max_dimension,
 				(double)center.x,
-				(double)center.y);
+				(double)center.y));
 			break;
 	}
-
-	double x;
-	double y;
 	std::vector<Point> points;
 	while(points.size() < count.value)
 	{
-		generator->GetNext(x, y);
-		Point point{std::nearbyint(x), std::nearbyint(y)};
+		Point2D<double> next = generator->GetNext();
+		Point point = next.Cast<int>();
 		if (Contains(point))
 		{
 			points.push_back(point);
 		}
 	}
+	return points;
 }
 
 bool Box::Contains(Point point) const
@@ -69,14 +64,14 @@ Point Box::GetCenter() const
 
 double Box::GetDistanceToFarthestPoint(Point from) const
 {
-	double max_dist_squared = (from - bottomRight).MagnitudeSquared();
+	int max_dist_squared = (from - bottomRight).MagnitudeSquared();
 	max_dist_squared = std::max(max_dist_squared,
 		(from - topLeft).MagnitudeSquared());
 	max_dist_squared = std::max(max_dist_squared,
 		(from - Point{bottomRight.x, topLeft.y}).MagnitudeSquared());
 	max_dist_squared = std::max(max_dist_squared,
 		(from - Point{topLeft.x, bottomRight.y}).MagnitudeSquared());
-	return std::sqrt(max_dist_squared);
+	return std::sqrt(static_cast<double>(max_dist_squared));
 }
 
 double Box::GetArea() const
@@ -109,24 +104,22 @@ double Circle::GetArea() const
 	return Pi * static_cast<double>(radius.value * radius.value);
 }
 
-struct Perimeter : Area_Interface
-{
-	Line perimeter;
-};
-
 bool Perimeter::Contains(Point point) const
 {
 	// @Incomplete this assumes convex, I think. and equidistant perimeter points
-	int count = perimeter.size();
+	int count = perimeter.points.size();
 	if (count == 0)
 	{
 		return false;
 	}
 	for (int i = 0; i < count / 2; ++i)
 	{
-		Point a = perimeter[i];
-		Point b = perimeter[(i + count) % count];
-		auto result = DistanceBetweenPointAndSegmentSquared(point, a, b);
+		Point a = perimeter.points[i];
+		Point b = perimeter.points[(i + count) % count];
+		auto result = DistanceBetweenPointAndSegmentSquared(
+			point.Cast<double>(),
+			a.Cast<double>(),
+			b.Cast<double>());
 		if (!result.first)
 		{
 			return false;
@@ -137,29 +130,27 @@ bool Perimeter::Contains(Point point) const
 
 Point Perimeter::GetCenter() const
 {
-	Point average;
-	if (perimeter.size() == 0)
+	Point sum{0, 0};
+	if (perimeter.points.size() == 0)
 	{
-		return average;
+		return sum;
 	}
-
 	// this is a naive center point
 	// it is true if points on the perimeter are spaced approximately equally, I think
-	for (auto point : perimeter)
+	// could consider multiplying by distance from previous point
+	// but that doesn't work in the degenerate case of an infinitely thin triangle
+	for (auto point : perimeter.points)
 	{
-		average += point;
+		sum = sum + point;
 	}
 
-	return average / perimeter.size();
-
-
-	return center;
+	return sum / perimeter.points.size();
 }
 
 double Perimeter::GetDistanceToFarthestPoint(Point from) const
 {
 	// @Incomplete this assumes convex, I think. and equidistant perimeter points
-	int count = perimeter.size();
+	int count = perimeter.points.size();
 	if (count == 0)
 	{
 		return 0.0;
@@ -167,7 +158,7 @@ double Perimeter::GetDistanceToFarthestPoint(Point from) const
 	double max_squared = 0.0;
 	for (int i = 0; i < count; ++i)
 	{
-		double distance_squared = (perimeter[i] - from).MagnitudeSquared();
+		double distance_squared = (perimeter.points[i] - from).MagnitudeSquared();
 		if (distance_squared > max_squared)
 		{
 			max_squared = distance_squared;
@@ -179,12 +170,12 @@ double Perimeter::GetDistanceToFarthestPoint(Point from) const
 double Perimeter::GetArea() const
 {
 	double area = 0;
-	int count = perimeter.size();
+	int count = perimeter.points.size();
 	i = count - 1;
 	for (int j = 0; j < count; j++)
 	{
-		auto & a = perimeter[i];
-		auto & b = perimeter[j];
+		auto & a = perimeter.points[i];
+		auto & b = perimeter.points[j];
 		// this might be wrong, could it be a.x * b.y - a.y * b.x
 		area += static_cast<double>(a.x + b.x)
 			* static_cast<double>(a.y - b.y);

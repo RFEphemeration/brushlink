@@ -18,16 +18,16 @@ struct CommandContext
 	// these should probably be moved to an in-game player
 	UnitGroup current_selection;
 	Table<int, UnitGroup> command_groups;
-	Table<HString, std::unique_ptr<CommandElement> > element_dictionary;
+	Table<HString, value_ptr<CommandElement> > element_dictionary;
 
 
 	std::list<UnitGroup> actors_stack;
-	std::unique_ptr<CommandElement> command;
+	value_ptr<CommandElement> command;
 	Table<ElementType::Enum, int> allowed_next_elements;
 	int skip_count;
 
 	void InitElementDictionary();
-	ErrorOr<std::unique_ptr<CommandElement> > GetNewCommandElement(HString name);
+	ErrorOr<value_ptr<CommandElement> > GetNewCommandElement(HString name);
 	ErrorOr<ElementToken> GetTokenForName(ElementName name);
 	
 	ErrorOr<Success> InitNewCommand();

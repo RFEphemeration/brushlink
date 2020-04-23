@@ -3,9 +3,9 @@
 namespace Command
 {
 
-Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
+Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 {
-	Map<ElementType, int> allowed;
+	Table<ElementType::Enum, int> allowed;
 	int last_param_with_args = -1;
 	bool allowed_next = false;
 
@@ -20,19 +20,19 @@ Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
 	for (int index = parameters.size() - 1; index >= 0 ; index--)
 	{
 		// earlier arguments to parameters can't be revisited
-		CommandElement * argument = parameters[index].GetLastArgument();
+		CommandElement * argument = parameters[index]->GetLastArgument();
 		if (argument != nullptr)
 		{
 			last_param_with_args = index;
 			for (auto pair : argument->GetAllowedArgumentTypes())
 			{
-				if (allowed.contains(pair.key))
+				if (allowed.count(pair.first) > 0)
 				{
-					allowed[pair.key] += pair.value;
+					allowed[pair.first] += pair.second;
 				}
 				else
 				{
-					allowed[pair.key] = pair.value;
+					allowed[pair.first] = pair.second;
 				}
 			}
 			if (argument->ParametersSatisfied())
@@ -53,13 +53,13 @@ Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
 		// so we just ask the parameter directly
 		for (auto type : parameters[index]->GetAllowedTypes())
 		{
-			if (allowed.contains(type))
+			if (allowed.count(type) > 0)
 			{
-				allowed[pair.key] += 1;
+				allowed[type] += 1;
 			}
 			else
 			{
-				allowed[pair.key] = 1;
+				allowed[type] = 1;
 			}
 		}
 		// @Incomplete permutable
@@ -72,7 +72,7 @@ Map<ElementType, int> CommandElement::GetAllowedArgumentTypes()
 	return allowed;
 }
 
-ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement> * next, int & skip_count)
+ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement>&& next, int & skip_count)
 {
 	int last_param_with_args = -1;
 	for (int index = parameters.size() - 1; index >= 0 ; index--)
@@ -82,7 +82,7 @@ ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement> * next, i
 		if (argument != nullptr)
 		{
 			last_param_with_args = index;
-			bool result = CHECK_RETURN(argument->AppendArgument(next, skip_count));
+			bool result = CHECK_RETURN(argument->AppendArgument(std::move(next), skip_count));
 			if (result)
 			{
 				return true;
@@ -101,11 +101,11 @@ ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement> * next, i
 	for (int index = last_param_with_args+1; index < parameters.size(); index++)
 	{
 		auto types = parameters[index]->GetAllowedTypes();
-		if (types.contains(next->Type()))
+		if (types.count(next->Type()) > 0)
 		{
 			if (skip_count == 0)
 			{
-				parameters[index]->SetArgument(next);
+				parameters[index]->SetArgument(next.release());
 				return true;
 			}
 			skip_count--;
@@ -119,31 +119,13 @@ ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement> * next, i
 	return false;
 }
 
-Set<ElementType> CommandElement::ParameterAllowedTypes(int index)
+Set<ElementType::Enum> CommandElement::ParameterAllowedTypes(int index)
 {
 	if (index >= ParameterCount())
 	{
 		return {};
 	}
 	return parameters[index]->GetAllowedTypes();
-}
-
-bool CommandElement::AddArgument(int index, CommandElement * argument)
-{
-	if (index >= ParameterCount())
-	{
-		return false;
-	}
-	if (argument == nullptr)
-	{
-		return false;
-	}
-	if (!parameters[index]->GetAllowedTypes().contains(argument->Type()))
-	{
-		return false;
-	}
-
-	parameters[index]->SetArgument(argument);
 }
 
 bool CommandElement::ParametersSatisfied()
@@ -160,43 +142,13 @@ bool CommandElement::ParametersSatisfied()
 
 std::string CommandElement::GetPrintString(std::string line_prefix)
 {
-	std::string print_string = line_prefix + name + "\n";
+	std::string print_string = line_prefix + name.value + "\n";
 	line_prefix += "    ";
 	for (auto & parameter : parameters)
 	{
 		print_string += parameter->GetPrintString(line_prefix);
 	}
 	return print_string;
-}
-
-ErrorOr<Value> Select::Evaluate(CommandContext & context)
-{
-	UnitGroup actor_units = CHECK_RETURN(parameters[0]->EvaluateAs<UnitGroup>(context));
-	// this shouldn't really do anything because there are no other parameters to evaluate
-	// but oh well
-	context.PushActors(actor_units);
-	auto result = context.Select(actor_units);
-	context.PopActors();
-	return result;
-}
-
-ErrorOr<Value> Move::Evaluate(CommandContext & context)
-{
-	UnitGroup actor_units = CHECK_RETURN(parameters[0]->EvaluateAs<UnitGroup>(context));
-	// must set actors before evaluating future parameters
-	// because they could use the actors as part of their evaluation
-	// what if this is part of a nested call?
-	// maybe whenever an action is taken the actors stack is popped?
-	context.PushActors(actor_units);
-	Location target = CHECK_RETURN(parameters[1]->EvaluateAs<Location>(context));
-	auto result = context.Move(actor_units, target);
-	context.PopActors();
-	return result;
-}
-
-ErrorOr<Value> CurrentSelection::Evaluate(CommandContext & context)
-{
-	return context.CurrentSelection();
 }
 
 ErrorOr<Value> EmptyCommandElement::Evaluate(CommandContext & context)
@@ -207,9 +159,9 @@ ErrorOr<Value> EmptyCommandElement::Evaluate(CommandContext & context)
 	}
 	for (auto && param : parameters)
 	{
-		CHECK_RETURN(param->Evaluate(context))
+		CHECK_RETURN(param->Evaluate(context));
 	}
-	return Success();
+	return Value{Success()};
 }
 
 ErrorOr<Value> SelectorCommandElement::Evaluate(CommandContext & context)
@@ -236,8 +188,8 @@ ErrorOr<Value> SelectorCommandElement::Evaluate(CommandContext & context)
 	{
 		// group size is optional and doesn't have a default
 		// so we can only evaluate it if it has an argument
-		GroupSize size = CHECK_RETURN(parameters[2]->EvaluateAs<Number>(context));
-		count = size(units);
+		GroupSize size = CHECK_RETURN(parameters[2]->EvaluateAs<GroupSize>(context));
+		count = size(units).value;
 	}
 	else if (parameters[3]->GetLastArgument() != nullptr)
 	{
@@ -260,7 +212,7 @@ ErrorOr<Value> SelectorCommandElement::Evaluate(CommandContext & context)
 		units = superlative(units, Number(count));
 	}
 	
-	return units;
+	return Value{units};
 }
 
 } // namespace Command

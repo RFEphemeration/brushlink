@@ -13,7 +13,7 @@ void CommandContext::InitElementDictionary()
 	element_dictionary.clear();
 
 	element_dictionary.insert({
-		{"Command", EmptyCommandElement(
+		{"Command", new EmptyCommandElement{
 			ET::Command,
 			{
 				new OneOf(
@@ -21,7 +21,7 @@ void CommandContext::InitElementDictionary()
 					Param(ET::Action)
 				})
 			}
-		)},
+		}},
 		{"Select", MakeContextAction(
 			ET::Action,
 			&CommandContext::Select,
@@ -173,14 +173,14 @@ void CommandContext::InitElementDictionary()
 	// todo: load user defined words from save
 }
 
-ErrorOr<std::unique_ptr<CommandElement> > CommandContext::GetNewCommandElement(HString name)
+ErrorOr<value_ptr<CommandElement> > CommandContext::GetNewCommandElement(HString name)
 {
-	if (element_dictionary.contains(name))
+	if (element_dictionary.find(name) != element_dictionary.end())
 	{
-		auto copy = element_dictionary[name].DeepCopy();
+		auto copy = element_dictionary[name]->clone();
 		// @Incomplete, name should be passed through constructor
 		copy->name = name;
-		return copy;
+		return value_ptr<CommandElement>(copy);
 	}
 	else
 	{
@@ -190,9 +190,9 @@ ErrorOr<std::unique_ptr<CommandElement> > CommandContext::GetNewCommandElement(H
 
 ErrorOr<ElementToken> CommandContext::GetTokenForName(ElementName name)
 {
-	if (element_dictionary.contains(name))
+	if (element_dictionary.find(name.value) != element_dictionary.end())
 	{
-		return ElementToken{element_dictionary[name]->GetType(), name};
+		return ElementToken{element_dictionary[name.value]->Type(), name};
 	}
 	else
 	{
@@ -213,9 +213,9 @@ ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 	int max_type_count = 1;
 	for (auto pair : allowed_next_elements)
 	{
-		if (pair.value > max_type_count)
+		if (pair.second > max_type_count)
 		{
-			max_type_count = pair.value;
+			max_type_count = pair.second;
 		}
 	}
 	allowed_next_elements[ET::Skip] = max_type_count - 1;
@@ -230,7 +230,7 @@ ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 
 ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 {
-	if (!allowed_next_elements.contains(token.type)
+	if (allowed_next_elements.count(token.type) == 0
 		|| allowed_next_elements[token.type] <= 0)
 	{
 		return Error("This token type is not allowed");
@@ -250,7 +250,7 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 				{
 					// erase only invalidates the current element's iterator
 					// and no other
-					allowed_next_elements.erase(pair.first)
+					allowed_next_elements.erase(pair.first);
 				}
 				else
 				{
@@ -261,14 +261,14 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 			return Success();
 		case ET::Termination:
 			// @Incomplete what should we do if we can't terminate?
-			CHECK_RETURN(command->Evaluate());
+			CHECK_RETURN(command->Evaluate(*this));
 			// intentional fallthrough to cancel
 		case ET::Cancel:
 			command = CHECK_RETURN(GetNewCommandElement("Command"));
 			break;
 		default:
-			auto next = CHECK_RETURN(GetNewCommandElement(token.name));
-			bool success = CHECK_RETURN(command->AppendArgument(next));
+			auto next = CHECK_RETURN(GetNewCommandElement(token.name.value));
+			bool success = CHECK_RETURN(command->AppendArgument(std::move(next), skip_count));
 			if (!success)
 			{
 				return Error("Couldn't append argument even though it was supposed to be okay. This shouldn't happen");
@@ -300,14 +300,14 @@ ErrorOr<Success> CommandContext::Select(UnitGroup units)
 ErrorOr<Success> CommandContext::Move(UnitGroup actors, Location target)
 {
 	// @Incomplete implement
-	std::cout << "Move " << actors.members[0];
+	std::cout << "Move " << actors.members[0].value;
 	return Success();
 }
 
 ErrorOr<Success> CommandContext::Attack(UnitGroup actors, UnitGroup target)
 {
 	// @Incomplete implement
-	std::cout << "Attack " << actors.members[0] << " " << target.members[0];
+	std::cout << "Attack " << actors.members[0].value << " " << target.members[0].value;
 	return Success();
 }
 ErrorOr<Success> CommandContext::SetCommandGroup(UnitGroup actors, Number group)
@@ -339,11 +339,11 @@ ErrorOr<UnitGroup> CommandContext::CurrentSelection()
 }
 ErrorOr<UnitGroup> CommandContext::Actors()
 {
-	return actors_stack[actors_stack.size() - 1];
+	return actors_stack.back();
 }
 ErrorOr<UnitGroup> CommandContext::CommandGroup(Number group)
 {
-	if (command_groups.contains(group.value))
+	if (command_groups.count(group.value) > 0)
 	{
 		return command_groups[group.value];
 	}
@@ -351,96 +351,113 @@ ErrorOr<UnitGroup> CommandContext::CommandGroup(Number group)
 }
 
 // Filter, can have many
-ErrorOr<Filter> CommandContext::FilterIdentity()
-{
-	return [](UnitGroup set) -> UnitGroup { return set; };
-}
 ErrorOr<Filter> CommandContext::WithinActorsRange(Number distance_modifier)
 {
 	std::cout << "WithinActorsRange " << distance_modifier.value << std::endl;
 	// @Incomplete implement
-	return [distance_modifier](UnitGroup set) -> UnitGroup { return set; };
+	return Filter{
+		[distance_modifier](UnitGroup set) -> UnitGroup
+		{
+			return set;
+		}
+	};
 }
 ErrorOr<Filter> CommandContext::OnScreen()
 {
 	// @Incomplete implement
-	return [](UnitGroup set) -> UnitGroup
-	{
-		UnitGroup on_screen{};
-
-		for (auto id : set.members)
+	return Filter{
+		[](UnitGroup set) -> UnitGroup
 		{
-			if (id <= 5)
+			UnitGroup on_screen{};
+
+			for (auto id : set.members)
 			{
-				on_screen.members.push_back(id);
+				if (id.value <= 5)
+				{
+					on_screen.members.push_back(id);
+				}
 			}
+			return on_screen;
 		}
-		return on_screen;
 	};
 }
 
 // Group_Size, up to one
-ErrorOr<GroupSize> CommandContext::GroupSizeIdentity()
-{
-	return [](UnitGroup set) -> Number { return set.members.size(); };
-}
-
 ErrorOr<GroupSize> CommandContext::GroupSizeLiteral(Number size)
 {
-	return [size](UnitGroup set) -> Number
-	{
-		return std::min(set.members.size(), size);
+	return GroupSize{
+		[size](UnitGroup set) -> Number
+		{
+			return std::min(static_cast<int>(set.members.size()), size.value);
+		}
 	};
 }
 // Could probably implement this as a word, SizeOf Actors DividedBy ratio
 // is UnitGroup even the right return type for GroupSize?
 // maybe it should just be a number...
-ErrorOr<GroupSize> CommandContext::GroupActorsRatio(UnitGroup set, Number ratio) // implied 1/
+ErrorOr<GroupSize> CommandContext::GroupActorsRatio(Number ratio) // implied 1/
 {
-	int size = Actors.members.size() / ratio.value;
+	int size = CHECK_RETURN(Actors()).members.size() / ratio.value;
 	if (size == 0)
 	{
 		size = 1;
 	}
-	return GroupSize(set, size);
+	return GroupSizeLiteral(size);
 }
 
 // Superlative, up to one
 ErrorOr<Superlative> SuperlativeRandom()
 {
-	return [](UnitGroup set, Number size)
-	{
-		if (set.members.size() <= size)
+	return Superlative{
+		[](UnitGroup set, Number size) -> UnitGroup
 		{
+			if (set.members.size() <= size.value)
+			{
+				return set;
+			}
+			std::random_device rd;
+			std::mt19937 g(rd());
+			std::shuffle(set.members.begin(), set.members.end(), g);
+
+			set.members.resize(size.value);
 			return set;
 		}
-		std::random_device rd;
-		std::mt19937 g(rd());
-		std::shuffle(set.members.begin(), set.members.end(), g);
-
-		set.members.resize(size);
-		return set;
 	};
 }
 
 ErrorOr<Superlative> CommandContext::ClosestToActors()
 {
-	return [](UnitGroup set, Number size)
-	{
-		if (set.members.size() <= size)
+	return Superlative{
+		[](UnitGroup set, Number size) -> UnitGroup
 		{
+			if (set.members.size() <= size.value)
+			{
+				return set;
+			}
+			std::random_device rd;
+			std::mt19937 g(rd());
+			std::shuffle(set.members.begin(), set.members.end(), g);
+
+			set.members.resize(size.value);
 			return set;
 		}
-		std::random_device rd;
-		std::mt19937 g(rd());
-		std::shuffle(set.members.begin(), set.members.end(), g);
-
-		set.members.resize(size);
-		return set;
 	};
 }
 
 // Location
-ErrorOr<Location> CommandContext::PositionOf(UnitGroup group, Number size);
+ErrorOr<Location> CommandContext::PositionOf(UnitGroup group)
+{
+	// @Incomplete actual unit positions
+	Point total{0,0};
+	if (group.members.size() == 0)
+	{
+		return Location{total};
+	}
+	for (auto unit : group.members)
+	{
+		total = total + Point(unit.value, unit.value);
+	}
+	return Location{total / group.members.size()};
+}
 
 } // namespace Command

@@ -11,11 +11,11 @@ ErrorOr<Success> CommandParameter::SetArgument(CommandElement * argument)
 	{
 		return Error("Argument is null");
 	}
-	if (!GetAllowedTypes().contains(argument->GetType()))
+	if (GetAllowedTypes().count(argument->Type()) == 0)
 	{
 		return Error("Argument is of unacceptable type");
 	}
-	return SetArgumentImplementation(argument);
+	return SetArgumentInternal(argument);
 }
 
 std::string ParamSingleRequired::GetPrintString(std::string line_prefix)
@@ -42,7 +42,7 @@ ErrorOr<Success> ParamSingleRequired::SetArgumentInternal(CommandElement * argum
 	{
 		return Error("Cannot accept multiple arguments for this parameter");
 	}
-	this.argument = argument;
+	this->argument = argument;
 	return Success();
 }
 
@@ -62,9 +62,9 @@ std::string ParamSingleOptional::GetPrintString(std::string line_prefix)
 	{
 		return argument->GetPrintString(line_prefix);
 	}
-	else if (!default_value.IsEmpty())
+	else if (!default_value.value.empty())
 	{
-		return line_prefix + "(" + default_value + ")\n";
+		return line_prefix + "(" + default_value.value + ")\n";
 	}
 	else
 	{
@@ -81,9 +81,9 @@ ErrorOr<Value> ParamSingleOptional::Evaluate(CommandContext & context)
 {
 	if (argument == nullptr)
 	{
-		if (default_value.IsEmpty())
+		if (default_value.value.empty())
 		{
-			return UnsetOptional();
+			return Error("Optional param with no default should not be Evaluated");
 		}
 		// todo: get value for default
 	}
@@ -110,7 +110,7 @@ bool ParamRepeatableRequired::IsSatisfied()
 // todo: should this be passed in as a unique_ptr?
 ErrorOr<Success> ParamRepeatableRequired::SetArgumentInternal(CommandElement * argument)
 {
-	this.arguments.append(argument);
+	this->arguments.emplace_back(argument);
 	return Success();
 }
 
@@ -118,7 +118,7 @@ CommandElement * ParamRepeatableRequired::GetLastArgument()
 {
 	if (arguments.size() > 0)
 	{
-		return arguments[arguments.size() - 1];
+		return arguments[arguments.size() - 1].get();
 	}
 	return nullptr;
 }
@@ -142,7 +142,7 @@ ErrorOr<std::vector<Value> > ParamRepeatableRequired::EvaluateRepeatable(Command
 
 	for (auto argument : arguments)
 	{
-		values.append(CHECK_RETURN(argument->Evaluate(context)));
+		values.push_back(CHECK_RETURN(argument->Evaluate(context)));
 	}
 	return values;
 }
@@ -156,9 +156,9 @@ std::string ParamRepeatableOptional::GetPrintString(std::string line_prefix)
 	}
 	return print_string;
 	
-	if (arguments.empty() && !default_value.IsEmpty())
+	if (arguments.empty() && !default_value.value.empty())
 	{
-		print_string += line_prefix + "(" + default_value + ")\n";
+		print_string += line_prefix + "(" + default_value.value + ")\n";
 	}
 
 	return print_string;
@@ -190,9 +190,9 @@ ErrorOr<std::vector<Value> > ParamRepeatableOptional::EvaluateRepeatable(Command
 
 	for (auto argument : arguments)
 	{
-		values.append(CHECK_RETURN(argument->Evaluate(context)));
+		values.push_back(CHECK_RETURN(argument->Evaluate(context)));
 	}
-	if (arguments.size() == 0 && !default_value.IsEmpty())
+	if (arguments.size() == 0 && !default_value.value.empty())
 	{
 		// @Incomplete: get default value
 	}
@@ -222,13 +222,13 @@ std::string OneOf::GetPrintString(std::string line_prefix)
 	return print_string;
 }
 
-std::set<ElementType> OneOf::GetAllowedTypes()
+Set<ElementType::Enum> OneOf::GetAllowedTypes()
 {
 	if (chosen_index != -1)
 	{
 		return possibilities[chosen_index]->GetAllowedTypes();
 	}
-	std::set<ElementType> allowed;
+	Set<ElementType::Enum> allowed;
 	for (auto parameter : possibilities)
 	{
 		allowed.merge(parameter->GetAllowedTypes());
@@ -273,7 +273,7 @@ ErrorOr<Success> OneOf::SetArgumentInternal(CommandElement * argument)
 	for (int index = 0; index < possibilities.size(); index++)
 	{
 		auto parameter = possibilities[index];
-		auto result = parameter->SetArgument(argument)
+		auto result = parameter->SetArgument(argument);
 		if (!result.IsError())
 		{
 			chosen_index = index;
@@ -291,7 +291,7 @@ CommandElement * OneOf::GetLastArgument()
 {
 	if (chosen_index == -1)
 	{
-		return nullptr
+		return nullptr;
 	}
 	return possibilities[chosen_index]->GetLastArgument();
 }

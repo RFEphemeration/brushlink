@@ -54,7 +54,7 @@ using Number = NamedType<int, NumberTag>;
 using Filter = std::function<UnitGroup(UnitGroup)>;
 // is GroupSize this just a number?
 using GroupSize = std::function<Number(UnitGroup)>;
-using Superlative = std::function<UnitGroup(Number, UnitGroup)>;
+using Superlative = std::function<UnitGroup(UnitGroup, Number)>;
 
 // each unit can have multiple types
 enum class Unit_Type

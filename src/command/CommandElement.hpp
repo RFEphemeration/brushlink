@@ -64,7 +64,7 @@ struct CommandElement
 	// on the assumption that it is only used for shared types
 	Table<ElementType::Enum, int> GetAllowedArgumentTypes();
 
-	ErrorOr<bool> AppendArgument(value_ptr<CommandElement>&& argument, int &skip_count);
+	ErrorOr<bool> AppendArgument(value_ptr<CommandElement>&& next, int &skip_count);
 
 	// what are these functions for if not to assist with
 	// building the command tree?
@@ -72,8 +72,6 @@ struct CommandElement
 	int ParameterCount() { return parameters.size(); }
 
 	Set<ElementType::Enum> ParameterAllowedTypes(int index);
-
-	bool AddArgument(int index, CommandElement * argument);
 
 	bool ParametersSatisfied();
 
@@ -110,7 +108,7 @@ struct Literal : CommandElement
 
 	Literal(const Literal & other)
 		: CommandElement(other)
-		, value(value)
+		, value(other.value)
 	{ }
 
 	// this is intended to only be used by value_ptr internals
@@ -121,7 +119,7 @@ struct Literal : CommandElement
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override
 	{
-		return value;
+		return Value{value};
 	}
 };
 
@@ -164,31 +162,36 @@ struct ContextFunction : CommandElement
 	{
 		if constexpr(sizeof...(TArgs) == 0)
 		{
-			return CHECK_RETURN((context->*func)());
+			return Value{CHECK_RETURN((context.*func)())};
 		}
 		else if constexpr(sizeof...(TArgs) == 1)
 		{
 			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
-			return CHECK_RETURN((context->*func)(CHECK_RETURN(one)));
+			if (one.IsError()) return one.GetError();
+			return Value{CHECK_RETURN((context.*func)(one.GetValue()))};
 		}
 		else if constexpr(sizeof...(TArgs) == 2)
 		{
 			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
 			auto two = parameters[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
-
-			return CHECK_RETURN((context->*func)(
-				CHECK_RETURN(one),
-				CHECK_RETURN(two)));
+			if (one.IsError()) return one.GetError();
+			if (two.IsError()) return two.GetError();
+			return Value{CHECK_RETURN((context.*func)(
+				one.GetValue(),
+				two.GetValue()))};
 		}
 		else if constexpr(sizeof...(TArgs) == 3)
 		{
 			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
 			auto two = parameters[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
 			auto three = parameters[2]->template EvaluateAs<NthTypeOf<2, TArgs...> >(context);
-			return CHECK_RETURN((context->*func)(
-				CHECK_RETURN(one),
-				CHECK_RETURN(two),
-				CHECK_RETURN(three)));
+			if (one.IsError()) return one.GetError();
+			if (two.IsError()) return two.GetError();
+			if (three.IsError()) return three.GetError();
+			return Value{CHECK_RETURN((context.*func)(
+				one.GetValue(),
+				two.GetValue(),
+				three.GetValue()))};
 		}
 	}
 };
@@ -237,10 +240,10 @@ struct ContextFunctionWithActors : CommandElement
 		UnitGroup actors = CHECK_RETURN(
 				parameters[0]->template EvaluateAs<UnitGroup>(context));
 		context.PushActors(actors);
-		ErrorOr<TRet> result;
+		ErrorOr<TRet> result{Success{}};
 		if constexpr(sizeof...(TArgs) == 1)
 		{
-			result = (context->*func)(actors);
+			result = (context.*func)(actors);
 		}
 		else if constexpr(sizeof...(TArgs) == 2)
 		{
@@ -251,7 +254,7 @@ struct ContextFunctionWithActors : CommandElement
 			}
 			else
 			{
-				result = (context->*func)(actors, two.GetValue());
+				result = (context.*func)(actors, two.GetValue());
 			}
 		}
 		else if constexpr(sizeof...(TArgs) == 3)
@@ -268,7 +271,7 @@ struct ContextFunctionWithActors : CommandElement
 			}
 			else
 			{
-				result = (context->*func)(actors, two.GetValue(), three.GetValue());
+				result = (context.*func)(actors, two.GetValue(), three.GetValue());
 			}
 		}
 		static_assert(sizeof...(TArgs) <= 3, "Add more parameters to ContextFunctionWithActors");
@@ -280,7 +283,7 @@ struct ContextFunctionWithActors : CommandElement
 		}
 		else
 		{
-			return Value(result.GetValue());
+			return Value{result.GetValue()};
 		}
 		
 	}
