@@ -228,6 +228,22 @@ ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 }
 
 
+ErrorOr<Success> CommandContext::GetAllowedNextElements(Set<ElementName> & allowed)
+{
+	allowed.clear();
+	for (auto & pair : element_dictionary)
+	{
+		auto type = pair.second->Type();
+		if (allowed_next_elements.count(type) > 0
+			&& allowed_next_elements[type] > 0)
+		{
+			allowed.insert(pair.first);
+		}
+	}
+	return Success();
+}
+
+
 ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 {
 	if (allowed_next_elements.count(token.type) == 0
@@ -406,7 +422,7 @@ ErrorOr<GroupSize> CommandContext::GroupActorsRatio(Number ratio) // implied 1/
 }
 
 // Superlative, up to one
-ErrorOr<Superlative> SuperlativeRandom()
+ErrorOr<Superlative> CommandContext::SuperlativeRandom()
 {
 	return Superlative{
 		[](UnitGroup set, Number size) -> UnitGroup

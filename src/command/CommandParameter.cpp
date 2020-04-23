@@ -5,6 +5,38 @@
 namespace Command
 {
 
+value_ptr<CommandParameter> Param(
+	ElementType::Enum type,
+	ElementName default_value,
+	OccurrenceFlags::Enum flags)
+{
+
+	if (!(flags & OccurrenceFlags::Optional)
+		&& !default_value.value.empty())
+	{
+		Error("Param is required but has a default value of " + default_value.value).Log();
+	}
+
+	if (flags == static_cast<OccurrenceFlags::Enum>(0x0))
+	{
+		return new ParamSingleRequired(type);
+	}
+	else if (flags == OccurrenceFlags::Optional)
+	{
+		return new ParamSingleOptional(type, default_value);
+	}
+	else if (flags == OccurrenceFlags::Repeatable)
+	{
+		return new ParamRepeatableRequired(type);
+	}
+	else if (flags == (OccurrenceFlags::Repeatable | OccurrenceFlags::Optional))
+	{
+		return new ParamRepeatableOptional(type, default_value);
+	}
+	Error("Param flags are not supported " + std::to_string((int)flags));
+	return nullptr;
+}
+
 ErrorOr<Success> CommandParameter::SetArgument(CommandElement * argument)
 {
 	if (argument == nullptr)

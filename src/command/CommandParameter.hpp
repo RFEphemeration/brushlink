@@ -83,12 +83,12 @@ value_ptr<CommandParameter> Param(
 	ElementName default_value,
 	OccurrenceFlags::Enum flags);
 
-value_ptr<CommandParameter> Param(ElementType::Enum type, ElementName default_value)
+inline value_ptr<CommandParameter> Param(ElementType::Enum type, ElementName default_value)
 {
 	return Param(type, default_value, OccurrenceFlags::Optional);
 }
 
-value_ptr<CommandParameter> Param(ElementType::Enum type, OccurrenceFlags::Enum flags = static_cast<OccurrenceFlags::Enum>(0x0))
+inline value_ptr<CommandParameter> Param(ElementType::Enum type, OccurrenceFlags::Enum flags = static_cast<OccurrenceFlags::Enum>(0x0))
 {
 	// @Incomplete optional without default value
 	return Param(type, "", flags);

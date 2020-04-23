@@ -171,7 +171,7 @@ double Perimeter::GetArea() const
 {
 	double area = 0;
 	int count = perimeter.points.size();
-	i = count - 1;
+	int i = count - 1;
 	for (int j = 0; j < count; j++)
 	{
 		auto & a = perimeter.points[i];
@@ -182,16 +182,6 @@ double Perimeter::GetArea() const
 		i = j; // i trails j
 	}
 	return area / 2.0;
-}
-
-
-Area_Union(const Area_Union & other)
-{
-	Area_Union copy;
-	for (auto area : other.areas)
-	{
-		copy.areas.emplace(new)
-	}
 }
 
 bool Area_Union::Contains(Point point) const
@@ -210,10 +200,10 @@ Point Area_Union::GetCenter() const
 {
 	if (areas.size() == 0)
 	{
-		return Point();
+		return Point{0,0};
 	}
 	double total_weight;
-	Point2D<double> weighted_center;
+	Point2D<double> weighted_center{0.0, 0.0};
 	for (auto area : areas)
 	{
 		double area_weight = area->GetArea();
@@ -223,9 +213,7 @@ Point Area_Union::GetCenter() const
 		weighted_center.x += static_cast<double>(center.x) * area_weight;
 		weighted_center.y += static_cast<double>(center.y) * area_weight;
 	}
-	return Point{
-		std::nearestint(weighted_center.x / total_weight),
-		std::nearestint(weighted_center.y / total_weight)};
+	return (weighted_center / total_weight).Cast<int>();
 }
 
 double Area_Union::GetDistanceToFarthestPoint(Point from) const

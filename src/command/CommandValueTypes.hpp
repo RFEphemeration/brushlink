@@ -123,7 +123,8 @@ enum class PointDistributionMethod
 
 struct Area_Interface
 {
-	virtual ~Area_Interface() = 0;
+	virtual ~Area_Interface()
+	{ }
 
 	// this is intended to only be used by value_ptr internals
 	virtual Area_Interface * clone() const = 0;
@@ -218,8 +219,6 @@ struct Area_Union : Area_Interface
 	{
 		return new Area_Union(*this);
 	}
-
-	Area_Union(const Area_Union & other);
 
 	bool Contains(Point point) const override;
 
