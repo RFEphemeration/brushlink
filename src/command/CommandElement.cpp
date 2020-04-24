@@ -7,7 +7,7 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 {
 	Table<ElementType::Enum, int> allowed;
 	int last_param_with_args = -1;
-	bool allowed_next = false;
+	bool allowed_next = true;
 
 	// find the last parameter that has arguments.
 	// we can't go backwards (for now, until we implement permutable)
@@ -35,9 +35,9 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 					allowed[pair.first] = pair.second;
 				}
 			}
-			if (argument->ParametersSatisfied())
+			if (!argument->ParametersSatisfied())
 			{
-				allowed_next = true;
+				allowed_next = false;
 			}
 			break;
 		}

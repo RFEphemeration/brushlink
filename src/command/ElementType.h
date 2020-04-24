@@ -69,6 +69,7 @@ enum Enum
 
 	// User_Defined =         1 << 22
 };
+
 } // namespace ElementType
 
 const ElementType::Enum kNullElementType = static_cast<ElementType::Enum>(0);
@@ -81,6 +82,61 @@ inline ElementType::Enum operator|(ElementType::Enum a, ElementType::Enum b)
 inline ElementType::Enum operator&(ElementType::Enum a, ElementType::Enum b)
 {
 	return static_cast<ElementType::Enum>(static_cast<int>(a) & static_cast<int>(b));
+}
+
+inline std::string ToString(ElementType::Enum a)
+{
+	switch(a)
+	{
+	case ElementType::Command:
+		return "Command";
+	case ElementType::Condition:
+		return "Condition";
+	case ElementType::Action:
+		return "Action";
+	case ElementType::Selector:
+		return "Selector";
+	case ElementType::Set:
+		return "Set";
+	case ElementType::Filter:
+		return "Filter";
+	case ElementType::Group_Size:
+		return "Group_Size";
+	case ElementType::Superlative:
+		return "Superlative";
+	case ElementType::Location:
+		return "Location";
+	case ElementType::Point:
+		return "Point";
+	case ElementType::Line:
+		return "Line";
+	case ElementType::Area:
+		return "Area";
+	case ElementType::Direction:
+		return "Direction";
+	case ElementType::Unit_Type:
+		return "Unit_Type";
+	case ElementType::Attribute_Type:
+		return "Attribute_Type";
+	case ElementType::Ability_Type:
+		return "Ability_Type";
+	case ElementType::Resource_Type:
+		return "Resource_Type";
+	case ElementType::Number:
+		return "Number";
+	case ElementType::Skip:
+		return "Skip";
+	case ElementType::Termination:
+		return "Termination";
+	case ElementType::Cancel:
+		return "Cancel";
+	case ElementType::Mouse_Input:
+		return "Mouse_Input";
+	case ElementType::Parameter_Reference:
+		return "Parameter_Reference";
+	default:
+		return "";
+	}
 }
 
 // rmf todo: split out ElementFlags from ElementType

@@ -16,10 +16,13 @@ void CommandContext::InitElementDictionary()
 		{"Command", new EmptyCommandElement{
 			ET::Command,
 			{
+				Param(ET::Action)
+				/* @Incomplete OneOf doesn't seem to work
 				new OneOf(
 				{
 					Param(ET::Action)
 				})
+				*/
 			}
 		}},
 		{"Select", MakeContextAction(
@@ -284,7 +287,8 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 			break;
 		default:
 			auto next = CHECK_RETURN(GetNewCommandElement(token.name.value));
-			bool success = CHECK_RETURN(command->AppendArgument(std::move(next), skip_count));
+			int skips = skip_count; // copying here, append takes a ref and modifies
+			bool success = CHECK_RETURN(command->AppendArgument(std::move(next), skips));
 			if (!success)
 			{
 				return Error("Couldn't append argument even though it was supposed to be okay. This shouldn't happen");
