@@ -159,7 +159,7 @@ void CommandContext::InitElementDictionary()
 			{ }
 		)},
 		{"PositionOf", MakeContextFunction(
-			ET::Location,
+			ET::Point,
 			&CommandContext::PositionOf,
 			{
 				// @Incomplete: the default for this selector

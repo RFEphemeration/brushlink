@@ -304,7 +304,6 @@ struct ContextFunctionWithActors : CommandElement
 		{
 			return Value{result.GetValue()};
 		}
-		
 	}
 };
 

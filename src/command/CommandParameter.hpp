@@ -33,6 +33,7 @@ struct CommandParameter
 		Value value = CHECK_RETURN(Evaluate(context));
 		if (!std::holds_alternative<T>(value))
 		{
+            // @Bug Location
 			return Error("Element is of unexpected type");
 		}
 		return std::get<T>(value);
