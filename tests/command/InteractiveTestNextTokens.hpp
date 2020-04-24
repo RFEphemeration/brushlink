@@ -6,6 +6,7 @@
 #include "../../../farb/tests/RegisterTest.hpp"
 #include "../../src/command/CommandContext.h"
 #include "../../src/command/CommandElement.hpp"
+#include "../../../farb/src/utils/StringExtensions.hpp"
 
 using namespace Farb;
 
@@ -79,19 +80,25 @@ public:
 			{
 				return true;
 			}
-			auto result_token = context.GetTokenForName(ElementName{line});
-			if (result_token.IsError())
+			auto words = Split(line, ' ');
+			for (auto word : words)
 			{
-				result_token.GetError().Log();
-				continue;
+				auto result_token = context.GetTokenForName(ElementName{word});
+				if (result_token.IsError())
+				{
+					result_token.GetError().Log();
+					break;
+				}
+
+				auto result_handle = context.HandleToken(result_token.GetValue());
+				if (result_handle.IsError())
+				{
+					result_handle.GetError().Log();
+					break;
+				}
 			}
 
-			auto result_handle = context.HandleToken(result_token.GetValue());
-			if (result_handle.IsError())
-			{
-				result_handle.GetError().Log();
-				continue;
-			}
+			
 			std::cout << "AST - " << std::endl;
 			std::string printString = context.command->GetPrintString("    ");
 			std::cout << printString;

@@ -1,6 +1,6 @@
 #include "CommandContext.h"
 
-#include "STLUtils.hpp"
+#include "VariantExtensions.hpp"
 
 #include "CommandParameter.hpp"
 #include "CommandElement.hpp"
