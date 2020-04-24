@@ -9,6 +9,7 @@
 #include "ErrorOr.hpp"
 #include "NamedType.hpp"
 #include "MathUtils.h"
+
 #include "ElementType.h"
 
 using namespace Farb;
@@ -289,7 +290,6 @@ using Value = std::variant<
 	Line,
 	Direction,
 	Area>;
-
 
 template<typename TVal>
 ElementType::Enum GetElementType()

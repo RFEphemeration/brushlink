@@ -105,7 +105,7 @@ ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement>&& next, i
 		{
 			if (skip_count == 0)
 			{
-				parameters[index]->SetArgument(next.release());
+				CHECK_RETURN(parameters[index]->SetArgument(std::move(next)));
 				return true;
 			}
 			skip_count--;

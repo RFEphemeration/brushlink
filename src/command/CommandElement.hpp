@@ -83,6 +83,25 @@ struct CommandElement
 		Value value = CHECK_RETURN(Evaluate(context));
 		if (!std::holds_alternative<T>(value))
 		{
+			if constexpr(std::is_same<T,Location>::value)
+			{
+				if (std::holds_alternative<Point>(value))
+				{
+					return Location{std::get<Point>(value)};
+				}
+				else if (std::holds_alternative<Line>(value))
+				{
+					return Location{std::get<Line>(value)};
+				}
+				else if (std::holds_alternative<Direction>(value))
+				{
+					return Location{std::get<Direction>(value)};
+				}
+				else if (std::holds_alternative<Area>(value))
+				{
+					return Location{std::get<Area>(value)};
+				}
+			}
 			return Error("Element is of unexpected type");
 		}
 		return std::get<T>(value);

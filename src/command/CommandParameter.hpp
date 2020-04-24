@@ -25,7 +25,7 @@ struct CommandParameter
 
 	virtual ~CommandParameter() = default;
 
-	ErrorOr<Success> SetArgument(CommandElement * argument);
+	ErrorOr<Success> SetArgument(value_ptr<CommandElement>&& argument);
 
 	template<typename T>
 	ErrorOr<T> EvaluateAs(CommandContext & context)
@@ -66,7 +66,7 @@ struct CommandParameter
 
 	virtual CommandElement * GetLastArgument() = 0;
 
-	virtual ErrorOr<Success> SetArgumentInternal(CommandElement * argument) = 0;
+	virtual ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) = 0;
 
 	virtual ErrorOr<Value> Evaluate(CommandContext & context) = 0;
 
@@ -135,7 +135,7 @@ struct ParamSingleRequired : CommandParameter
 
 	CommandElement * GetLastArgument() override { return argument.get(); }
 
-	ErrorOr<Success> SetArgumentInternal(CommandElement * argument) override;
+	ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) override;
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 };
@@ -204,7 +204,7 @@ struct ParamRepeatableRequired : CommandParameter
 	CommandElement * GetLastArgument() override;
 
 	// todo: should this be passed in as a unique_ptr?
-	ErrorOr<Success> SetArgumentInternal(CommandElement * argument) override;
+	ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) override;
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
 
@@ -234,6 +234,8 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 	}
 
 	std::string GetPrintString(std::string line_prefix) override;
+
+	bool IsRequired() override { return false; }
 
 	bool IsSatisfied() override;
 
@@ -273,7 +275,7 @@ struct OneOf : CommandParameter
 
 	bool IsSatisfied() override;
 
-	ErrorOr<Success> SetArgumentInternal(CommandElement * argument) override;
+	ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) override;
 
 	CommandElement * GetLastArgument() override;
 

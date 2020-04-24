@@ -1,3 +1,18 @@
+# new
+features
+	implied nodes
+	left parameters
+	convert between variant subtypes (Location, Value, Target?)
+		I assume this means OneOf should be handled as a Value
+		Location/Point -> Location/Line on repeat of point...
+	disable actor-dependent elements when actors is unset -- might be tricky
+	Undo / Back
+
+debugging
+	# why isn't GroupSize valid as a first element after SelectorFriendly
+
+
+# old
 command
 	parser
 		new implied nodes

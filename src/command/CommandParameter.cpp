@@ -37,7 +37,7 @@ value_ptr<CommandParameter> Param(
 	return nullptr;
 }
 
-ErrorOr<Success> CommandParameter::SetArgument(CommandElement * argument)
+ErrorOr<Success> CommandParameter::SetArgument(value_ptr<CommandElement>&& argument)
 {
 	if (argument == nullptr)
 	{
@@ -47,7 +47,7 @@ ErrorOr<Success> CommandParameter::SetArgument(CommandElement * argument)
 	{
 		return Error("Argument is of unacceptable type");
 	}
-	return SetArgumentInternal(argument);
+	return SetArgumentInternal(std::move(argument));
 }
 
 std::string ParamSingleRequired::GetPrintString(std::string line_prefix)
@@ -68,9 +68,9 @@ bool ParamSingleRequired::IsSatisfied()
 	&& argument->ParametersSatisfied();
 }
 
-ErrorOr<Success> ParamSingleRequired::SetArgumentInternal(CommandElement * argument)
+ErrorOr<Success> ParamSingleRequired::SetArgumentInternal(value_ptr<CommandElement>&& argument)
 {
-	if (argument != nullptr)
+	if (this->argument != nullptr)
 	{
 		return Error("Cannot accept multiple arguments for this parameter");
 	}
@@ -117,7 +117,11 @@ ErrorOr<Value> ParamSingleOptional::Evaluate(CommandContext & context)
 		{
 			return Error("Optional param with no default should not be Evaluated");
 		}
-		// todo: get value for default
+		else
+		{
+			auto default_element = CHECK_RETURN(context.GetNewCommandElement(default_value.value));
+			CHECK_RETURN(SetArgument(std::move(default_element)));
+		}
 	}
 	return argument->Evaluate(context);
 }
@@ -140,7 +144,7 @@ bool ParamRepeatableRequired::IsSatisfied()
 
 
 // todo: should this be passed in as a unique_ptr?
-ErrorOr<Success> ParamRepeatableRequired::SetArgumentInternal(CommandElement * argument)
+ErrorOr<Success> ParamRepeatableRequired::SetArgumentInternal(value_ptr<CommandElement>&& argument)
 {
 	this->arguments.emplace_back(argument);
 	return Success();
@@ -212,6 +216,15 @@ ErrorOr<Value> ParamRepeatableOptional::Evaluate(CommandContext & context)
 	if (arguments.size() == 0)
 	{
 		// @Incomplete: get default value
+		if (default_value.value.empty())
+		{
+			return Error("Shouldn't call evaluate on an optional parameter without a default value");
+		}
+		else
+		{
+			auto default_element = CHECK_RETURN(context.GetNewCommandElement(default_value.value));
+			CHECK_RETURN(SetArgument(std::move(default_element)));
+		}
 	}
 	return arguments[0]->Evaluate(context);
 }
@@ -220,14 +233,18 @@ ErrorOr<std::vector<Value> > ParamRepeatableOptional::EvaluateRepeatable(Command
 {
 	std::vector<Value> values;
 
+	if (arguments.size() == 0 && !default_value.value.empty())
+	{
+		auto default_element = CHECK_RETURN(
+			context.GetNewCommandElement(default_value.value));
+		CHECK_RETURN(SetArgument(std::move(default_element)));
+	}
+
 	for (auto argument : arguments)
 	{
 		values.push_back(CHECK_RETURN(argument->Evaluate(context)));
 	}
-	if (arguments.size() == 0 && !default_value.value.empty())
-	{
-		// @Incomplete: get default value
-	}
+	
 	return values;
 }
 
@@ -296,20 +313,24 @@ bool OneOf::IsSatisfied()
 	return false;
 }
 
-ErrorOr<Success> OneOf::SetArgumentInternal(CommandElement * argument)
+ErrorOr<Success> OneOf::SetArgumentInternal(value_ptr<CommandElement>&& argument)
 {
 	if (chosen_index != -1)
 	{
-		return possibilities[chosen_index]->SetArgument(argument);
+		return possibilities[chosen_index]->SetArgument(std::move(argument));
 	}
 	for (int index = 0; index < possibilities.size(); index++)
 	{
 		auto parameter = possibilities[index];
-		auto result = parameter->SetArgument(argument);
+		auto result = parameter->SetArgument(std::move(argument));
 		if (!result.IsError())
 		{
 			chosen_index = index;
 			break;
+		}
+		if (argument == nullptr)
+		{
+			return Error("OneOf SetArgument moved the argument but didn't succeed");
 		}
 	}
 	if (chosen_index == -1)

@@ -1,4 +1,7 @@
 #include "CommandContext.h"
+
+#include "STLUtils.hpp"
+
 #include "CommandParameter.hpp"
 #include "CommandElement.hpp"
 
@@ -24,6 +27,15 @@ void CommandContext::InitElementDictionary()
 				})
 				*/
 			}
+		}},
+		{"Termination", new EmptyCommandElement{
+			ET::Termination, { }
+		}},
+		{"Cancel", new EmptyCommandElement{
+			ET::Cancel, { }
+		}},
+		{"Skip", new EmptyCommandElement{
+			ET::Skip, { }
 		}},
 		{"Select", MakeContextAction(
 			ET::Action,
@@ -52,7 +64,8 @@ void CommandContext::InitElementDictionary()
 			ET::Action,
 			&CommandContext::SetCommandGroup,
 			{
-				Param(ET::Selector, "SelectorActors")
+				Param(ET::Selector, "SelectorActors"),
+				Param(ET::Number)
 			}
 		)},
 		{"Selector", new SelectorCommandElement{{
@@ -206,6 +219,12 @@ ErrorOr<ElementToken> CommandContext::GetTokenForName(ElementName name)
 ErrorOr<Success> CommandContext::InitNewCommand()
 {
 	command = CHECK_RETURN(GetNewCommandElement("Command"));
+	skip_count = 0;
+	if (actors_stack.size() != 0)
+	{
+		Error("Initing new command and actors stack isn't empty").Log();
+		actors_stack.clear();
+	}
 	return RefreshAllowedTypes();
 }
 
@@ -310,29 +329,80 @@ void CommandContext::PopActors()
 	actors_stack.pop_back();
 }
 
+std::string CommandContext::ToLogString(Value v)
+{
+	return std::visit([](auto&& arg) -> std::string
+	{
+		using T = std::decay_t<decltype(arg)>;
+		if constexpr (std::is_same<T, Number>::value)
+		{
+			return std::to_string(arg.value);
+		}
+		else if constexpr (std::is_same<T, UnitGroup>::value)
+		{
+			int count = arg.members.size();
+			int display_count = std::min(count, 5);
+			std::string ret = "";
+			if (count > 5)
+			{
+				ret += std::to_string(count) + " [";
+			}
+			else
+			{
+				ret += "[";
+			}
+			for (int i = 0; i < display_count; i++)
+			{
+				ret += std::to_string(arg.members[i].value) + ", ";
+			}
+			if (count > 0 && count <= 5)
+			{
+				ret.pop_back();
+				ret.pop_back();
+			}
+			else if (count > 0)
+			{
+				ret += "...";
+			}
+			ret += "]";
+			return ret;
+		}
+		return "uknown";
+	}, v);
+}
+
+void CommandContext::LogAction(std::string entry)
+{
+	action_log.push_back(entry);
+	std::cout << entry << std::endl;
+}
+
 //Action
 ErrorOr<Success> CommandContext::Select(UnitGroup units)
 {
 	current_selection = units;
+	LogAction("Select " + ToLogString(units));
 	return Success();
 }
 
 ErrorOr<Success> CommandContext::Move(UnitGroup actors, Location target)
 {
 	// @Incomplete implement
-	std::cout << "Move " << actors.members[0].value;
+	LogAction("Move " + ToLogString(actors) + " to " + ToLogString(target));
+	// std::cout << "Move " << actors.members[0].value << std::endl;
 	return Success();
 }
 
 ErrorOr<Success> CommandContext::Attack(UnitGroup actors, UnitGroup target)
 {
 	// @Incomplete implement
-	std::cout << "Attack " << actors.members[0].value << " " << target.members[0].value;
+	LogAction("Attack with " + ToLogString(actors) + " at " + ToLogString(target));
 	return Success();
 }
 ErrorOr<Success> CommandContext::SetCommandGroup(UnitGroup actors, Number group)
 {
 	command_groups[group.value] = actors;
+	LogAction("SetCommandGroup " + ToLogString(group) + " to " + ToLogString(actors));
 	return Success();
 }
 // void AddToCommandGroup(UnitGroup actors, Number group);
@@ -465,19 +535,19 @@ ErrorOr<Superlative> CommandContext::ClosestToActors()
 }
 
 // Location
-ErrorOr<Location> CommandContext::PositionOf(UnitGroup group)
+ErrorOr<Point> CommandContext::PositionOf(UnitGroup group)
 {
 	// @Incomplete actual unit positions
 	Point total{0,0};
 	if (group.members.size() == 0)
 	{
-		return Location{total};
+		return total;
 	}
 	for (auto unit : group.members)
 	{
 		total = total + Point(unit.value, unit.value);
 	}
-	return Location{total / group.members.size()};
+	return total / group.members.size();
 }
 
 } // namespace Command

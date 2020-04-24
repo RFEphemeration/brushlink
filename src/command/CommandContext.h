@@ -25,6 +25,7 @@ struct CommandContext
 	value_ptr<CommandElement> command;
 	Table<ElementType::Enum, int> allowed_next_elements;
 	int skip_count;
+	std::vector<std::string> action_log;
 
 	void InitElementDictionary();
 	ErrorOr<value_ptr<CommandElement> > GetNewCommandElement(HString name);
@@ -37,6 +38,8 @@ struct CommandContext
 
 	void PushActors(UnitGroup group);
 	void PopActors();
+	std::string ToLogString(Value v);
+	void LogAction(std::string entry);
 
 	// Action
 	// @Incomplete: if actions are handled literally
@@ -83,9 +86,10 @@ struct CommandContext
 	ErrorOr<Superlative> SuperlativeRandom();
 	ErrorOr<Superlative> ClosestToActors();
 
-	// Location
-	ErrorOr<Location> PositionOf(UnitGroup group);
-	// Location MousePosition();
+	// Locations
+	// Point
+	ErrorOr<Point> PositionOf(UnitGroup group);
+	// Point MousePosition();
 
 
 }; // struct CommandContext;
