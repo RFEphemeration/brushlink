@@ -20,6 +20,8 @@ struct CommandContext
 	Table<int, UnitGroup> command_groups;
 	Table<HString, value_ptr<CommandElement> > element_dictionary;
 
+	static const Table<ElementType::Enum, Set<ElementType::Enum>> allowed_types_with_implied;
+	static const Table<ElementType::Enum, Table<ElementType::Enum, ElementName>> implied_elements;
 
 	std::list<UnitGroup> actors_stack;
 	value_ptr<CommandElement> command;
@@ -34,12 +36,15 @@ struct CommandContext
 	ErrorOr<Success> InitNewCommand();
 	ErrorOr<Success> RefreshAllowedTypes();
 	ErrorOr<Success> GetAllowedNextElements(Set<ElementName> & allowed);
+	ErrorOr<Success> DecrementAllowedNextFromSkip();
 	ErrorOr<Success> HandleToken(ElementToken token);
 
 	void PushActors(UnitGroup group);
 	void PopActors();
 	std::string ToLogString(Value v);
 	void LogAction(std::string entry);
+
+	ErrorOr<Location> LocationConversion(Value value);
 
 	// Action
 	// @Incomplete: if actions are handled literally

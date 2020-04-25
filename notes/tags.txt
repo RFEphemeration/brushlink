@@ -1,0 +1,9 @@
+@Incomplete - something intended and not yet done
+
+@Feature - something considered, but might not be done
+
+@Bug - something wrong with an existing feature
+	or makes assumptions that are temporary and won't
+	hold up after implementing some @Incomplete
+
+@Cleanup - this works but should probably be made better

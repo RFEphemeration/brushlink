@@ -1,6 +1,8 @@
 #ifndef COMMAND_PARAMETER_HPP
 #define COMMAND_PARAMETER_HPP
 
+#include <type_traits>
+
 #include "ErrorOr.hpp"
 #include "ElementType.h"
 #include "CommandContext.h"
@@ -30,13 +32,20 @@ struct CommandParameter
 	template<typename T>
 	ErrorOr<T> EvaluateAs(CommandContext & context)
 	{
-		Value value = CHECK_RETURN(Evaluate(context));
-		if (!std::holds_alternative<T>(value))
+		if constexpr(std::is_same<T, Value>::value)
 		{
-            // @Bug Location
-			return Error("Element is of unexpected type");
+			return Evaluate(context);
 		}
-		return std::get<T>(value);
+		else
+		{
+			Value value = CHECK_RETURN(Evaluate(context));
+			if (!std::holds_alternative<T>(value))
+			{
+				// @Bug Location
+				return Error("Element is of unexpected type");
+			}
+			return std::get<T>(value);
+		}
 	}
 
 	template<typename T>
@@ -80,19 +89,20 @@ struct CommandParameter
 
 // @Incomplete is this even necessary? or should we instead have identity defaults
 value_ptr<CommandParameter> Param(
+	CommandContext & context,
 	ElementType::Enum type,
 	ElementName default_value,
 	OccurrenceFlags::Enum flags);
 
-inline value_ptr<CommandParameter> Param(ElementType::Enum type, ElementName default_value)
+inline value_ptr<CommandParameter> Param(CommandContext & context, ElementType::Enum type, ElementName default_value)
 {
-	return Param(type, default_value, OccurrenceFlags::Optional);
+	return Param(context, type, default_value, OccurrenceFlags::Optional);
 }
 
-inline value_ptr<CommandParameter> Param(ElementType::Enum type, OccurrenceFlags::Enum flags = static_cast<OccurrenceFlags::Enum>(0x0))
+inline value_ptr<CommandParameter> Param(CommandContext & context, ElementType::Enum type, OccurrenceFlags::Enum flags = static_cast<OccurrenceFlags::Enum>(0x0))
 {
 	// @Incomplete optional without default value
-	return Param(type, "", flags);
+	return Param(context, type, "", flags);
 }
 
 struct ParamSingleRequired : CommandParameter

@@ -172,8 +172,9 @@ namespace OccurrenceFlags
 	enum Enum
 	{
 		Optional =   1 << 0,
-		Permutable = 1 << 1,
-		Repeatable = 1 << 2
+		Permutable = 1 << 1, // unimplemented
+		Repeatable = 1 << 2,
+		Implied =    1 << 3, // used to automatically instantiate default_value
 	};
 }
 

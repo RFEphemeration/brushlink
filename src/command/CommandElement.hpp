@@ -12,6 +12,8 @@ struct CommandElement
 {
 	// @Incomplete make name const and pass through constructor chain
 	ElementName name;
+	// @Incomplete probably should do this with implied, too
+	bool implied;
 	const ElementType::Enum type;
 	// todo: think more about left parameter here
 	// out of scope idea: left parameter OneOf causing dependent type.
@@ -80,31 +82,40 @@ struct CommandElement
 	template<typename T>
 	ErrorOr<T> EvaluateAs(CommandContext & context)
 	{
-		Value value = CHECK_RETURN(Evaluate(context));
-		if (!std::holds_alternative<T>(value))
+		if constexpr(std::is_same<T, Value>::value)
 		{
-			if constexpr(std::is_same<T,Location>::value)
-			{
-				if (std::holds_alternative<Point>(value))
-				{
-					return Location{std::get<Point>(value)};
-				}
-				else if (std::holds_alternative<Line>(value))
-				{
-					return Location{std::get<Line>(value)};
-				}
-				else if (std::holds_alternative<Direction>(value))
-				{
-					return Location{std::get<Direction>(value)};
-				}
-				else if (std::holds_alternative<Area>(value))
-				{
-					return Location{std::get<Area>(value)};
-				}
-			}
-			return Error("Element is of unexpected type");
+			return Evaluate(context);
 		}
-		return std::get<T>(value);
+		else
+		{
+			Value value = CHECK_RETURN(Evaluate(context));
+			if (!std::holds_alternative<T>(value))
+			{
+				/*
+				if constexpr(std::is_same<T,Location>::value)
+				{
+					if (std::holds_alternative<Point>(value))
+					{
+						return Location{std::get<Point>(value)};
+					}
+					else if (std::holds_alternative<Line>(value))
+					{
+						return Location{std::get<Line>(value)};
+					}
+					else if (std::holds_alternative<Direction>(value))
+					{
+						return Location{std::get<Direction>(value)};
+					}
+					else if (std::holds_alternative<Area>(value))
+					{
+						return Location{std::get<Area>(value)};
+					}
+				}
+				*/
+				return Error("Element is of unexpected type");
+			}
+			return std::get<T>(value);
+		}
 	}
 
 	virtual ErrorOr<Value> Evaluate(CommandContext & context)

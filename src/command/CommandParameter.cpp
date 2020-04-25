@@ -6,12 +6,13 @@ namespace Command
 {
 
 value_ptr<CommandParameter> Param(
+	CommandContext& context,
 	ElementType::Enum type,
 	ElementName default_value,
 	OccurrenceFlags::Enum flags)
 {
 
-	if (!(flags & OccurrenceFlags::Optional)
+	if (!(flags & (OccurrenceFlags::Optional | OccurrenceFlags::Implied) )
 		&& !default_value.value.empty())
 	{
 		Error("Param is required but has a default value of " + default_value.value).Log();
@@ -32,6 +33,21 @@ value_ptr<CommandParameter> Param(
 	else if (flags == (OccurrenceFlags::Repeatable | OccurrenceFlags::Optional))
 	{
 		return new ParamRepeatableOptional(type, default_value);
+	}
+	else if (flags == OccurrenceFlags::Implied)
+	{
+		// @Feature if we want to allow for recursive words then this can't happen
+		// at param creation and needs to be a separate step
+		auto * param = new ParamSingleRequired(type);
+		auto result = context.GetNewCommandElement(default_value.value);
+		if (result.IsError())
+		{
+			Error("Param with implied argument " + default_value.value + " that we could not get", new Error(result.GetError())).Log();
+			return nullptr;
+		}
+		result.GetValue()->implied = true;
+		param->SetArgument(std::move(result.GetValue()));
+		return param;
 	}
 	Error("Param flags are not supported " + std::to_string((int)flags));
 	return nullptr;

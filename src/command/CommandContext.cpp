@@ -11,15 +11,51 @@ namespace Command
 namespace ET = ElementType;
 using namespace OccurrenceFlags;
 
+// implied type -> allowed new element types
+const Table<ET::Enum, Set<ET::Enum>> CommandContext::allowed_types_with_implied{
+	{ET::Selector, {ET::Set, ET::Filter, ET::Group_Size, ET::Superlative}},
+	{ET::Location, {ET::Point, ET::Line, ET::Direction, ET::Area}}
+};
+
+// next element type -> implied type -> implied element
+// because the same argument type might cause different implications
+// depending on context.
+// @Incomplete implied node priority
+const Table<ET::Enum, Table<ET::Enum, ElementName>> CommandContext::implied_elements = []{
+	Table<ET::Enum, Table<ET::Enum, ElementName>> implied_elements;
+	for (auto&& implied_pair : allowed_types_with_implied)
+	{
+		ET::Enum implied_type = implied_pair.first;
+		for(auto&& next_type : implied_pair.second)
+		{
+			ElementName name;
+			switch(implied_type)
+			{
+				case ET::Selector:
+					name = "Selector";
+					break;
+				case ET::Location:
+					name = "Location";
+					break;
+				default:
+					Error("Add more element types to the implied elements constructor").Log();
+			}
+			implied_elements[next_type][implied_type] = name;
+		}
+	}
+	return implied_elements;
+}();
+
 void CommandContext::InitElementDictionary()
 {
 	element_dictionary.clear();
 
+	// basic control elements
 	element_dictionary.insert({
 		{"Command", new EmptyCommandElement{
 			ET::Command,
 			{
-				Param(ET::Action)
+				Param(*this, ET::Action)
 				/* @Incomplete OneOf doesn't seem to work
 				new OneOf(
 				{
@@ -36,65 +72,88 @@ void CommandContext::InitElementDictionary()
 		}},
 		{"Skip", new EmptyCommandElement{
 			ET::Skip, { }
-		}},
+		}}
+		// @Feature Undo/Back
+	});
+
+	// elements that are hidden or used in implied params
+	element_dictionary.insert({
+		{"Selector", new SelectorCommandElement{{
+			Param(*this, ET::Set, Optional),
+			Param(*this, ET::Filter, Repeatable | Optional),
+			Param(*this, ET::Group_Size, Optional),
+			Param(*this, ET::Superlative, Optional)
+		}}},
+		// is this an appropriate way to do context sensitive defaults?
+		// it doesn't feel great
+		// maybe we should be using child command contexts
+		{"SelectorActors", new SelectorCommandElement{{
+			Param(*this, ET::Set, "CurrentSelection"),
+			Param(*this, ET::Filter, Repeatable | Optional),
+			Param(*this, ET::Group_Size, Optional),
+			Param(*this, ET::Superlative, "SuperlativeRandom")
+		}}},
+		{"SelectorFriendly", new SelectorCommandElement{{
+			Param(*this, ET::Set, "Allies"),
+			Param(*this, ET::Filter, Repeatable | Optional),
+			Param(*this, ET::Group_Size, Optional),
+			Param(*this, ET::Superlative, "SuperlativeRandom")
+		}}},
+		{"SelectorTarget", new SelectorCommandElement{{
+			Param(*this, ET::Set, "Enemies"),
+			Param(*this, ET::Filter, Repeatable | Optional),
+			Param(*this, ET::Group_Size, Optional),
+			Param(*this, ET::Superlative, "SuperlativeRandom")
+		}}},
+		{"Location", MakeContextFunction(
+			ET::Location,
+			&CommandContext::LocationConversion,
+			{
+				new OneOf(
+				{
+					Param(*this, ET::Point),
+					Param(*this, ET::Line),
+					Param(*this, ET::Direction),
+					Param(*this, ET::Area)
+				})
+			}
+		)}
+	});
+
+	// the rest of the non-word elements
+	element_dictionary.insert({
 		{"Select", MakeContextAction(
 			ET::Action,
 			&CommandContext::Select,
 			{
-				Param(ET::Selector, "SelectorFriendly")
+				Param(*this, ET::Selector, "SelectorFriendly", Implied)
 			}
 		)},
 		{"Move", MakeContextAction(
 			ET::Action,
 			&CommandContext::Move,
 			{
-				Param(ET::Selector, "SelectorActors"),
-				Param(ET::Location)
+				Param(*this, ET::Selector, "SelectorActors", Implied),
+				// @Bug two implied elements locks off the first
+				Param(*this, ET::Location, "Location", Implied)
 			}
 		)},
 		{"Attack", MakeContextAction(
 			ET::Action,
 			&CommandContext::Move,
 			{
-				Param(ET::Selector, "SelectorActors"),
-				Param(ET::Selector, "SelectorTarget")
+				Param(*this, ET::Selector, "SelectorActors", Implied),
+				Param(*this, ET::Selector, "SelectorTarget", Implied)
 			}
 		)},
 		{"SetCommandGroup", MakeContextAction(
 			ET::Action,
 			&CommandContext::SetCommandGroup,
 			{
-				Param(ET::Selector, "SelectorActors"),
-				Param(ET::Number)
+				Param(*this, ET::Selector, "SelectorActors", Implied),
+				Param(*this, ET::Number)
 			}
 		)},
-		{"Selector", new SelectorCommandElement{{
-			Param(ET::Set, Optional),
-			Param(ET::Filter, Repeatable | Optional),
-			Param(ET::Group_Size, Optional),
-			Param(ET::Superlative, Optional)
-		}}},
-		// is this an appropriate way to do context sensitive defaults?
-		// it doesn't feel great
-		// maybe we should be using child command contexts
-		{"SelectorActors", new SelectorCommandElement{{
-			Param(ET::Set, "CurrentSelection"),
-			Param(ET::Filter, Repeatable | Optional),
-			Param(ET::Group_Size, Optional),
-			Param(ET::Superlative, "SuperlativeRandom")
-		}}},
-		{"SelectorFriendly", new SelectorCommandElement{{
-			Param(ET::Set, "Allies"),
-			Param(ET::Filter, Repeatable | Optional),
-			Param(ET::Group_Size, Optional),
-			Param(ET::Superlative, "SuperlativeRandom")
-		}}},
-		{"SelectorTarget", new SelectorCommandElement{{
-			Param(ET::Set, "Enemies"),
-			Param(ET::Filter, Repeatable | Optional),
-			Param(ET::Group_Size, Optional),
-			Param(ET::Superlative, "SuperlativeRandom")
-		}}},
 		{"Enemies", MakeContextFunction(
 			ET::Set,
 			&CommandContext::Enemies,
@@ -119,14 +178,14 @@ void CommandContext::InitElementDictionary()
 			ET::Set,
 			&CommandContext::CommandGroup,
 			{
-				Param(ET::Number)
+				Param(*this, ET::Number)
 			}
 		)},
 		{"WithinActorsRange", MakeContextFunction(
 			ET::Filter,
 			&CommandContext::WithinActorsRange,
 			{
-				Param(ET::Number)
+				Param(*this, ET::Number)
 			}
 		)},
 		{"OnScreen", MakeContextFunction(
@@ -138,14 +197,14 @@ void CommandContext::InitElementDictionary()
 			ET::Group_Size,
 			&CommandContext::GroupSizeLiteral,
 			{
-				Param(ET::Number)
+				Param(*this, ET::Number)
 			}
 		)},
 		{"GroupActorsRatio", MakeContextFunction(
 			ET::Group_Size,
 			&CommandContext::GroupActorsRatio,
 			{
-				Param(ET::Number)
+				Param(*this, ET::Number)
 			}
 		)},
 		{"SuperlativeRandom", MakeContextFunction(
@@ -163,7 +222,7 @@ void CommandContext::InitElementDictionary()
 			&CommandContext::PositionOf,
 			{
 				// @Incomplete: the default for this selector
-				Param(ET::Selector)
+				Param(*this, ET::Selector, "Selector", Implied)
 			}
 		)},
 		/*
@@ -185,6 +244,12 @@ void CommandContext::InitElementDictionary()
 		{"Eight", MakeLiteral(Number(8))},
 		{"Nine", MakeLiteral(Number(9))}
 	});
+
+	/* // word elements defined in terms of the others
+	element_dictionary.insert({
+
+	});
+	*/
 
 	// todo: load user defined words from save
 }
@@ -232,8 +297,24 @@ ErrorOr<Success> CommandContext::InitNewCommand()
 ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 {
 	allowed_next_elements = command->GetAllowedArgumentTypes();
+
+	/*
+	Table<ElementType::Enum, int> allowed_next_with_implied;
+	for (auto&& pair : allowed_next_elements)
+	{
+		for (auto&& type : allowed_types_with_implied[pair.first])
+		{
+			allowed_next_with_implied[type] += pair.second;
+		}
+	}
+
+	for(auto&& pair : allowed_next_with_implied)
+	{
+		allowed_next_elements[pair.first] += pair.second;
+	}
+	*/
 	int max_type_count = 1;
-	for (auto pair : allowed_next_elements)
+	for (auto&& pair : allowed_next_elements)
 	{
 		if (pair.second > max_type_count)
 		{
@@ -249,6 +330,30 @@ ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 	return Success();
 }
 
+
+ErrorOr<Success> CommandContext::DecrementAllowedNextFromSkip()
+{
+	for (auto pair : allowed_next_elements)
+	{
+		// we probably need to make this an explicit list?
+		if (pair.first == ET::Termination
+			|| pair.first == ET::Cancel)
+		{
+			continue;
+		}
+		if (allowed_next_elements[pair.first] <= 1)
+		{
+			// erase only invalidates the current element's iterator
+			// and no other
+			allowed_next_elements.erase(pair.first);
+		}
+		else
+		{
+			allowed_next_elements[pair.first] -= 1;
+		}
+	}
+	return Success();
+}
 
 ErrorOr<Success> CommandContext::GetAllowedNextElements(Set<ElementName> & allowed)
 {
@@ -276,25 +381,7 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 	switch(token.type)
 	{
 		case ET::Skip:
-			for (auto pair : allowed_next_elements)
-			{
-				// we probably need to make this an explicit list?
-				if (pair.first == ET::Termination
-					|| pair.first == ET::Cancel)
-				{
-					continue;
-				}
-				if (allowed_next_elements[pair.first] <= 1)
-				{
-					// erase only invalidates the current element's iterator
-					// and no other
-					allowed_next_elements.erase(pair.first);
-				}
-				else
-				{
-					allowed_next_elements[pair.first] -= 1;
-				}
-			}
+			DecrementAllowedNextFromSkip();
 			skip_count += 1;
 			return Success();
 		case ET::Termination:
@@ -375,6 +462,27 @@ void CommandContext::LogAction(std::string entry)
 {
 	action_log.push_back(entry);
 	std::cout << entry << std::endl;
+}
+
+ErrorOr<Location> CommandContext::LocationConversion(Value value)
+{
+	if (std::holds_alternative<Point>(value))
+	{
+		return Location{std::get<Point>(value)};
+	}
+	else if (std::holds_alternative<Line>(value))
+	{
+		return Location{std::get<Line>(value)};
+	}
+	else if (std::holds_alternative<Direction>(value))
+	{
+		return Location{std::get<Direction>(value)};
+	}
+	else if (std::holds_alternative<Area>(value))
+	{
+		return Location{std::get<Area>(value)};
+	}
+	return Error("Location's value does not hold any of Point, Line, Direction, Area");
 }
 
 //Action
