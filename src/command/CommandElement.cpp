@@ -137,6 +137,7 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 				
 				ElementName implied_name = CommandContext::implied_elements.at(next->Type()).at(arg_type);
 				auto implied_element = CHECK_RETURN(context.GetNewCommandElement(implied_name.value));
+				implied_element->implied = true;
 				int no_skips = 0;
 				bool result = CHECK_RETURN(implied_element->AppendArgument(context, std::move(next), no_skips));
 				if (!result)
@@ -188,6 +189,15 @@ std::string CommandElement::GetPrintString(std::string line_prefix)
 		print_string += parameter->GetPrintString(line_prefix);
 	}
 	return print_string;
+}
+
+ErrorOr<Success> CommandElement::MergeParametersFrom(const value_ptr<CommandElement> & other)
+{
+	if (type != other.type)
+	{
+		return Error("Merged Element types don't match");
+	}
+
 }
 
 ErrorOr<Value> EmptyCommandElement::Evaluate(CommandContext & context)

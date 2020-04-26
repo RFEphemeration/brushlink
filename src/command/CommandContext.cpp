@@ -80,10 +80,10 @@ void CommandContext::InitElementDictionary()
 	// elements that are hidden or used in implied params
 	element_dictionary.insert({
 		{"Selector", new SelectorCommandElement{{
-			Param(*this, ET::Set, Optional),
+			Param(*this, ET::Set),
 			Param(*this, ET::Filter, Repeatable | Optional),
 			Param(*this, ET::Group_Size, Optional),
-			Param(*this, ET::Superlative, Optional)
+			Param(*this, ET::Superlative, "SuperlativeRandom")
 		}}},
 		// is this an appropriate way to do context sensitive defaults?
 		// it doesn't feel great

@@ -125,6 +125,37 @@ bool ParamSingleOptional::IsSatisfied()
 	return argument == nullptr || argument->ParametersSatisfied();
 }
 
+ErrorOr<Success> ParamSingleOptional::SetArgumentInternal(value_ptr<CommandElement>&& argument)
+{
+	if (this->argument != nullptr)
+	{
+		return Error("Cannot accept multiple arguments for this parameter");
+	}
+	if (!argument->implied || default_value.value.empty())
+	{
+		return ParamSingleRequired::SetArgumentInternal(std::move(argument));
+	}
+
+	auto default_element = CHECK_RETURN(context.GetNewCommandElement(default_value.value));
+	auto result = CHECK_RETURN(default_element->MergeParametersFrom(argument));
+	default_element->implied = true;
+	if (result.IsError())
+	{
+		// could not merge, accept argument
+		this->argument = argument;
+	}
+	else
+	{
+		// succesfully merged, use merged
+		this->argument = std::move(default_element);
+
+		// @Bug do we need to do anything with argument here
+		// so that it will be cleaned up?
+	}
+
+	return Success();
+}
+
 ErrorOr<Value> ParamSingleOptional::Evaluate(CommandContext & context)
 {
 	if (argument == nullptr)

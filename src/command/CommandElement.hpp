@@ -77,6 +77,8 @@ struct CommandElement
 
 	bool ParametersSatisfied();
 
+	ErrorOr<Success> MergeParametersFrom(const value_ptr<CommandElement> & other);
+
 	std::string GetPrintString(std::string line_prefix);
 
 	template<typename T>
