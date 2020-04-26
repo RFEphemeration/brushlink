@@ -1,6 +1,7 @@
 @Incomplete - something intended and not yet done
 
 @Feature - something considered, but might not be done
+	should be followed by a feature identifying tag
 
 @Bug - something wrong with an existing feature
 	or makes assumptions that are temporary and won't

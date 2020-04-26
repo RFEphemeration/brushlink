@@ -20,7 +20,10 @@ struct CommandContext
 	Table<int, UnitGroup> command_groups;
 	Table<HString, value_ptr<CommandElement> > element_dictionary;
 
-	static const Table<ElementType::Enum, Set<ElementType::Enum>> allowed_types_with_implied;
+	// these could be more levels of const but it's a pain to work with them
+	// so we're just going to pretend they're not and that one const is enough
+	// to communicate intention
+	static const Table<ElementType::Enum, Set<ElementType::Enum>> allowed_with_implied;
 	static const Table<ElementType::Enum, Table<ElementType::Enum, ElementName>> implied_elements;
 
 	std::list<UnitGroup> actors_stack;

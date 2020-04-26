@@ -66,7 +66,7 @@ struct CommandElement
 	// on the assumption that it is only used for shared types
 	Table<ElementType::Enum, int> GetAllowedArgumentTypes();
 
-	ErrorOr<bool> AppendArgument(value_ptr<CommandElement>&& next, int &skip_count);
+	ErrorOr<bool> AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int &skip_count);
 
 	// what are these functions for if not to assist with
 	// building the command tree?

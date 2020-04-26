@@ -26,14 +26,8 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 			last_param_with_args = index;
 			for (auto pair : argument->GetAllowedArgumentTypes())
 			{
-				if (allowed.count(pair.first) > 0)
-				{
-					allowed[pair.first] += pair.second;
-				}
-				else
-				{
-					allowed[pair.first] = pair.second;
-				}
+				// @Bug make sure this initializes allowed[pair.first] to 0
+				allowed[pair.first] += pair.second;
 			}
 			if (!argument->ParametersSatisfied())
 			{
@@ -51,17 +45,30 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 	{
 		// there are no arguments in any of these parameters
 		// so we just ask the parameter directly
-		for (auto type : parameters[index]->GetAllowedTypes())
+		Set<ElementType::Enum> param_allowed = parameters[index]->GetAllowedTypes();
+
+		// @Cleanup @Performance we could probably do this once in the Parameter
+		// rather than every time in the element
+		// checking for implied args to param here so that
+		// the count (used for skip) matches the number of params
+		Set<ElementType::Enum> param_allowed_with_implied;
+		for (auto&& pair : CommandContext::allowed_with_implied)
 		{
-			if (allowed.count(type) > 0)
+			if (param_allowed.count(pair.first) <= 0)
 			{
-				allowed[type] += 1;
+				continue;
 			}
-			else
-			{
-				allowed[type] = 1;
-			}
+			param_allowed_with_implied.merge(Set<ElementType::Enum>{pair.second});
 		}
+		param_allowed.merge(param_allowed_with_implied);
+
+		for (auto&& type : param_allowed)
+		{
+			// @Bug make sure this doesn't initialize to anything other than 0
+			// when allowed[type] doesn't already exist
+			allowed[type] += 1;
+		}
+
 		// @Incomplete permutable
 		if (parameters[index]->IsRequired())
 		{
@@ -72,7 +79,7 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 	return allowed;
 }
 
-ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement>&& next, int & skip_count)
+ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int & skip_count)
 {
 	int last_param_with_args = -1;
 	for (int index = parameters.size() - 1; index >= 0 ; index--)
@@ -82,7 +89,7 @@ ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement>&& next, i
 		if (argument != nullptr)
 		{
 			last_param_with_args = index;
-			bool result = CHECK_RETURN(argument->AppendArgument(std::move(next), skip_count));
+			bool result = CHECK_RETURN(argument->AppendArgument(context, std::move(next), skip_count));
 			if (result)
 			{
 				return true;
@@ -100,8 +107,10 @@ ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement>&& next, i
 
 	for (int index = last_param_with_args+1; index < parameters.size(); index++)
 	{
-		auto types = parameters[index]->GetAllowedTypes();
-		if (types.count(next->Type()) > 0)
+		auto allowed_types = parameters[index]->GetAllowedTypes();
+		// without implied types for same type take priority
+		// and we only want to decrement skip count at most once per parameter
+		if (allowed_types.count(next->Type()) > 0)
 		{
 			if (skip_count == 0)
 			{
@@ -110,6 +119,36 @@ ErrorOr<bool> CommandElement::AppendArgument(value_ptr<CommandElement>&& next, i
 			}
 			skip_count--;
 		}
+		else
+		{
+			for(auto&& arg_type : allowed_types)
+			{
+				if (CommandContext::allowed_with_implied.count(arg_type) <= 0
+					|| CommandContext::allowed_with_implied.at(arg_type).count(next->Type()) <= 0)
+				{
+					continue;
+				}
+				if (skip_count > 0)
+				{
+					// if we match in one way or 10 ways, we still skip once
+					skip_count--;
+					break;
+				}
+				
+				ElementName implied_name = CommandContext::implied_elements.at(next->Type()).at(arg_type);
+				auto implied_element = CHECK_RETURN(context.GetNewCommandElement(implied_name.value));
+				int no_skips = 0;
+				bool result = CHECK_RETURN(implied_element->AppendArgument(context, std::move(next), no_skips));
+				if (!result)
+				{
+					return Error("Could not append new element to implied element");
+				}
+				CHECK_RETURN(parameters[index]->SetArgument(std::move(implied_element)));
+				return true;
+			}
+		}
+
+
 		// @Incomplete permutable
 		if (parameters[index]->IsRequired())
 		{

@@ -11,19 +11,20 @@ namespace Command
 namespace ET = ElementType;
 using namespace OccurrenceFlags;
 
+// @Incomplete implied node priority
 // implied type -> allowed new element types
-const Table<ET::Enum, Set<ET::Enum>> CommandContext::allowed_types_with_implied{
+const Table<ET::Enum, Set<ET::Enum>> CommandContext::allowed_with_implied{
 	{ET::Selector, {ET::Set, ET::Filter, ET::Group_Size, ET::Superlative}},
 	{ET::Location, {ET::Point, ET::Line, ET::Direction, ET::Area}}
 };
 
+// @Incomplete implied node priority
 // next element type -> implied type -> implied element
 // because the same argument type might cause different implications
 // depending on context.
-// @Incomplete implied node priority
 const Table<ET::Enum, Table<ET::Enum, ElementName>> CommandContext::implied_elements = []{
 	Table<ET::Enum, Table<ET::Enum, ElementName>> implied_elements;
-	for (auto&& implied_pair : allowed_types_with_implied)
+	for (auto&& implied_pair : allowed_with_implied)
 	{
 		ET::Enum implied_type = implied_pair.first;
 		for(auto&& next_type : implied_pair.second)
@@ -126,31 +127,31 @@ void CommandContext::InitElementDictionary()
 			ET::Action,
 			&CommandContext::Select,
 			{
-				Param(*this, ET::Selector, "SelectorFriendly", Implied)
+				Param(*this, ET::Selector, "SelectorFriendly")
 			}
 		)},
 		{"Move", MakeContextAction(
 			ET::Action,
 			&CommandContext::Move,
 			{
-				Param(*this, ET::Selector, "SelectorActors", Implied),
+				Param(*this, ET::Selector, "SelectorActors"),
 				// @Bug two implied elements locks off the first
-				Param(*this, ET::Location, "Location", Implied)
+				Param(*this, ET::Location, "Location")
 			}
 		)},
 		{"Attack", MakeContextAction(
 			ET::Action,
 			&CommandContext::Move,
 			{
-				Param(*this, ET::Selector, "SelectorActors", Implied),
-				Param(*this, ET::Selector, "SelectorTarget", Implied)
+				Param(*this, ET::Selector, "SelectorActors"),
+				Param(*this, ET::Selector, "SelectorTarget")
 			}
 		)},
 		{"SetCommandGroup", MakeContextAction(
 			ET::Action,
 			&CommandContext::SetCommandGroup,
 			{
-				Param(*this, ET::Selector, "SelectorActors", Implied),
+				Param(*this, ET::Selector, "SelectorActors"),
 				Param(*this, ET::Number)
 			}
 		)},
@@ -222,7 +223,7 @@ void CommandContext::InitElementDictionary()
 			&CommandContext::PositionOf,
 			{
 				// @Incomplete: the default for this selector
-				Param(*this, ET::Selector, "Selector", Implied)
+				Param(*this, ET::Selector, "Selector")
 			}
 		)},
 		/*
@@ -298,11 +299,14 @@ ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 {
 	allowed_next_elements = command->GetAllowedArgumentTypes();
 
-	/*
+	// allowed implied elements are being computed inside CommandElement
+	// so that we can ensure only 1 skip count allowed per parameter
+	// @Cleanup remove this when convinced it's not needed
+	/* 
 	Table<ElementType::Enum, int> allowed_next_with_implied;
 	for (auto&& pair : allowed_next_elements)
 	{
-		for (auto&& type : allowed_types_with_implied[pair.first])
+		for (auto&& type : allowed_with_implied[pair.first])
 		{
 			allowed_next_with_implied[type] += pair.second;
 		}
@@ -313,6 +317,7 @@ ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 		allowed_next_elements[pair.first] += pair.second;
 	}
 	*/
+
 	int max_type_count = 1;
 	for (auto&& pair : allowed_next_elements)
 	{
@@ -394,7 +399,8 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 		default:
 			auto next = CHECK_RETURN(GetNewCommandElement(token.name.value));
 			int skips = skip_count; // copying here, append takes a ref and modifies
-			bool success = CHECK_RETURN(command->AppendArgument(std::move(next), skips));
+			bool success = CHECK_RETURN(command->AppendArgument(
+				*this, std::move(next), skips));
 			if (!success)
 			{
 				return Error("Couldn't append argument even though it was supposed to be okay. This shouldn't happen");
