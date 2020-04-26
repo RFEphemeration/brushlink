@@ -53,7 +53,7 @@ struct CommandParameter
 	{
 		std::vector<Value> values = CHECK_RETURN(EvaluateRepeatable(context));
 		std::vector<T> ret;
-		for (auto value : values)
+		for (auto& value : values)
 		{
 			if (!std::holds_alternative<T>(value))
 			{
@@ -73,6 +73,8 @@ struct CommandParameter
 	virtual Set<ElementType::Enum> GetAllowedTypes() = 0;
 
 	virtual bool IsSatisfied() = 0;
+
+	virtual bool HasExplicitArgOrChild() = 0;
 
 	virtual CommandElement * GetLastArgument() = 0;
 
@@ -144,6 +146,8 @@ struct ParamSingleRequired : CommandParameter
 
 	bool IsSatisfied() override;
 
+	bool HasExplicitArgOrChild() override;
+
 	CommandElement * GetLastArgument() override { return argument.get(); }
 
 	ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) override;
@@ -211,6 +215,8 @@ struct ParamRepeatableRequired : CommandParameter
 	bool IsRequired() override { return true; }
 
 	bool IsSatisfied() override;
+
+	bool HasExplicitArgOrChild() override;
 
 	CommandElement * GetLastArgument() override;
 
@@ -285,6 +291,8 @@ struct OneOf : CommandParameter
 	bool IsRequired() override;
 
 	bool IsSatisfied() override;
+
+	bool HasExplicitArgOrChild() override;
 
 	ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) override;
 

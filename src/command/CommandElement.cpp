@@ -7,42 +7,53 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 {
 	Table<ElementType::Enum, int> allowed;
 	int last_param_with_args = -1;
-	bool allowed_next = true;
 
 	// find the last parameter that has arguments.
 	// we can't go backwards (for now, until we implement permutable)
 	// perhaps a way to implement permutable parameters would be to
 	// move the first parameter in a permutable sequence to the front
 	// that sounds not too hard to do and maintains the structure here
-	// @Incomplete: permutable parameters
+	// @Feature: permutable parameters
 	// we could even use this to allow users to set the parameter order
 	// perhaps trivially as a new word w/ the same name and swapped params
 	for (int index = parameters.size() - 1; index >= 0 ; index--)
 	{
 		// earlier arguments to parameters can't be revisited
 		CommandElement * argument = parameters[index]->GetLastArgument();
-		if (argument != nullptr)
+		if (argument != nullptr
+			&& argument->IsExplicitOrHasExplicitChild())
 		{
 			last_param_with_args = index;
 			for (auto pair : argument->GetAllowedArgumentTypes())
 			{
-				// @Bug make sure this initializes allowed[pair.first] to 0
 				allowed[pair.first] += pair.second;
 			}
 			if (!argument->ParametersSatisfied())
 			{
-				allowed_next = false;
+				return allowed;
 			}
 			break;
 		}
 	}
-	if (!allowed_next)
-	{
-		return allowed;
-	}
 
 	for (int index = last_param_with_args + 1; index < parameters.size(); index++)
 	{
+		CommandElement * argument = parameters[index]->GetLastArgument();
+		if (argument != nullptr)
+		{
+			// this is an implicit argument, recurse on its parameters
+			last_param_with_args = index;
+			for (auto pair : argument->GetAllowedArgumentTypes())
+			{
+				allowed[pair.first] += pair.second;
+			}
+			if (!argument->ParametersSatisfied())
+			{
+				return allowed;
+			}
+			continue;
+		}
+
 		// there are no arguments in any of these parameters
 		// so we just ask the parameter directly
 		Set<ElementType::Enum> param_allowed = parameters[index]->GetAllowedTypes();
@@ -86,7 +97,8 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 	{
 		// earlier arguments to parameters can't be revisited
 		CommandElement * argument = parameters[index]->GetLastArgument();
-		if (argument != nullptr)
+		if (argument != nullptr
+			&& argument->IsExplicitOrHasExplicitChild())
 		{
 			last_param_with_args = index;
 			bool result = CHECK_RETURN(argument->AppendArgument(context, std::move(next), skip_count));
@@ -94,19 +106,24 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 			{
 				return true;
 			}
-			/*
-			// this check should already be handled by calls down the chain with the
-			// error message below
-			if (!argument->ParametersSatisfied())
-			{
-				return Error("Can't append because a preceding element has not had all parameters satisfied");
-			}
-			*/
+			break;
 		}
 	}
 
 	for (int index = last_param_with_args+1; index < parameters.size(); index++)
 	{
+		CommandElement * argument = parameters[index]->GetLastArgument();
+		if (argument != nullptr)
+		{
+			// this is an implicit argument, recurse on its parameters
+			bool result = CHECK_RETURN(argument->AppendArgument(context, std::move(next), skip_count));
+			if (result)
+			{
+				return true;
+			}
+			continue;
+		}
+		
 		auto allowed_types = parameters[index]->GetAllowedTypes();
 		// without implied types for same type take priority
 		// and we only want to decrement skip count at most once per parameter
@@ -137,7 +154,7 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 				
 				ElementName implied_name = CommandContext::implied_elements.at(next->Type()).at(arg_type);
 				auto implied_element = CHECK_RETURN(context.GetNewCommandElement(implied_name.value));
-				implied_element->implied = true;
+				implied_element->implicit = Implicit::Parent;
 				int no_skips = 0;
 				bool result = CHECK_RETURN(implied_element->AppendArgument(context, std::move(next), no_skips));
 				if (!result)
@@ -148,7 +165,6 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 				return true;
 			}
 		}
-
 
 		// @Incomplete permutable
 		if (parameters[index]->IsRequired())
@@ -168,9 +184,25 @@ Set<ElementType::Enum> CommandElement::ParameterAllowedTypes(int index)
 	return parameters[index]->GetAllowedTypes();
 }
 
+bool CommandElement::IsExplicitOrHasExplicitChild()
+{
+	if (implicit == Implicit::None)
+	{
+		return true;
+	}
+	for (auto& parameter : parameters)
+	{
+		if (parameter->HasExplicitArgOrChild())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool CommandElement::ParametersSatisfied()
 {
-	for (auto parameter : parameters)
+	for (auto& parameter : parameters)
 	{
 		if (!parameter->IsSatisfied())
 		{
@@ -189,15 +221,6 @@ std::string CommandElement::GetPrintString(std::string line_prefix)
 		print_string += parameter->GetPrintString(line_prefix);
 	}
 	return print_string;
-}
-
-ErrorOr<Success> CommandElement::MergeParametersFrom(const value_ptr<CommandElement> & other)
-{
-	if (type != other.type)
-	{
-		return Error("Merged Element types don't match");
-	}
-
 }
 
 ErrorOr<Value> EmptyCommandElement::Evaluate(CommandContext & context)
@@ -227,7 +250,7 @@ ErrorOr<Value> SelectorCommandElement::Evaluate(CommandContext & context)
 	UnitGroup units = CHECK_RETURN(parameters[0]->EvaluateAs<UnitGroup>(context));
 	std::vector<Filter> filters = CHECK_RETURN(parameters[1]->EvaluateAsRepeatable<Filter>(context));
 
-	for (auto filter : filters)
+	for (auto& filter : filters)
 	{
 		units = filter(units);
 	}

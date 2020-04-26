@@ -186,7 +186,7 @@ double Perimeter::GetArea() const
 
 bool Area_Union::Contains(Point point) const
 {
-	for (auto area : areas)
+	for (auto& area : areas)
 	{
 		if (area->Contains(point))
 		{
@@ -223,7 +223,7 @@ double Area_Union::GetDistanceToFarthestPoint(Point from) const
 		return 0.0;
 	}
 	double max_distance = 0.0;
-	for (auto area : areas)
+	for (auto& area : areas)
 	{
 		double distance = area->GetDistanceToFarthestPoint(from);
 		if (distance > max_distance)
@@ -238,7 +238,7 @@ double Area_Union::GetArea() const
 {
 	// @Incomplete assumes disjoint, which we might later change
 	double total_area = 0.0;
-	for (auto area : areas)
+	for (auto& area : areas)
 	{
 		total_area += area->GetArea();
 	}

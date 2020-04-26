@@ -14,7 +14,7 @@ using namespace OccurrenceFlags;
 // @Incomplete implied node priority
 // implied type -> allowed new element types
 const Table<ET::Enum, Set<ET::Enum>> CommandContext::allowed_with_implied{
-	{ET::Selector, {ET::Set, ET::Filter, ET::Group_Size, ET::Superlative}},
+	//{ET::Selector, {ET::Set, ET::Filter, ET::Group_Size, ET::Superlative}},
 	{ET::Location, {ET::Point, ET::Line, ET::Direction, ET::Area}}
 };
 
@@ -127,31 +127,31 @@ void CommandContext::InitElementDictionary()
 			ET::Action,
 			&CommandContext::Select,
 			{
-				Param(*this, ET::Selector, "SelectorFriendly")
+				Param(*this, ET::Selector, "SelectorFriendly", Implied)
 			}
 		)},
 		{"Move", MakeContextAction(
 			ET::Action,
 			&CommandContext::Move,
 			{
-				Param(*this, ET::Selector, "SelectorActors"),
+				Param(*this, ET::Selector, "SelectorActors", Implied),
 				// @Bug two implied elements locks off the first
-				Param(*this, ET::Location, "Location")
+				Param(*this, ET::Location, "Location", Implied)
 			}
 		)},
 		{"Attack", MakeContextAction(
 			ET::Action,
 			&CommandContext::Move,
 			{
-				Param(*this, ET::Selector, "SelectorActors"),
-				Param(*this, ET::Selector, "SelectorTarget")
+				Param(*this, ET::Selector, "SelectorActors", Implied),
+				Param(*this, ET::Selector, "SelectorTarget", Implied)
 			}
 		)},
 		{"SetCommandGroup", MakeContextAction(
 			ET::Action,
 			&CommandContext::SetCommandGroup,
 			{
-				Param(*this, ET::Selector, "SelectorActors"),
+				Param(*this, ET::Selector, "SelectorActors", Implied),
 				Param(*this, ET::Number)
 			}
 		)},
@@ -223,7 +223,7 @@ void CommandContext::InitElementDictionary()
 			&CommandContext::PositionOf,
 			{
 				// @Incomplete: the default for this selector
-				Param(*this, ET::Selector, "Selector")
+				Param(*this, ET::Selector, "Selector", Implied)
 			}
 		)},
 		/*
@@ -338,7 +338,7 @@ ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 
 ErrorOr<Success> CommandContext::DecrementAllowedNextFromSkip()
 {
-	for (auto pair : allowed_next_elements)
+	for (auto& pair : allowed_next_elements)
 	{
 		// we probably need to make this an explicit list?
 		if (pair.first == ET::Termination
@@ -541,8 +541,17 @@ ErrorOr<UnitGroup> CommandContext::CurrentSelection()
 {
 	return current_selection;
 }
+
 ErrorOr<UnitGroup> CommandContext::Actors()
 {
+	// @Behavior falling back to current_selection helps with reliability
+	// I think...
+	// but if used in the middle of forming actors
+	// one might think of it as actors so far, after filters have been applied
+	if (actors_stack.size() == 0)
+	{
+		return current_selection;
+	}
 	return actors_stack.back();
 }
 ErrorOr<UnitGroup> CommandContext::CommandGroup(Number group)

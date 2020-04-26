@@ -8,12 +8,21 @@
 namespace Command
 {
 
+// these different options are used during Undo stacks
+// to remove implied elements at the correct time
+enum class Implicit
+{
+	None,
+	Child,
+	Parent
+};
+
 struct CommandElement
 {
 	// @Incomplete make name const and pass through constructor chain
 	ElementName name;
 	// @Incomplete probably should do this with implied, too
-	bool implied;
+	Implicit implicit;
 	const ElementType::Enum type;
 	// todo: think more about left parameter here
 	// out of scope idea: left parameter OneOf causing dependent type.
@@ -23,20 +32,23 @@ struct CommandElement
 	CommandElement(ElementType::Enum type,
 		value_ptr<CommandParameter> left_parameter,
 		std::vector<value_ptr<CommandParameter> > parameters)
-		: type(type)
+		: implicit(Implicit::None)
+		, type(type)
 		, left_parameter(std::move(left_parameter))
 		, parameters(parameters)
 	{ }
 
 	CommandElement(ElementType::Enum type,
 		std::vector<value_ptr<CommandParameter> > parameters)
-		: type(type)
+		: implicit(Implicit::None)
+		, type(type)
 		, left_parameter(nullptr)
 		, parameters(parameters)
 	{ }
 
 	CommandElement(const CommandElement & other)
 		: name(other.name)
+		, implicit(other.implicit)
 		, type(other.type)
 		, left_parameter(other.left_parameter)
 		, parameters(other.parameters)
@@ -75,9 +87,9 @@ struct CommandElement
 
 	Set<ElementType::Enum> ParameterAllowedTypes(int index);
 
-	bool ParametersSatisfied();
+	bool IsExplicitOrHasExplicitChild();
 
-	ErrorOr<Success> MergeParametersFrom(const value_ptr<CommandElement> & other);
+	bool ParametersSatisfied();
 
 	std::string GetPrintString(std::string line_prefix);
 

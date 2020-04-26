@@ -45,7 +45,7 @@ value_ptr<CommandParameter> Param(
 			Error("Param with implied argument " + default_value.value + " that we could not get", new Error(result.GetError())).Log();
 			return nullptr;
 		}
-		result.GetValue()->implied = true;
+		result.GetValue()->implicit = Implicit::Child;
 		param->SetArgument(std::move(result.GetValue()));
 		return param;
 	}
@@ -82,6 +82,11 @@ bool ParamSingleRequired::IsSatisfied()
 {
 	return argument != nullptr
 	&& argument->ParametersSatisfied();
+}
+
+bool ParamSingleRequired::HasExplicitArgOrChild()
+{
+	return argument != nullptr && argument->IsExplicitOrHasExplicitChild();
 }
 
 ErrorOr<Success> ParamSingleRequired::SetArgumentInternal(value_ptr<CommandElement>&& argument)
@@ -125,37 +130,6 @@ bool ParamSingleOptional::IsSatisfied()
 	return argument == nullptr || argument->ParametersSatisfied();
 }
 
-ErrorOr<Success> ParamSingleOptional::SetArgumentInternal(value_ptr<CommandElement>&& argument)
-{
-	if (this->argument != nullptr)
-	{
-		return Error("Cannot accept multiple arguments for this parameter");
-	}
-	if (!argument->implied || default_value.value.empty())
-	{
-		return ParamSingleRequired::SetArgumentInternal(std::move(argument));
-	}
-
-	auto default_element = CHECK_RETURN(context.GetNewCommandElement(default_value.value));
-	auto result = CHECK_RETURN(default_element->MergeParametersFrom(argument));
-	default_element->implied = true;
-	if (result.IsError())
-	{
-		// could not merge, accept argument
-		this->argument = argument;
-	}
-	else
-	{
-		// succesfully merged, use merged
-		this->argument = std::move(default_element);
-
-		// @Bug do we need to do anything with argument here
-		// so that it will be cleaned up?
-	}
-
-	return Success();
-}
-
 ErrorOr<Value> ParamSingleOptional::Evaluate(CommandContext & context)
 {
 	if (argument == nullptr)
@@ -189,6 +163,17 @@ bool ParamRepeatableRequired::IsSatisfied()
 		&& arguments[arguments.size()-1]->ParametersSatisfied();
 }
 
+bool ParamRepeatableRequired::HasExplicitArgOrChild()
+{
+	for (auto & argument : arguments)
+	{
+		if (argument->IsExplicitOrHasExplicitChild())
+		{
+			return true;
+		}
+	}
+	return false;
+}
 
 // todo: should this be passed in as a unique_ptr?
 ErrorOr<Success> ParamRepeatableRequired::SetArgumentInternal(value_ptr<CommandElement>&& argument)
@@ -223,7 +208,7 @@ ErrorOr<std::vector<Value> > ParamRepeatableRequired::EvaluateRepeatable(Command
 {
 	std::vector<Value> values;
 
-	for (auto argument : arguments)
+	for (auto& argument : arguments)
 	{
 		values.push_back(CHECK_RETURN(argument->Evaluate(context)));
 	}
@@ -233,7 +218,7 @@ ErrorOr<std::vector<Value> > ParamRepeatableRequired::EvaluateRepeatable(Command
 std::string ParamRepeatableOptional::GetPrintString(std::string line_prefix)
 {
 	std::string print_string = "";
-	for (auto arg : arguments)
+	for (auto& arg : arguments)
 	{
 		print_string += arg->GetPrintString(line_prefix);
 	}
@@ -325,7 +310,7 @@ Set<ElementType::Enum> OneOf::GetAllowedTypes()
 		return possibilities[chosen_index]->GetAllowedTypes();
 	}
 	Set<ElementType::Enum> allowed;
-	for (auto parameter : possibilities)
+	for (auto& parameter : possibilities)
 	{
 		allowed.merge(parameter->GetAllowedTypes());
 	}
@@ -334,7 +319,7 @@ Set<ElementType::Enum> OneOf::GetAllowedTypes()
 
 bool OneOf::IsRequired()
 {
-	for (auto parameter : possibilities)
+	for (auto& parameter : possibilities)
 	{
 		if (! parameter->IsRequired())
 		{
@@ -350,7 +335,7 @@ bool OneOf::IsSatisfied()
 	{
 		return possibilities[chosen_index]->IsSatisfied();
 	}
-	for (auto parameter : possibilities)
+	for (auto& parameter : possibilities)
 	{
 		if (parameter->IsSatisfied())
 		{
@@ -360,6 +345,23 @@ bool OneOf::IsSatisfied()
 	return false;
 }
 
+bool OneOf::HasExplicitArgOrChild()
+{
+	if (chosen_index != -1)
+	{
+		return possibilities[chosen_index]->HasExplicitArgOrChild();
+	}
+	for (auto & parameter : possibilities)
+	{
+		if (parameter->HasExplicitArgOrChild())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+
 ErrorOr<Success> OneOf::SetArgumentInternal(value_ptr<CommandElement>&& argument)
 {
 	if (chosen_index != -1)
@@ -368,7 +370,7 @@ ErrorOr<Success> OneOf::SetArgumentInternal(value_ptr<CommandElement>&& argument
 	}
 	for (int index = 0; index < possibilities.size(); index++)
 	{
-		auto parameter = possibilities[index];
+		auto & parameter = possibilities[index];
 		auto result = parameter->SetArgument(std::move(argument));
 		if (!result.IsError())
 		{
@@ -400,7 +402,7 @@ ErrorOr<Value> OneOf::Evaluate(CommandContext & context)
 {
 	if (chosen_index == -1)
 	{
-		for (auto parameter : possibilities)
+		for (auto& parameter : possibilities)
 		{
 			if (parameter->IsSatisfied())
 			{
@@ -419,7 +421,7 @@ ErrorOr<std::vector<Value> > OneOf::EvaluateRepeatable(CommandContext & context)
 {
 	if (chosen_index == -1)
 	{
-		for (auto parameter : possibilities)
+		for (auto& parameter : possibilities)
 		{
 			if (parameter->IsSatisfied())
 			{

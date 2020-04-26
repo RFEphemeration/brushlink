@@ -8,3 +8,5 @@
 	hold up after implementing some @Incomplete
 
 @Cleanup - this works but should probably be made better
+
+@Behavior - is this what we want things to be like?
