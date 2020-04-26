@@ -15,13 +15,15 @@ using namespace OccurrenceFlags;
 // implied type -> allowed new element types
 const Table<ET::Enum, Set<ET::Enum>> CommandContext::allowed_with_implied{
 	//{ET::Selector, {ET::Set, ET::Filter, ET::Group_Size, ET::Superlative}},
-	{ET::Location, {ET::Point, ET::Line, ET::Direction, ET::Area}}
+	//{ET::Location, {ET::Point, ET::Line, ET::Direction, ET::Area}},
+	{ET::Set, {ET::Number}} // Command Group, this feels like it would come up unintentionally too often
 };
 
 // @Incomplete implied node priority
 // next element type -> implied type -> implied element
 // because the same argument type might cause different implications
 // depending on context.
+// we should probably just type this out to allow that
 const Table<ET::Enum, Table<ET::Enum, ElementName>> CommandContext::implied_elements = []{
 	Table<ET::Enum, Table<ET::Enum, ElementName>> implied_elements;
 	for (auto&& implied_pair : allowed_with_implied)
@@ -38,6 +40,10 @@ const Table<ET::Enum, Table<ET::Enum, ElementName>> CommandContext::implied_elem
 				case ET::Location:
 					name = "Location";
 					break;
+				case ET::Set:
+					// this might depend on next_type, too
+					// in which case we might as well just type them out
+					name = "CommandGroup";
 				default:
 					Error("Add more element types to the implied elements constructor").Log();
 			}
@@ -394,8 +400,8 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 			CHECK_RETURN(command->Evaluate(*this));
 			// intentional fallthrough to cancel
 		case ET::Cancel:
-			command = CHECK_RETURN(GetNewCommandElement("Command"));
-			break;
+			// command = CHECK_RETURN(GetNewCommandElement("Command"));
+			return InitNewCommand();
 		default:
 			auto next = CHECK_RETURN(GetNewCommandElement(token.name.value));
 			int skips = skip_count; // copying here, append takes a ref and modifies
@@ -405,10 +411,8 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 			{
 				return Error("Couldn't append argument even though it was supposed to be okay. This shouldn't happen");
 			}
-			break;
+			return RefreshAllowedTypes();
 	}
-
-	return RefreshAllowedTypes();
 }
 
 
