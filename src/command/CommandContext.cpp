@@ -59,18 +59,6 @@ void CommandContext::InitElementDictionary()
 
 	// basic control elements
 	element_dictionary.insert({
-		{"Command", new EmptyCommandElement{
-			ET::Command,
-			{
-				Param(*this, ET::Action)
-				/* @Incomplete OneOf doesn't seem to work
-				new OneOf(
-				{
-					Param(ET::Action)
-				})
-				*/
-			}
-		}},
 		{"Termination", new EmptyCommandElement{
 			ET::Termination, { }
 		}},
@@ -127,6 +115,71 @@ void CommandContext::InitElementDictionary()
 		)}
 	});
 
+	// in stages...
+	element_dictionary.insert({
+		{"Select", MakeContextAction(
+			ET::Action,
+			&CommandContext::Select,
+			{
+				Param(*this, ET::Selector, "SelectorFriendly", Implied)
+			}
+		)},
+		{"CommandGroup", MakeContextFunction(
+			ET::Set,
+			&CommandContext::CommandGroup,
+			{
+				Param(*this, ET::Number)
+			}
+		)},
+	});
+
+	element_dictionary.insert({
+		{"Selector/CommandGroup", new SelectorCommandElement{{
+			Param(*this, ET::Set, "CommandGroup", Implied),
+			Param(*this, ET::Filter, Repeatable | Optional),
+			Param(*this, ET::Group_Size, Optional),
+			Param(*this, ET::Superlative, "SuperlativeRandom")
+		}}},
+	});
+
+	element_dictionary.insert({
+		{"Select/SelectorFriendly", MakeContextAction(
+			ET::Action,
+			&CommandContext::Select,
+			{
+				Param(*this, ET::Selector, "SelectorFriendly", Implied)
+			}
+		)},
+		{"Select/Selector/CommandGroup", MakeContextAction(
+			ET::Action,
+			&CommandContext::Select,
+			{
+				Param(*this, ET::Selector, "Selector/CommandGroup", Implied)
+			}
+		)}
+	});
+
+	element_dictionary.insert({
+		{"Command", new EmptyCommandElement{
+			ET::Command,
+			{
+				// @Bug load order is too delicate and annoying
+				// consider loading from text in passes
+				new ParamSingleImpliedOptions(ET::Action, {
+					GetNewCommandElement("Select/SelectorFriendly").GetValue(),
+					GetNewCommandElement("Select/Selector/CommandGroup").GetValue()
+				})
+				// Param(*this, ET::Action)
+				/* @Incomplete OneOf doesn't seem to work
+				new OneOf(
+				{
+					Param(ET::Action)
+				})
+				*/
+			}
+		}}
+	});
+
 	// the rest of the non-word elements
 	element_dictionary.insert({
 		{"Select", MakeContextAction(
@@ -147,7 +200,7 @@ void CommandContext::InitElementDictionary()
 		)},
 		{"Attack", MakeContextAction(
 			ET::Action,
-			&CommandContext::Move,
+			&CommandContext::Attack,
 			{
 				Param(*this, ET::Selector, "SelectorActors", Implied),
 				Param(*this, ET::Selector, "SelectorTarget", Implied)
@@ -180,13 +233,6 @@ void CommandContext::InitElementDictionary()
 			ET::Set,
 			&CommandContext::Actors,
 			{}
-		)},
-		{"CommandGroup", MakeContextFunction(
-			ET::Set,
-			&CommandContext::CommandGroup,
-			{
-				Param(*this, ET::Number)
-			}
 		)},
 		{"WithinActorsRange", MakeContextFunction(
 			ET::Filter,
@@ -291,7 +337,7 @@ ErrorOr<ElementToken> CommandContext::GetTokenForName(ElementName name)
 ErrorOr<Success> CommandContext::InitNewCommand()
 {
 	command = CHECK_RETURN(GetNewCommandElement("Command"));
-	skip_count = 0;
+	//skip_count = 0;
 	if (actors_stack.size() != 0)
 	{
 		Error("Initing new command and actors stack isn't empty").Log();
@@ -303,6 +349,7 @@ ErrorOr<Success> CommandContext::InitNewCommand()
 
 ErrorOr<Success> CommandContext::RefreshAllowedTypes()
 {
+	skip_count = 0;
 	allowed_next_elements = command->GetAllowedArgumentTypes();
 
 	// allowed implied elements are being computed inside CommandElement

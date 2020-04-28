@@ -131,7 +131,7 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 		{
 			if (skip_count == 0)
 			{
-				CHECK_RETURN(parameters[index]->SetArgument(std::move(next)));
+				CHECK_RETURN(parameters[index]->SetArgument(context, std::move(next)));
 				return true;
 			}
 			skip_count--;
@@ -161,7 +161,7 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 				{
 					return Error("Could not append new element to implied element");
 				}
-				CHECK_RETURN(parameters[index]->SetArgument(std::move(implied_element)));
+				CHECK_RETURN(parameters[index]->SetArgument(context, std::move(implied_element)));
 				return true;
 			}
 		}

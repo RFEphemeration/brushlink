@@ -27,10 +27,10 @@ struct CommandParameter
 
 	virtual ~CommandParameter() = default;
 
-	ErrorOr<Success> SetArgument(value_ptr<CommandElement>&& argument);
+	ErrorOr<Success> SetArgument(CommandContext & context, value_ptr<CommandElement>&& argument);
 
 	template<typename T>
-	ErrorOr<T> EvaluateAs(CommandContext & context)
+	ErrorOr<T> EvaluateAs(CommandContext & context) const
 	{
 		if constexpr(std::is_same<T, Value>::value)
 		{
@@ -49,7 +49,7 @@ struct CommandParameter
 	}
 
 	template<typename T>
-	ErrorOr<std::vector<T> > EvaluateAsRepeatable(CommandContext & context)
+	ErrorOr<std::vector<T> > EvaluateAsRepeatable(CommandContext & context) const
 	{
 		std::vector<Value> values = CHECK_RETURN(EvaluateRepeatable(context));
 		std::vector<T> ret;
@@ -64,25 +64,25 @@ struct CommandParameter
 		return ret;
 	}
 
-	virtual std::string GetPrintString(std::string line_prefix) = 0;
+	virtual std::string GetPrintString(std::string line_prefix) const = 0;
 
-	virtual bool IsRequired() = 0;
+	virtual bool IsRequired() const = 0;
 
 	// todo: should this take into consideration the current state of parameters?
 	// should probably have a separate function for that
-	virtual Set<ElementType::Enum> GetAllowedTypes() = 0;
+	virtual Set<ElementType::Enum> GetAllowedTypes() const = 0;
 
-	virtual bool IsSatisfied() = 0;
+	virtual bool IsSatisfied() const = 0;
 
-	virtual bool HasExplicitArgOrChild() = 0;
+	virtual bool HasExplicitArgOrChild() const = 0;
 
 	virtual CommandElement * GetLastArgument() = 0;
 
-	virtual ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) = 0;
+	virtual ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) = 0;
 
-	virtual ErrorOr<Value> Evaluate(CommandContext & context) = 0;
+	virtual ErrorOr<Value> Evaluate(CommandContext & context) const = 0;
 
-	virtual ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context)
+	virtual ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) const
 	{
 		Value value = CHECK_RETURN(Evaluate(context));
 		return std::vector<Value>{value};
@@ -128,9 +128,9 @@ struct ParamSingleRequired : CommandParameter
 		return new ParamSingleRequired(*this);
 	}
 
-	std::string GetPrintString(std::string line_prefix) override;
+	std::string GetPrintString(std::string line_prefix) const override;
 
-	Set<ElementType::Enum> GetAllowedTypes() override
+	Set<ElementType::Enum> GetAllowedTypes() const override
 	{
 		if (argument.get() == nullptr)
 		{
@@ -142,17 +142,17 @@ struct ParamSingleRequired : CommandParameter
 		}
 	}
 
-	bool IsRequired() override { return true; }
+	bool IsRequired() const override { return true; }
 
-	bool IsSatisfied() override;
+	bool IsSatisfied() const override;
 
-	bool HasExplicitArgOrChild() override;
+	bool HasExplicitArgOrChild() const override;
 
 	CommandElement * GetLastArgument() override { return argument.get(); }
 
-	ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) override;
+	ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) override;
 
-	ErrorOr<Value> Evaluate(CommandContext & context) override;
+	ErrorOr<Value> Evaluate(CommandContext & context) const override;
 };
 
 struct ParamSingleOptional : ParamSingleRequired
@@ -178,13 +178,44 @@ struct ParamSingleOptional : ParamSingleRequired
 		return new ParamSingleOptional(*this);
 	}
 
-	std::string GetPrintString(std::string line_prefix) override;
+	std::string GetPrintString(std::string line_prefix) const override;
 
-	bool IsRequired() override { return false; }
+	bool IsRequired() const override { return false; }
 
-	bool IsSatisfied() override;
+	bool IsSatisfied() const override;
 
-	ErrorOr<Value> Evaluate(CommandContext & context) override;
+	ErrorOr<Value> Evaluate(CommandContext & context) const override;
+};
+
+struct ParamSingleImpliedOptions : ParamSingleRequired
+{
+	// @Incomplete should optional without default value be possible?
+	std::vector<value_ptr<CommandElement>> implied_options;
+
+	ParamSingleImpliedOptions(ElementType::Enum type, std::vector<value_ptr<CommandElement>> implied_options);
+
+	ParamSingleImpliedOptions(const ParamSingleImpliedOptions & other)
+		: ParamSingleRequired(other)
+		, implied_options(other.implied_options)
+	{ }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandParameter * clone() const override
+	{
+		return new ParamSingleImpliedOptions(*this);
+	}
+
+	std::string GetPrintString(std::string line_prefix) const override;
+
+	Set<ElementType::Enum> GetAllowedTypes() const override;
+
+	bool IsRequired() const override;
+
+	bool IsSatisfied() const override;
+
+	ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) override;
+
+	ErrorOr<Value> Evaluate(CommandContext & context) const override;
 };
 
 struct ParamRepeatableRequired : CommandParameter
@@ -208,24 +239,24 @@ struct ParamRepeatableRequired : CommandParameter
 		return new ParamRepeatableRequired(*this);
 	}
 
-	std::string GetPrintString(std::string line_prefix) override;
+	std::string GetPrintString(std::string line_prefix) const override;
 
-	Set<ElementType::Enum> GetAllowedTypes() override { return {type}; }
+	Set<ElementType::Enum> GetAllowedTypes() const override { return {type}; }
 
-	bool IsRequired() override { return true; }
+	bool IsRequired() const override { return true; }
 
-	bool IsSatisfied() override;
+	bool IsSatisfied() const override;
 
-	bool HasExplicitArgOrChild() override;
+	bool HasExplicitArgOrChild() const override;
 
 	CommandElement * GetLastArgument() override;
 
 	// todo: should this be passed in as a unique_ptr?
-	ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) override;
+	ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) override;
 
-	ErrorOr<Value> Evaluate(CommandContext & context) override;
+	ErrorOr<Value> Evaluate(CommandContext & context) const override;
 
-	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) override;
+	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) const override;
 };
 
 struct ParamRepeatableOptional : ParamRepeatableRequired
@@ -250,15 +281,15 @@ struct ParamRepeatableOptional : ParamRepeatableRequired
 		return new ParamRepeatableOptional(*this);
 	}
 
-	std::string GetPrintString(std::string line_prefix) override;
+	std::string GetPrintString(std::string line_prefix) const override;
 
-	bool IsRequired() override { return false; }
+	bool IsRequired() const override { return false; }
 
-	bool IsSatisfied() override;
+	bool IsSatisfied() const override;
 
-	ErrorOr<Value> Evaluate(CommandContext & context) override;
+	ErrorOr<Value> Evaluate(CommandContext & context) const override;
 
-	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) override;
+	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) const override;
 };
 
 struct OneOf : CommandParameter
@@ -284,23 +315,23 @@ struct OneOf : CommandParameter
 	}
 
 
-	std::string GetPrintString(std::string line_prefix) override;
+	std::string GetPrintString(std::string line_prefix) const override;
 
-	Set<ElementType::Enum> GetAllowedTypes() override;
+	Set<ElementType::Enum> GetAllowedTypes() const override;
 
-	bool IsRequired() override;
+	bool IsRequired() const override;
 
-	bool IsSatisfied() override;
+	bool IsSatisfied() const override;
 
-	bool HasExplicitArgOrChild() override;
+	bool HasExplicitArgOrChild() const override;
 
-	ErrorOr<Success> SetArgumentInternal(value_ptr<CommandElement>&& argument) override;
+	ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) override;
 
 	CommandElement * GetLastArgument() override;
 
-	ErrorOr<Value> Evaluate(CommandContext & context) override;
+	ErrorOr<Value> Evaluate(CommandContext & context) const override;
 
-	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) override;
+	ErrorOr<std::vector<Value> > EvaluateRepeatable(CommandContext & context) const override;
 };
 
 } // namespace Command

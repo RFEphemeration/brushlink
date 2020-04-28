@@ -1,16 +1,39 @@
 # new
 features
-	implied nodes
+	# implied nodes
 	left parameters
 	convert between variant subtypes (Location, Value, Target?)
 		I assume this means OneOf should be handled as a Value
 		Location/Point -> Location/Line on repeat of point...
-	disable actor-dependent elements when actors is unset -- might be tricky
+		right now we're just handling this as an implied node
 	Undo / Back
+	
+	default_value_ptr list, allowing parameters to all of them in order
+		main use case is default Command > (Select/SelectorActors,Select/Selector/CommandGroup)
+			so if you just hit a number you select that command group
+			but if you hit anything else you default to the selector actors
+			not Selector / CommandGroup
+
+cleanup
+	Consider shared interface for CommandElement and CommandParameter because so much is shared anyways
+		AllParametersSatisfied vs IsSatisfied
+		Append vs Set
+		IsExplicitOrHasExplicitChild vs HasExplicitArgOrChild
+		GetPrintString
+		Evaluate
+		EvaluateAs
+		GetAllowedArgumentTypes vs GetAllowedTypes
+	if we do unify the parameter and element interface can we compile down to just a tree of elements for more efficient evaluation? Repeatable params might prevent that, but we could use a helper element
+		after that composing std::functions using lambdas is probably okay
+		because we're not going to need any additional parameters
+	disable actor-dependent elements when actors is unset -- might be tricky
 	reconsider getting actors from parent elements
 
-debugging
+bugs
 	# why isn't GroupSize valid as a first element after SelectorFriendly
+	? CommandParameter::GetAllowedTypes -> Table<ET::Enum, int> with counts
+		ParamSingleImpliedOptions can accept multiple counts of the same argument type, I think? most parameters still return a single count. What about OneOf?
+	Evaluate should be const. default_value should not be assigned to argument
 
 
 # old
