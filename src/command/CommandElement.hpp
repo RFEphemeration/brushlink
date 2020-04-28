@@ -89,6 +89,9 @@ struct CommandElement
 
 	bool IsExplicitOrHasExplicitChild();
 
+	// return value is whether to remove this element, also
+	ErrorOr<bool> RemoveLastExplicitElement();
+
 	bool ParametersSatisfied();
 
 	std::string GetPrintString(std::string line_prefix);

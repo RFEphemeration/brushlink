@@ -50,11 +50,13 @@ enum Enum
 	Skip =                 1 << 18,
 	Termination =          1 << 19,
 	Cancel =               1 << 20,
+	Undo =                 1 << 21,
+	Redo =                 1 << 22,
 	// Begin_Word? End_Word?
 
-	Mouse_Input =          1 << 21,
+	Mouse_Input =          1 << 23,
 
-	Parameter_Reference =  1 << 22
+	Parameter_Reference =  1 << 24
 
 	// these are probably not appropriate types because of the way fields are compared
 	// but really I need to think about how to compare fields more thoroughly

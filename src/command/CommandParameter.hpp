@@ -78,6 +78,8 @@ struct CommandParameter
 
 	virtual CommandElement * GetLastArgument() = 0;
 
+	virtual bool RemoveLastArgument() = 0;
+
 	virtual ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) = 0;
 
 	virtual ErrorOr<Value> Evaluate(CommandContext & context) const = 0;
@@ -149,6 +151,8 @@ struct ParamSingleRequired : CommandParameter
 	bool HasExplicitArgOrChild() const override;
 
 	CommandElement * GetLastArgument() override { return argument.get(); }
+
+	bool RemoveLastArgument() override;
 
 	ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) override;
 
@@ -251,6 +255,8 @@ struct ParamRepeatableRequired : CommandParameter
 
 	CommandElement * GetLastArgument() override;
 
+	bool RemoveLastArgument() override;
+
 	// todo: should this be passed in as a unique_ptr?
 	ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) override;
 
@@ -325,9 +331,11 @@ struct OneOf : CommandParameter
 
 	bool HasExplicitArgOrChild() const override;
 
-	ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) override;
-
 	CommandElement * GetLastArgument() override;
+
+	bool RemoveLastArgument() override;
+
+	ErrorOr<Success> SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument) override;
 
 	ErrorOr<Value> Evaluate(CommandContext & context) const override;
 

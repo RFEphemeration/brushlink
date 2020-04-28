@@ -30,6 +30,8 @@ struct CommandContext
 	value_ptr<CommandElement> command;
 	Table<ElementType::Enum, int> allowed_next_elements;
 	int skip_count;
+	std::vector<ElementToken> undo_stack;
+	int undo_count;
 	std::vector<std::string> action_log;
 
 	void InitElementDictionary();
@@ -37,10 +39,16 @@ struct CommandContext
 	ErrorOr<ElementToken> GetTokenForName(ElementName name);
 	
 	ErrorOr<Success> InitNewCommand();
-	ErrorOr<Success> RefreshAllowedTypes();
-	ErrorOr<Success> GetAllowedNextElements(Set<ElementName> & allowed);
-	ErrorOr<Success> DecrementAllowedNextFromSkip();
+	void GetAllowedNextElements(Set<ElementName> & allowed);
 	ErrorOr<Success> HandleToken(ElementToken token);
+
+
+	void RefreshAllowedTypes();
+	void PerformSkip();
+	ErrorOr<Success> PerformUndo();
+	ErrorOr<Success> PerformRedo();
+	void BreakUndoChain(ElementToken token);
+	ErrorOr<Success> AppendElement(ElementToken token);
 
 	void PushActors(UnitGroup group);
 	void PopActors();

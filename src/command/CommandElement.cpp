@@ -200,6 +200,55 @@ bool CommandElement::IsExplicitOrHasExplicitChild()
 	return false;
 }
 
+ErrorOr<bool> CommandElement::RemoveLastExplicitElement()
+{
+	bool had_explicit_child = false;
+	for (int index = parameters.size() - 1; index >= 0 ; index--)
+	{
+		// earlier arguments to parameters can't be revisited
+		CommandElement * argument = parameters[index]->GetLastArgument();
+		// can the last argument of a parameter be implicit but
+		// earlier ones explicit?
+		// if so then we would need GetLastExplicitArgument
+		if (argument != nullptr
+			&& argument->IsExplicitOrHasExplicitChild())
+		{
+			had_explicit_child = true;
+			bool should_remove_argument = CHECK_RETURN(argument->RemoveLastExplicitElement());
+			if (should_remove_argument)
+			{
+				bool removed = parameters[index]->RemoveLastArgument();
+				if (!removed)
+				{
+					return Error("Expected to RemoveLastArgument but couldn't");
+				}
+				break;
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+	if (!had_explicit_child)
+	{
+		// we had no explicit arguments to remove
+		// we are a leaf, our parent should remove us
+		return true;
+	}
+	else if (implicit == Implicit::Parent
+		&& !IsExplicitOrHasExplicitChild())
+	{
+		// we have no explicit children anymore and are an implict parent
+		// we should also be removed by our parent
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 bool CommandElement::ParametersSatisfied()
 {
 	for (auto& parameter : parameters)

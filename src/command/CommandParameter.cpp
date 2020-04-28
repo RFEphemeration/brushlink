@@ -89,6 +89,13 @@ bool ParamSingleRequired::HasExplicitArgOrChild() const
 	return argument != nullptr && argument->IsExplicitOrHasExplicitChild();
 }
 
+bool ParamSingleRequired::RemoveLastArgument()
+{
+	bool removed = argument != nullptr;
+	argument = nullptr;
+	return removed;
+}
+
 ErrorOr<Success> ParamSingleRequired::SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument)
 {
 	if (this->argument != nullptr)
@@ -153,7 +160,7 @@ ParamSingleImpliedOptions::ParamSingleImpliedOptions(
 	: ParamSingleRequired(type)
 	, implied_options(implied_options)
 {
-	for (auto & option : implied_options)
+	for (auto & option : this->implied_options)
 	{
 		if (option->Type() != type)
 		{
@@ -332,6 +339,16 @@ CommandElement * ParamRepeatableRequired::GetLastArgument()
 		return arguments[arguments.size() - 1].get();
 	}
 	return nullptr;
+}
+
+bool ParamRepeatableRequired::RemoveLastArgument()
+{
+	if (arguments.size() > 0)
+	{
+		arguments.pop_back();
+		return true;
+	}
+	return false;
 }
 
 ErrorOr<Value> ParamRepeatableRequired::Evaluate(CommandContext & context) const
@@ -539,6 +556,21 @@ CommandElement * OneOf::GetLastArgument()
 		return nullptr;
 	}
 	return possibilities[chosen_index]->GetLastArgument();
+}
+
+bool OneOf::RemoveLastArgument()
+{
+	if (chosen_index == -1)
+	{
+		return false;
+	}
+	bool removed = possibilities[chosen_index]->RemoveLastArgument();
+	// if have no more arguments, we no longer have a chosen_index
+	if (possibilities[chosen_index]->GetLastArgument() == nullptr)
+	{
+		chosen_index = -1;
+	}
+	return removed;
 }
 
 ErrorOr<Value> OneOf::Evaluate(CommandContext & context) const
