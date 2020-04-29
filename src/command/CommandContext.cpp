@@ -294,18 +294,38 @@ void CommandContext::InitElementDictionary()
 			{ }
 		)},
 		*/
-		// maybe numbers shouldn't be literals because of left parameter for *10
-		{"Zero", MakeLiteral(Number(0))},
-		{"One", MakeLiteral(Number(1))},
-		{"Two", MakeLiteral(Number(2))},
-		{"Three", MakeLiteral(Number(3))},
-		{"Four", MakeLiteral(Number(4))},
-		{"Five", MakeLiteral(Number(5))},
-		{"Six", MakeLiteral(Number(6))},
-		{"Seven", MakeLiteral(Number(7))},
-		{"Eight", MakeLiteral(Number(8))},
-		{"Nine", MakeLiteral(Number(9))}
 	});
+
+	auto add_number = [&](std::string name, int value)
+	{
+		element_dictionary.insert({
+			{name, MakeContextFunction(
+				ET::Number,
+				&CommandContext::AppendDecimalDigit,
+				// left param of implied literal Zero, is the name okay?
+				// could use the digit "0"
+				// an implied options with children that don't have parameters
+				// behaves just like a default value
+				new ParamSingleImpliedOptions(ET::Number, {
+					MakeLiteral(Number(0), "Zero")
+				}),
+				{
+					// can we re-use the name for the literal or is that confusing?
+					ParamImplied(*this, name, MakeLiteral(Number(value)))
+				}
+			)},
+		});
+	};
+	add_number("Zero",  0);
+	add_number("One",   1);
+	add_number("Two",   2);
+	add_number("Three", 3);
+	add_number("Four",  4);
+	add_number("Five",  5);
+	add_number("Six",   6);
+	add_number("Seven", 7);
+	add_number("Eight", 8);
+	add_number("Nine",  9);
 
 	/* // word elements defined in terms of the others
 	element_dictionary.insert({
@@ -809,6 +829,11 @@ ErrorOr<Point> CommandContext::PositionOf(UnitGroup group)
 		total = total + Point(unit.value, unit.value);
 	}
 	return total / group.members.size();
+}
+
+ErrorOr<Number> CommandContext::AppendDecimalDigit(Number so_far, Number next)
+{
+	return Number{so_far.value * 10 + next.value};
 }
 
 } // namespace Command

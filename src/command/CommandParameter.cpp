@@ -53,6 +53,18 @@ value_ptr<CommandParameter> Param(
 	return nullptr;
 }
 
+value_ptr<CommandParameter> ParamImplied(
+	CommandContext& context,
+	ElementName default_value_name,
+	value_ptr<CommandElement>&& default_value)
+{
+	auto * param = new ParamSingleRequired(default_value->Type());
+	default_value->implicit = Implicit::Child;
+	default_value->name = default_value_name;
+	param->SetArgument(context, std::move(default_value));
+	return param;
+}
+
 ErrorOr<Success> CommandParameter::SetArgument(CommandContext & context, value_ptr<CommandElement>&& argument)
 {
 	if (argument == nullptr)
@@ -63,7 +75,7 @@ ErrorOr<Success> CommandParameter::SetArgument(CommandContext & context, value_p
 	{
 		return Error("Argument is of unacceptable type");
 	}
-	return SetArgumentInternal(context, std::move(argument));
+	CHECK_RETURN(SetArgumentInternal(context, std::move(argument)));
 }
 
 std::string ParamSingleRequired::GetPrintString(std::string line_prefix) const
@@ -103,6 +115,7 @@ ErrorOr<Success> ParamSingleRequired::SetArgumentInternal(CommandContext & conte
 		return Error("Cannot accept multiple arguments for this parameter");
 	}
 	this->argument = argument;
+	this->argument->location_in_parent = &(this->argument);
 	return Success();
 }
 
@@ -252,6 +265,7 @@ ErrorOr<Success> ParamSingleImpliedOptions::SetArgumentInternal(CommandContext &
 	if (argument->Type() == type)
 	{
 		this->argument = argument;
+		this->argument->location_in_parent = &(this->argument);
 		return Success();
 	}
 	for (auto & option : implied_options)
@@ -263,6 +277,7 @@ ErrorOr<Success> ParamSingleImpliedOptions::SetArgumentInternal(CommandContext &
 			// intentional call to copy constructor, we want to preserve
 			// the original option in case we Undo adding this argument
 			this->argument = option;
+			this->argument->location_in_parent = &(this->argument);
 			// @Bug should probably pass in skips here, once we also
 			// account for them in GetAllowedArguments()
 			int no_skips = 0;
@@ -329,6 +344,11 @@ bool ParamRepeatableRequired::HasExplicitArgOrChild() const
 ErrorOr<Success> ParamRepeatableRequired::SetArgumentInternal(CommandContext & context, value_ptr<CommandElement>&& argument)
 {
 	this->arguments.emplace_back(argument);
+	// need to update all members because vector location changes
+	for (int i = 0; i < this->arguments.size(); i++)
+	{
+		this->arguments[i]->location_in_parent = &(this->arguments[i]);
+	}
 	return Success();
 }
 

@@ -2,12 +2,18 @@
 features
 	# implied nodes
 	left parameters - most important for numbers
+		left param from implied value
+			Command
+				(Select/SelectorFriendly)
+				->Union
 	convert between variant subtypes (Location, Value, Target?)
 		I assume this means OneOf should be handled as a Value
 		Location/Point -> Location/Line on repeat of point...
 		right now we're just handling this as an implied node
-	Undo / Back
-	
+	# Undo / Back
+	GetPrintString for Numbers
+	AcceptedArgumentType priority
+		most distal and lowest parameter index
 	# default_value_ptr list, allowing parameters to all of them in order
 		main use case is default Command > (Select/SelectorActors,Select/Selector/CommandGroup)
 			so if you just hit a number you select that command group
@@ -20,6 +26,7 @@ features
 		might need to use std::any instead of variant
 		though we're still restricted to any type returnable by a function
 		and the function deserialization requires an explicit mapping
+
 
 interface
 	tabs of tokens grouped by type

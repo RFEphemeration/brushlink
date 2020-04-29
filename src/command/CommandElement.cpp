@@ -3,6 +3,10 @@
 namespace Command
 {
 
+// @Cleanup repetitive navigation is largely shared between
+// GetAllowedArgumentTypes, AppendArgument, and RemoveLastExplicitElement
+// is there a better way to factor this out?
+
 Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 {
 	Table<ElementType::Enum, int> allowed;
@@ -110,6 +114,35 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 		}
 	}
 
+	// the requirements for left parameters are kind of ridiculous
+	// @Feature LeftParam types don't need to be ==, just acceptable to parent
+	// but it should probably be equal unless there's a very good reason not to
+	if (skip_count == 0
+		&& IsSatisfied()
+		&& next->left_parameter != nullptr
+		&& next->left_parameter->GetLastArgument() == nullptr
+		&& next->Type() == Type() 
+		&& next->left_parameter->GetAllowedTypes().count(Type()) > 0
+		&& location_in_parent != nullptr)
+	{
+		// @Feature LeftParam how to get location in parent?
+		// should we have a pointer to the owning parameter?
+		if (this != location_in_parent->get())
+		{
+			return Error("location_in_parent has a mismatched pointer");
+		}
+		// caching because SetArgument will change this;
+		auto * loc_in_previous_parent = location_in_parent;
+
+		CHECK_RETURN(next->left_parameter->SetArgument(context, location_in_parent->release()));
+		// if types don't match we should instead have a function in parameter do this
+		// should maybe do all of this in the parameter...
+		// could also consider passing in parent as function argument
+		loc_in_previous_parent->reset(next);
+
+		return true;
+	}
+
 	for (int index = last_param_with_args+1; index < parameters.size(); index++)
 	{
 		CommandElement * argument = parameters[index]->GetLastArgument();
@@ -175,31 +208,6 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 	return false;
 }
 
-Set<ElementType::Enum> CommandElement::ParameterAllowedTypes(int index)
-{
-	if (index >= ParameterCount())
-	{
-		return {};
-	}
-	return parameters[index]->GetAllowedTypes();
-}
-
-bool CommandElement::IsExplicitOrHasExplicitChild()
-{
-	if (implicit == Implicit::None)
-	{
-		return true;
-	}
-	for (auto& parameter : parameters)
-	{
-		if (parameter->HasExplicitArgOrChild())
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
 ErrorOr<bool> CommandElement::RemoveLastExplicitElement()
 {
 	bool had_explicit_child = false;
@@ -230,23 +238,97 @@ ErrorOr<bool> CommandElement::RemoveLastExplicitElement()
 			}
 		}
 	}
-	if (!had_explicit_child)
-	{
-		// we had no explicit arguments to remove
-		// we are a leaf, our parent should remove us
-		return true;
-	}
-	else if (implicit == Implicit::Parent
-		&& !IsExplicitOrHasExplicitChild())
-	{
-		// we have no explicit children anymore and are an implict parent
-		// we should also be removed by our parent
-		return true;
-	}
-	else
+	bool should_remove_this = [&]{
+		if (!had_explicit_child)
+		{
+			// we are a leaf, and should be removed
+			return true;
+		}
+		if (implicit == Implicit::Parent
+			&& !IsExplicitOrHasExplicitChild())
+		{
+			// we are an implicit parent with no explicit children
+			return true;
+		}
+		return false;
+	}();
+
+	if (!should_remove_this)
 	{
 		return false;
 	}
+
+	bool swap_with_left = [&]{
+		if (left_parameter == nullptr)
+		{
+			return false;
+		}
+		if (left_parameter->HasExplicitArgOrChild())
+		{
+			return true;
+		}
+		if (left_parameter->GetLastArgument() != nullptr
+			&& left_parameter->GetLastArgument()->implicit == Implicit::Child)
+		{
+			// left_parameters that are implicit children
+			// are implicit children of this elements parent, not this
+			return true;
+		}
+		return false;
+	}();
+
+	if (!swap_with_left)
+	{
+		// this tells the parent function call to remove us
+		return true;
+	}
+
+	// swap out left parameter to remove ourselves
+	if (this != location_in_parent->get())
+	{
+		return Error("location_in_parent has a mismatched pointer");
+	}
+	auto * left_element = left_parameter->GetLastArgument();
+	if (left_element != left_element->location_in_parent->get())
+	{
+		return Error("location_in_parent for left_parameter has a mismatched pointer");
+	}
+
+	// self_container will delete this when it goes out of scope on function return
+	value_ptr<CommandElement> self_container;
+	location_in_parent->swap(self_container);
+	// if types don't match we should instead have a function in parameter do this
+	// should maybe do all of this in the parameter...
+	location_in_parent->swap(*(left_element->location_in_parent));
+
+	// no need for parent to remove because we did the removal ourselves by swapping
+	return false;
+}
+
+
+Set<ElementType::Enum> CommandElement::ParameterAllowedTypes(int index)
+{
+	if (index >= ParameterCount())
+	{
+		return {};
+	}
+	return parameters[index]->GetAllowedTypes();
+}
+
+bool CommandElement::IsExplicitOrHasExplicitChild()
+{
+	if (implicit == Implicit::None)
+	{
+		return true;
+	}
+	for (auto& parameter : parameters)
+	{
+		if (parameter->HasExplicitArgOrChild())
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 bool CommandElement::ParametersSatisfied()

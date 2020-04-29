@@ -29,6 +29,8 @@ struct CommandElement
 	const value_ptr<CommandParameter> left_parameter;
 	const std::vector<value_ptr<CommandParameter> > parameters;
 
+	value_ptr<CommandParameter> * location_in_parent;
+
 	CommandElement(ElementType::Enum type,
 		value_ptr<CommandParameter> left_parameter,
 		std::vector<value_ptr<CommandParameter> > parameters)
@@ -172,9 +174,15 @@ struct Literal : CommandElement
 
 template<typename TVal>
 value_ptr<CommandElement> MakeLiteral(
-	TVal value)
+	TVal value,
+	ElementName name = "")
 {
-	return new Literal<TVal>{ GetElementType<TVal>(), value };
+	auto * element = new Literal<TVal>{ GetElementType<TVal>(), value };
+	if (name.value != "")
+	{
+		element->name = name;
+	}
+	return element;
 }
 
 template<typename TRet, typename ... TArgs>
@@ -184,13 +192,21 @@ struct ContextFunction : CommandElement
 
 	ContextFunction(ElementType::Enum type,
 		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
+		value_ptr<CommandParameter>>&& left_parameter
+		std::vector<value_ptr<CommandParameter> > params)
+		: CommandElement(type, left_parameter, params)
+		, func(func)
+	{ }
+
+	ContextFunction(ElementType::Enum type,
+		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
 		std::vector<value_ptr<CommandParameter> > params)
 		: CommandElement(type, params)
 		, func(func)
 	{
 		if (sizeof...(TArgs) != params.size())
 		{
-			// todo: error here
+			// todo: error here, also consider checking types
 		}
 	}
 
@@ -211,16 +227,29 @@ struct ContextFunction : CommandElement
 		{
 			return Value{CHECK_RETURN((context.*func)())};
 		}
+
+		CommandParameter*[sizeof...(TArgs)] params;
+		int left_offset = 0;
+		if (left_parameter != nullptr)
+		{
+			left_offset = 1;
+			params[0] = left_parameter.get();
+		}
+		for (int i = left_offset; i < sizeof...(TArgs); i++)
+		{
+			params[i] = parameters[i-left_offset].get();
+		}
+
 		else if constexpr(sizeof...(TArgs) == 1)
 		{
-			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
+			auto one = params[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
 			if (one.IsError()) return one.GetError();
 			return Value{CHECK_RETURN((context.*func)(one.GetValue()))};
 		}
 		else if constexpr(sizeof...(TArgs) == 2)
 		{
-			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
-			auto two = parameters[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+			auto one = params[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
+			auto two = params[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
 			if (one.IsError()) return one.GetError();
 			if (two.IsError()) return two.GetError();
 			return Value{CHECK_RETURN((context.*func)(
@@ -229,9 +258,9 @@ struct ContextFunction : CommandElement
 		}
 		else if constexpr(sizeof...(TArgs) == 3)
 		{
-			auto one = parameters[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
-			auto two = parameters[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
-			auto three = parameters[2]->template EvaluateAs<NthTypeOf<2, TArgs...> >(context);
+			auto one = params[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
+			auto two = params[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+			auto three = params[2]->template EvaluateAs<NthTypeOf<2, TArgs...> >(context);
 			if (one.IsError()) return one.GetError();
 			if (two.IsError()) return two.GetError();
 			if (three.IsError()) return three.GetError();

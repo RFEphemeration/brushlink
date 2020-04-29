@@ -98,6 +98,11 @@ value_ptr<CommandParameter> Param(
 	ElementName default_value,
 	OccurrenceFlags::Enum flags);
 
+value_ptr<CommandParameter> ParamImplied(
+	CommandContext & context,
+	ElementName default_value_name,
+	value_ptr<CommandElement>&& default_value);
+
 inline value_ptr<CommandParameter> Param(CommandContext & context, ElementType::Enum type, ElementName default_value)
 {
 	return Param(context, type, default_value, OccurrenceFlags::Optional);
