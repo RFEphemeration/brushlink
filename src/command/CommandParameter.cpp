@@ -75,7 +75,7 @@ ErrorOr<Success> CommandParameter::SetArgument(CommandContext & context, value_p
 	{
 		return Error("Argument is of unacceptable type");
 	}
-	CHECK_RETURN(SetArgumentInternal(context, std::move(argument)));
+	return SetArgumentInternal(context, std::move(argument));
 }
 
 std::string ParamSingleRequired::GetPrintString(std::string line_prefix) const
@@ -217,10 +217,11 @@ Set<ElementType::Enum> ParamSingleImpliedOptions::GetAllowedTypes() const
 	}
 	Set<ElementType::Enum> allowed = {type};
 
+	// @Feature @Bug left param replacing implied option parent
 	for (auto & option : implied_options)
 	{
 		auto option_allowed = option->GetAllowedArgumentTypes();
-		for (auto &pair : option_allowed)
+		for (auto &pair : option_allowed.second)
 		{
 			allowed.insert(pair.first);
 		}
@@ -268,9 +269,10 @@ ErrorOr<Success> ParamSingleImpliedOptions::SetArgumentInternal(CommandContext &
 		this->argument->location_in_parent = &(this->argument);
 		return Success();
 	}
+	// @Incomplete @Bug LeftParams of implied options
 	for (auto & option : implied_options)
 	{
-		auto option_allowed = option->GetAllowedArgumentTypes();
+		auto option_allowed = option->GetAllowedArgumentTypes().second;
 		if (option_allowed.count(argument->Type()) > 0
 			&& option_allowed.at(argument->Type()) > 0)
 		{

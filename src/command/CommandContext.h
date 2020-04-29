@@ -25,10 +25,12 @@ struct CommandContext
 	// to communicate intention
 	static const Table<ElementType::Enum, Set<ElementType::Enum>> allowed_with_implied;
 	static const Table<ElementType::Enum, Table<ElementType::Enum, ElementName>> implied_elements;
+	static const Set<ElementType::Enum> instruction_element_types;
 
 	std::list<UnitGroup> actors_stack;
 	value_ptr<CommandElement> command;
-	Table<ElementType::Enum, int> allowed_next_elements;
+	Table<ElementType::Enum, int> allowed_next_elements_right;
+	Table<ElementType::Enum, int> allowed_next_elements_left;
 	int skip_count;
 	std::vector<ElementToken> undo_stack;
 	int undo_count;
@@ -41,14 +43,13 @@ struct CommandContext
 	ErrorOr<Success> InitNewCommand();
 	void GetAllowedNextElements(Set<ElementName> & allowed);
 	ErrorOr<Success> HandleToken(ElementToken token);
-
+	bool IsAllowed(ElementName name);
 
 	void RefreshAllowedTypes();
-	void PerformSkip();
 	ErrorOr<Success> PerformUndo();
 	ErrorOr<Success> PerformRedo();
 	void BreakUndoChain(ElementToken token);
-	ErrorOr<Success> AppendElement(ElementToken token);
+	ErrorOr<Success> AppendElement(value_ptr<CommandElement>&& next);
 
 	void PushActors(UnitGroup group);
 	void PopActors();

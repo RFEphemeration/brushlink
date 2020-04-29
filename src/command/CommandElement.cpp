@@ -7,9 +7,11 @@ namespace Command
 // GetAllowedArgumentTypes, AppendArgument, and RemoveLastExplicitElement
 // is there a better way to factor this out?
 
-Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
+// pair is left args, right args
+std::pair<Table<ElementType::Enum, int>, Table<ElementType::Enum, int>> CommandElement::GetAllowedArgumentTypes()
 {
-	Table<ElementType::Enum, int> allowed;
+	Table<ElementType::Enum, int> allowed_left;
+	Table<ElementType::Enum, int> allowed_right;
 	int last_param_with_args = -1;
 
 	// find the last parameter that has arguments.
@@ -28,13 +30,19 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 			&& argument->IsExplicitOrHasExplicitChild())
 		{
 			last_param_with_args = index;
-			for (auto pair : argument->GetAllowedArgumentTypes())
+			auto arg_allowed = argument->GetAllowedArgumentTypes();
+
+			for (auto pair : arg_allowed.first)
 			{
-				allowed[pair.first] += pair.second;
+				allowed_left[pair.first] += pair.second;
+			}
+			for (auto pair : arg_allowed.second)
+			{
+				allowed_right[pair.first] += pair.second;
 			}
 			if (!argument->ParametersSatisfied())
 			{
-				return allowed;
+				return {allowed_left, allowed_right};
 			}
 			break;
 		}
@@ -46,19 +54,23 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 		if (argument != nullptr)
 		{
 			// this is an implicit argument, recurse on its parameters
-			last_param_with_args = index;
-			for (auto pair : argument->GetAllowedArgumentTypes())
+			auto arg_allowed = argument->GetAllowedArgumentTypes();
+			for (auto pair : arg_allowed.first)
 			{
-				allowed[pair.first] += pair.second;
+				allowed_left[pair.first] += pair.second;
+			}
+			for (auto pair : arg_allowed.second)
+			{
+				allowed_right[pair.first] += pair.second;
 			}
 			if (!argument->ParametersSatisfied())
 			{
-				return allowed;
+				return {allowed_left, allowed_right};
 			}
 			continue;
 		}
 
-		// there are no arguments in any of these parameters
+		// there are no implicit arguments in this parameter
 		// so we just ask the parameter directly
 		Set<ElementType::Enum> param_allowed = parameters[index]->GetAllowedTypes();
 
@@ -81,17 +93,21 @@ Table<ElementType::Enum, int> CommandElement::GetAllowedArgumentTypes()
 		{
 			// @Bug make sure this doesn't initialize to anything other than 0
 			// when allowed[type] doesn't already exist
-			allowed[type] += 1;
+			allowed_right[type] += 1;
 		}
 
 		// @Incomplete permutable
 		if (parameters[index]->IsRequired())
 		{
-			break;
+			return {allowed_left, allowed_right};
 		}
 	}
 
-	return allowed;
+	// if we got this far we know we have our parameters satisfied, no need to call again
+	allowed_left[Type()] += 1;
+
+
+	return {allowed_left, allowed_right};
 }
 
 ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int & skip_count)
@@ -112,35 +128,6 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 			}
 			break;
 		}
-	}
-
-	// the requirements for left parameters are kind of ridiculous
-	// @Feature LeftParam types don't need to be ==, just acceptable to parent
-	// but it should probably be equal unless there's a very good reason not to
-	if (skip_count == 0
-		&& IsSatisfied()
-		&& next->left_parameter != nullptr
-		&& next->left_parameter->GetLastArgument() == nullptr
-		&& next->Type() == Type() 
-		&& next->left_parameter->GetAllowedTypes().count(Type()) > 0
-		&& location_in_parent != nullptr)
-	{
-		// @Feature LeftParam how to get location in parent?
-		// should we have a pointer to the owning parameter?
-		if (this != location_in_parent->get())
-		{
-			return Error("location_in_parent has a mismatched pointer");
-		}
-		// caching because SetArgument will change this;
-		auto * loc_in_previous_parent = location_in_parent;
-
-		CHECK_RETURN(next->left_parameter->SetArgument(context, location_in_parent->release()));
-		// if types don't match we should instead have a function in parameter do this
-		// should maybe do all of this in the parameter...
-		// could also consider passing in parent as function argument
-		loc_in_previous_parent->reset(next);
-
-		return true;
 	}
 
 	for (int index = last_param_with_args+1; index < parameters.size(); index++)
@@ -205,6 +192,44 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 			return Error("Can't append because a preceding parameter has not been satisfied");
 		}
 	}
+	// left parameters have lower priority than right parameters
+	// because after left parameters are applied you can't access any right parameters
+
+	// the requirements for left parameters are kind of ridiculous
+	// @Feature LeftParam types don't need to be ==, just acceptable to parent
+	// but it should probably be equal unless there's a very good reason not to
+	if (next->left_parameter != nullptr
+		&& next->left_parameter->GetLastArgument() == nullptr
+		&& next->Type() == Type() 
+		&& next->left_parameter->GetAllowedTypes().count(Type()) > 0
+		&& location_in_parent != nullptr)
+	{
+		if (skip_count == 0)
+		{
+			// @Feature LeftParam how to get location in parent?
+			// should we have a pointer to the owning parameter?
+			if (this != location_in_parent->get())
+			{
+				return Error("location_in_parent has a mismatched pointer");
+			}
+			// caching because SetArgument will change this;
+			auto * loc = location_in_parent;
+
+			CHECK_RETURN(next->left_parameter->SetArgument(context, loc->release()));
+			// if types don't match we should instead have a function in parameter do this
+			// should maybe do all of this in the parameter...
+			// could also consider passing in parent as function argument
+			loc->reset(next.release());
+            loc->get()->location_in_parent = loc;
+
+			return true;
+		}
+		else
+		{
+			skip_count--;
+		}
+	}
+
 	return false;
 }
 
@@ -300,6 +325,7 @@ ErrorOr<bool> CommandElement::RemoveLastExplicitElement()
 	// if types don't match we should instead have a function in parameter do this
 	// should maybe do all of this in the parameter...
 	location_in_parent->swap(*(left_element->location_in_parent));
+	left_element->location_in_parent = location_in_parent;
 
 	// no need for parent to remove because we did the removal ourselves by swapping
 	return false;
@@ -321,6 +347,7 @@ bool CommandElement::IsExplicitOrHasExplicitChild()
 	{
 		return true;
 	}
+	// @Feature LeftParam do we need to check left parameter here?
 	for (auto& parameter : parameters)
 	{
 		if (parameter->HasExplicitArgOrChild())
@@ -333,6 +360,11 @@ bool CommandElement::IsExplicitOrHasExplicitChild()
 
 bool CommandElement::ParametersSatisfied()
 {
+	if (left_parameter
+		&& !left_parameter->IsSatisfied())
+	{
+		return false;
+	}
 	for (auto& parameter : parameters)
 	{
 		if (!parameter->IsSatisfied())
@@ -347,6 +379,12 @@ std::string CommandElement::GetPrintString(std::string line_prefix)
 {
 	std::string print_string = line_prefix + name.value + "\n";
 	line_prefix += "    ";
+	if (left_parameter)
+	{
+		// @Cleanup left parameter should probably only be prefixed on first line
+		// with the direct name
+		print_string += left_parameter->GetPrintString(line_prefix + "<");
+	}
 	for (auto & parameter : parameters)
 	{
 		print_string += parameter->GetPrintString(line_prefix);
@@ -356,7 +394,7 @@ std::string CommandElement::GetPrintString(std::string line_prefix)
 
 ErrorOr<Value> EmptyCommandElement::Evaluate(CommandContext & context)
 {
-	if (left_parameter != nullptr)
+	if (left_parameter)
 	{
 		CHECK_RETURN(left_parameter->Evaluate(context));
 	}

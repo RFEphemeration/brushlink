@@ -53,6 +53,10 @@ const Table<ET::Enum, Table<ET::Enum, ElementName>> CommandContext::implied_elem
 	return implied_elements;
 }();
 
+const Set<ElementType::Enum> CommandContext::instruction_element_types{
+	ET::Skip, ET::Undo, ET::Redo, ET::Termination, ET::Cancel
+};
+
 void CommandContext::InitElementDictionary()
 {
 	element_dictionary.clear();
@@ -381,61 +385,46 @@ ErrorOr<Success> CommandContext::InitNewCommand()
 
 void CommandContext::RefreshAllowedTypes()
 {
-	allowed_next_elements = command->GetAllowedArgumentTypes();
+	auto allowed = command->GetAllowedArgumentTypes();
+	allowed_next_elements_left = allowed.first;
+	allowed_next_elements_right = allowed.second;
 
+	Table<ElementType::Enum, int> allowed_combined;
 	int max_type_count = 1;
-	for (auto&& pair : allowed_next_elements)
+	for (auto&& pair : allowed_next_elements_left)
 	{
+		allowed_combined[pair.first] = pair.second;
 		if (pair.second > max_type_count)
 		{
 			max_type_count = pair.second;
 		}
-		allowed_next_elements[pair.first] -= skip_count;
 	}
-	allowed_next_elements[ET::Skip] = max_type_count - 1 - skip_count;
-	allowed_next_elements[ET::Undo] = undo_stack.size() - undo_count;
-	allowed_next_elements[ET::Redo] = undo_count;
+	for (auto&& pair : allowed_next_elements_right)
+	{
+		allowed_combined[pair.first] += pair.second;
+
+		if (allowed_combined[pair.first] > max_type_count)
+		{
+			max_type_count = allowed_combined[pair.first];
+		}
+	}
+
+	allowed_next_elements_right[ET::Skip] = max_type_count - 1;
+	allowed_next_elements_right[ET::Undo] = undo_stack.size() - undo_count;
+	allowed_next_elements_right[ET::Redo] = undo_count;
 
 	if (command->ParametersSatisfied())
 	{
-		allowed_next_elements[ET::Termination] = 1;
+		allowed_next_elements_right[ET::Termination] = 1;
 	}
-	allowed_next_elements[ET::Cancel] = 1;
-}
-
-
-void CommandContext::PerformSkip()
-{
-	skip_count += 1;
-	for (auto& pair : allowed_next_elements)
-	{
-		// we probably need to make this an explicit list?
-		// but these tokens are only ever 1 of and aren't prohibited by Skip
-		if (pair.first == ET::Termination
-			|| pair.first == ET::Cancel)
-		{
-			continue;
-		}
-		else if (pair.first == ET::Undo)
-		{
-			// we can undo skips, plus all the previous undos
-			// so we increment instead of decrement
-			allowed_next_elements[pair.first] += 1;
-		}
-		else
-		{
-			// always decrement, don't erase when we reach or pass 0
-			// this means that we need to check for existence and the value
-			// but we can just increment during Undo Skip rather than recompute
-			allowed_next_elements[pair.first] -= 1;
-		}
-	}
+	allowed_next_elements_right[ET::Cancel] = 1;
 }
 
 ErrorOr<Success> CommandContext::PerformUndo()
 {
 	// we just performed an Undo, so we can do one fewer
-	allowed_next_elements[ET::Undo] -= 1;
+	allowed_next_elements_right[ET::Undo] -= 1;
+	allowed_next_elements_right[ET::Redo] += 1;
 	undo_count += 1;
 	if (skip_count == 0)
 	{
@@ -451,26 +440,7 @@ ErrorOr<Success> CommandContext::PerformUndo()
 	{
 		// undoing a skip
 		skip_count -= 1;
-
-		for (auto& pair : allowed_next_elements)
-		{
-			// we probably need to make this an explicit list?
-			// but these tokens are only ever 1 of and aren't prohibited by Skip
-			if (pair.first == ET::Termination
-				|| pair.first == ET::Cancel)
-			{
-				continue;
-			}
-			else if (pair.first == ET::Undo)
-			{
-				// this has already been handled
-				continue;
-			}
-			else
-			{
-				allowed_next_elements[pair.first] += 1;
-			}
-		}
+		allowed_next_elements_right[ET::Skip] += 1;
 	}
 	return Success();
 }
@@ -486,11 +456,16 @@ ErrorOr<Success> CommandContext::PerformRedo()
 
 	if (token.type == ET::Skip)
 	{
-		PerformSkip();
+		skip_count += 1;
+		allowed_next_elements_right[ET::Skip] -= 1;
+		allowed_next_elements_right[ET::Undo] = undo_stack.size() - undo_count;
+		allowed_next_elements_right[ET::Redo] = undo_count;
 	}
 	else
 	{
-		CHECK_RETURN(AppendElement(token));
+		CHECK_RETURN(AppendElement(
+			CHECK_RETURN(GetNewCommandElement(token.name.value))
+		));
 		RefreshAllowedTypes();
 	}
 	return Success();
@@ -507,6 +482,38 @@ void CommandContext::BreakUndoChain(ElementToken token)
 	}
 	undo_stack.push_back(token);
 	undo_count = 0;
+	allowed_next_elements_right[ET::Undo] = undo_stack.size();
+	allowed_next_elements_right[ET::Redo] = 0;
+}
+
+bool CommandContext::IsAllowed(ElementName name)
+{
+	if (element_dictionary.count(name.value) <= 0)
+	{
+		return false;
+	}
+
+	CommandElement * element = element_dictionary[name.value].get();
+	ElementType::Enum type = element->Type();
+
+	if (instruction_element_types.count(type) > 0
+		&& allowed_next_elements_right.count(type) > 0
+		&& allowed_next_elements_right[type] > 0)
+	{
+		return true;
+	}
+
+	int allowed_count = allowed_next_elements_right[type];
+	if (element->left_parameter)
+	{
+		allowed_count += allowed_next_elements_left[type];
+	}
+	if (skip_count >= allowed_count)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 void CommandContext::GetAllowedNextElements(Set<ElementName> & allowed)
@@ -514,18 +521,15 @@ void CommandContext::GetAllowedNextElements(Set<ElementName> & allowed)
 	allowed.clear();
 	for (auto & pair : element_dictionary)
 	{
-		auto type = pair.second->Type();
-		if (allowed_next_elements.count(type) > 0
-			&& allowed_next_elements[type] > 0)
+		if (IsAllowed(pair.first))
 		{
 			allowed.insert(pair.first);
 		}
 	}
 }
 
-ErrorOr<Success> CommandContext::AppendElement(ElementToken token)
+ErrorOr<Success> CommandContext::AppendElement(value_ptr<CommandElement>&& next)
 {
-	auto next = CHECK_RETURN(GetNewCommandElement(token.name.value));
 	int skips = skip_count; // copying here, append takes a ref and modifies
 	bool success = CHECK_RETURN(command->AppendArgument(
 		*this, std::move(next), skips));
@@ -539,15 +543,15 @@ ErrorOr<Success> CommandContext::AppendElement(ElementToken token)
 
 ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 {
-	if (allowed_next_elements.count(token.type) == 0
-		|| allowed_next_elements[token.type] <= 0)
+	if (!IsAllowed(token.name))
 	{
 		return Error("This token type is not allowed");
 	}
 	switch(token.type)
 	{
 		case ET::Skip:
-			PerformSkip();
+			skip_count += 1;
+			allowed_next_elements_right[ET::Skip] -= 1;
 			BreakUndoChain(token);
 			return Success();
 		case ET::Undo:
@@ -562,7 +566,9 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 			// command = CHECK_RETURN(GetNewCommandElement("Command"));
 			return InitNewCommand();
 		default:
-			CHECK_RETURN(AppendElement(token));
+			CHECK_RETURN(AppendElement(
+				CHECK_RETURN(GetNewCommandElement(token.name.value))
+			));
 			BreakUndoChain(token);
 			RefreshAllowedTypes();
 			return Success();

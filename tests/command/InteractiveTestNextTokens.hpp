@@ -27,14 +27,7 @@ public:
 
 		CommandContext context;
 		context.InitElementDictionary();
-		std::cout << "element dictionary size: " << context.element_dictionary.size() << std::endl;
 		context.InitNewCommand();
-		std::cout << "allowed types size: " << context.allowed_next_elements.size() << std::endl;
-
-		for (auto pair : context.allowed_next_elements)
-		{
-			std::cout << "allowed " << ToString(pair.first) << " " << pair.second << std::endl;
-		}
 
 		std::cout << "AST - " << std::endl;
 		std::cout << context.command->GetPrintString("    ");

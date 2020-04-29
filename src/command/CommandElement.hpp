@@ -29,7 +29,9 @@ struct CommandElement
 	const value_ptr<CommandParameter> left_parameter;
 	const std::vector<value_ptr<CommandParameter> > parameters;
 
-	value_ptr<CommandParameter> * location_in_parent;
+	// @Cleanup this is an awkward member
+	// should probably just point to parent and call functions
+	value_ptr<CommandElement> * location_in_parent;
 
 	CommandElement(ElementType::Enum type,
 		value_ptr<CommandParameter> left_parameter,
@@ -78,7 +80,8 @@ struct CommandElement
 	// so that we can take skip count into consideration
 	// @Incomplete: decide skip behavior, I am currently working
 	// on the assumption that it is only used for shared types
-	Table<ElementType::Enum, int> GetAllowedArgumentTypes();
+	// pair is left param, right params
+	std::pair<Table<ElementType::Enum, int>,Table<ElementType::Enum, int>> GetAllowedArgumentTypes();
 
 	ErrorOr<bool> AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int &skip_count);
 
@@ -192,7 +195,7 @@ struct ContextFunction : CommandElement
 
 	ContextFunction(ElementType::Enum type,
 		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-		value_ptr<CommandParameter>>&& left_parameter
+		value_ptr<CommandParameter>&& left_parameter,
 		std::vector<value_ptr<CommandParameter> > params)
 		: CommandElement(type, left_parameter, params)
 		, func(func)
@@ -228,7 +231,7 @@ struct ContextFunction : CommandElement
 			return Value{CHECK_RETURN((context.*func)())};
 		}
 
-		CommandParameter*[sizeof...(TArgs)] params;
+		CommandParameter* params[sizeof...(TArgs)];
 		int left_offset = 0;
 		if (left_parameter != nullptr)
 		{
@@ -240,7 +243,7 @@ struct ContextFunction : CommandElement
 			params[i] = parameters[i-left_offset].get();
 		}
 
-		else if constexpr(sizeof...(TArgs) == 1)
+		if constexpr(sizeof...(TArgs) == 1)
 		{
 			auto one = params[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
 			if (one.IsError()) return one.GetError();
@@ -280,6 +283,18 @@ value_ptr<CommandElement> MakeContextFunction(
 {
 	return new ContextFunction{ type, func, params };
 }
+
+template<typename TRet, typename ... TArgs>
+value_ptr<CommandElement> MakeContextFunction(
+	ElementType::Enum type,
+	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
+	value_ptr<CommandParameter>&& left_parameter,
+	std::vector<value_ptr<CommandParameter>> params)
+{
+	return new ContextFunction{ type, func, std::move(left_parameter), params };
+}
+
+
 
 template<typename TRet, typename ... TArgs>
 struct ContextFunctionWithActors : CommandElement
