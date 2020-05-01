@@ -359,12 +359,30 @@ ErrorOr<ElementToken> CommandContext::GetTokenForName(ElementName name)
 {
 	if (element_dictionary.find(name.value) != element_dictionary.end())
 	{
-		return ElementToken{element_dictionary[name.value]->Type(), name};
+		return ElementToken{
+			element_dictionary[name.value]->Type(),
+			name,
+			element_dictionary[name.value]->left_parameter != nullptr
+		};
 	}
 	else
 	{
 		return Error("Couldn't find element with name" + name.value);
 	}
+}
+
+std::vector<ElementToken> CommandContext::GetAllTokens()
+{
+	std::vector<ElementToken> tokens;
+	for (auto&& pair : element_dictionary)
+	{
+		tokens.emplace_back(
+			pair.second->Type(),
+			pair.first,
+			pair.second->left_parameter != nullptr
+		);
+	}
+	return tokens;
 }
 
 ErrorOr<Success> CommandContext::InitNewCommand()
@@ -486,25 +504,23 @@ void CommandContext::BreakUndoChain(ElementToken token)
 	allowed_next_elements_right[ET::Redo] = 0;
 }
 
-bool CommandContext::IsAllowed(ElementName name)
+bool CommandContext::IsAllowed(ElementToken token)
 {
-	if (element_dictionary.count(name.value) <= 0)
+	// should we assume tokens have associated elements?
+	if (element_dictionary.count(token.name.value) <= 0)
 	{
 		return false;
 	}
 
-	CommandElement * element = element_dictionary[name.value].get();
-	ElementType::Enum type = element->Type();
-
-	if (instruction_element_types.count(type) > 0
-		&& allowed_next_elements_right.count(type) > 0
-		&& allowed_next_elements_right[type] > 0)
+	if (instruction_element_types.count(token.type) > 0
+		&& allowed_next_elements_right.count(token.type) > 0
+		&& allowed_next_elements_right[token.type] > 0)
 	{
 		return true;
 	}
 
-	int allowed_count = allowed_next_elements_right[type];
-	if (element->left_parameter)
+	int allowed_count = allowed_next_elements_right[token.type];
+	if (token.has_left_parameter)
 	{
 		allowed_count += allowed_next_elements_left[type];
 	}
@@ -521,7 +537,12 @@ void CommandContext::GetAllowedNextElements(Set<ElementName> & allowed)
 	allowed.clear();
 	for (auto & pair : element_dictionary)
 	{
-		if (IsAllowed(pair.first))
+		ElementToken token{
+			pair.second->Type(),
+			pair.first,
+			pair.second->left_parameter != nullptr
+		};
+		if (IsAllowed(token))
 		{
 			allowed.insert(pair.first);
 		}

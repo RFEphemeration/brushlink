@@ -47,11 +47,14 @@ enum Enum
 
 	Number =               1 << 17,
 
+	// @Cleanup maybe combine into single type Instruction? Punctuation?
+	// would require handling Allowed slightly differently
 	Skip =                 1 << 18,
 	Termination =          1 << 19,
 	Cancel =               1 << 20,
 	Undo =                 1 << 21,
 	Redo =                 1 << 22,
+	// RepeatLastCommand
 	// Begin_Word? End_Word?
 
 	Mouse_Input =          1 << 23,
@@ -156,10 +159,13 @@ struct ElementToken
 	// but I think it should actually only be a single one
 	ElementType::Enum type;
 	ElementName name;
+	bool has_left_param;
+	// could also consider bool is_literal for combining literals
 
-	ElementToken(ElementType::Enum type, ElementName name)
+	ElementToken(ElementType::Enum type, ElementName name, bool has_left_param = false)
 		: name(name)
 		, type(type)
+		, has_left_param(has_left_param)
 	{ }
 
 	bool IsType(ElementType::Enum other)

@@ -12,6 +12,16 @@ namespace Command
 
 struct CommandElement;
 
+struct AllowedTypes
+{
+	// token here is used because it has type and has_left_parameter
+	// but name isn't used. could consider a different struct
+	std::vector<ElementToken> priority;
+
+	Table<ElementType::Enum, int> total_right;
+	Table<ElementType::Enum int> total_left;
+}
+
 
 struct CommandContext
 {
@@ -39,11 +49,12 @@ struct CommandContext
 	void InitElementDictionary();
 	ErrorOr<value_ptr<CommandElement> > GetNewCommandElement(HString name);
 	ErrorOr<ElementToken> GetTokenForName(ElementName name);
+	std::vector<ElementToken> GetAllTokens();
 	
 	ErrorOr<Success> InitNewCommand();
 	void GetAllowedNextElements(Set<ElementName> & allowed);
 	ErrorOr<Success> HandleToken(ElementToken token);
-	bool IsAllowed(ElementName name);
+	bool IsAllowed(ElementToken token);
 
 	void RefreshAllowedTypes();
 	ErrorOr<Success> PerformUndo();

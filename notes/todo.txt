@@ -1,11 +1,11 @@
 # new
 features
 	# implied nodes
-	left parameters - most important for numbers
-		left param from implied value
-			Command
-				(Select/SelectorFriendly)
-				->Union
+	# left parameters - most important for numbers
+	left param from implied value
+		Command
+			(Select/SelectorFriendly)
+			->Union
 	convert between variant subtypes (Location, Value, Target?)
 		I assume this means OneOf should be handled as a Value
 		Location/Point -> Location/Line on repeat of point...
@@ -22,10 +22,14 @@ features
 	load definitions from data
 		type checking at command element load time rather than runtime
 	String tokens for named values
+	literals with buffered input
 	element types and value mapping from data
 		might need to use std::any instead of variant
 		though we're still restricted to any type returnable by a function
 		and the function deserialization requires an explicit mapping
+	AllowedArgumentTypes -> ordered priority
+		so interface can select next tab automatically
+		should we have an element for accepting a default value as explicit? or for ending a series of literal? in order to take the command card to the next priority input
 
 
 interface

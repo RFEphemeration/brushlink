@@ -104,11 +104,34 @@ struct CommandElement
 	template<typename T>
 	ErrorOr<T> EvaluateAs(CommandContext & context)
 	{
+		// Value is used for OneOf
 		if constexpr(std::is_same<T, Value>::value)
 		{
 			return Evaluate(context);
 		}
+		// Location is a special case OneOf with a specific subset of Value types
+		else if constexpr(std::is_same<T,Location>::value)
+		{
+			Value value = CHECK_RETURN(Evaluate(context));
+			return std::visit(
+				[](auto&& arg) -> ErrorOr<Location>
+				{
+					// how to check if this cast is valid? we could enumerate
+					// Point, Line, Direction, Area but I'd rather not have to
+					return Location{arg};
+				},
+				value
+			);
+		}
 		else
+		{
+			Value value = CHECK_RETURN(Evaluate(context));
+			if (!std::holds_alternative<T>(value))
+			{
+				return Error("Element is of unexpected type");
+			}
+			return std::get<T>(value);
+		}
 		{
 			Value value = CHECK_RETURN(Evaluate(context));
 			if (!std::holds_alternative<T>(value))

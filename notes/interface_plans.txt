@@ -1,1 +1,14 @@
-when an element implies another, should show both on hover of the button?
+current command buffer
+	element types for parameters should have symbols, not names
+		or should everything have a symbol?
+	implied
+		when an element implies another, should show both on hover of the button?
+		
+		in the visual tree of the current command, we could have spacing between elements generally, but between an implied parent and child, or implied child and parent, we could have them connected, so they look more like a single block
+		different color/shape/outline for implied, default, and explicit
+
+	skips
+		should highlight which points are allowed for insertion
+
+	cursor
+		command card location should be enough combined with priority allowed arguments to put a cursor at the location where an element on this tab would go
