@@ -215,18 +215,20 @@ Set<ElementType::Enum> ParamSingleImpliedOptions::GetAllowedTypes() const
 	{
 		return {};
 	}
-	Set<ElementType::Enum> allowed = {type};
+	Set<ElementType::Enum> allowed_set = {type};
+
+	AlloweTypes allowed;
 
 	// @Feature @Bug left param replacing implied option parent
 	for (auto & option : implied_options)
 	{
-		auto option_allowed = option->GetAllowedArgumentTypes();
-		for (auto &pair : option_allowed.second)
-		{
-			allowed.insert(pair.first);
-		}
+		option->GetAllowedArgumentTypes(allowed);
 	}
-	return allowed;
+	for (auto && pair : allowed.total_right)
+	{
+		allowed_set.insert(pair.first);
+	}
+	return allowed_set;
 }
 
 bool ParamSingleImpliedOptions::IsRequired() const

@@ -81,7 +81,7 @@ struct CommandElement
 	// @Incomplete: decide skip behavior, I am currently working
 	// on the assumption that it is only used for shared types
 	// pair is left param, right params
-	std::pair<Table<ElementType::Enum, int>,Table<ElementType::Enum, int>> GetAllowedArgumentTypes();
+	void GetAllowedArgumentTypes(AllowedTypes & allowed);
 
 	ErrorOr<bool> AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int &skip_count);
 

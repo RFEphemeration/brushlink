@@ -139,9 +139,62 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 
 void CommandCard::PickTabBasedOnContextState()
 {
-	// @Feature PriorityAppend
-	Errror("PickTabBasedOnContextState is unimplemented").Log();
-	assert(false);
+	// @Implement PriorityAppend
+	AllowedTypes remaining;
+	if (context.skip_count == 0)
+	{
+		remaining = context.allowed;
+	}
+	else
+	{
+		AllowedTypes skipped;
+		for (auto && allowed : context.allowed.priority)
+		{ 
+			int total_skipped = skipped.total_right[allowed.type]
+				+ skipped.total_left[allowed.type];
+			if (total_skipped < context.skip_count)
+			{
+				skipped.Append(allowed);
+			}
+			else
+			{
+				remaining.Append(allowed);
+			}
+		}
+		remaining.total_instruction = context.allowed.total_instruction;
+	}
+	int priority_length = remaining.priority.size();
+	
+	if (priority_next_count >= priority_length)
+	{
+		// if we next over all options, all that's left is instructions
+		// this covers a priority_length of 0
+		SwitchToTab(0);
+	}
+	else
+	{
+		ElementType::Enum current = remaining.priority[0].type;
+		int priority_next = priority_next_count;
+		for(int i = 1; i < priority_length; i++)
+		{
+			// is next by type, and skip for disambiguating between arguments of the same type?
+			// or should you be able to use next instead of skip?
+			// in which case we don't really need skip
+			if (remaining.priority[i].type != current)
+			{
+				priority_next -= 1;
+				current = remaining.priority[i].type;
+			}
+			if (priority_next == 0)
+			{
+				SwitchToTab(tab_type_indexes[current]);
+			}
+		}
+
+		// fallback because of the tracking of type changing above
+		// we might have missed on the initial if condition
+		SwitchToTab(0);
+	}
 }
 
 void CommandCard::SwitchToTab(int index)

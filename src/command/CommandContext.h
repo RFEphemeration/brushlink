@@ -12,15 +12,39 @@ namespace Command
 
 struct CommandElement;
 
+struct AllowedType
+{
+	ElementType::Enum type;
+	bool is_left;
+
+	AllowedType(ElementType::Enum type, bool is_left = false)
+		: type(type)
+		, is_left(is_left)
+	{ }
+};
+
 struct AllowedTypes
 {
-	// token here is used because it has type and has_left_parameter
-	// but name isn't used. could consider a different struct
-	std::vector<ElementToken> priority;
+	// instructions don't show up in priority and are only in total_instruction
+	std::vector<AllowedType> priority;
 
 	Table<ElementType::Enum, int> total_right;
-	Table<ElementType::Enum int> total_left;
-}
+	Table<ElementType::Enum, int> total_left;
+	Table<ElementType::Enum, int> total_instruction;
+
+	void Append(AllowedType type)
+	{
+		priority.push_back(type);
+		if (type.is_left)
+		{
+			total_left[type.type]++;
+		}
+		else
+		{
+			total_right[type.type]++;
+		}
+	}
+};
 
 
 struct CommandContext
@@ -39,8 +63,7 @@ struct CommandContext
 
 	std::list<UnitGroup> actors_stack;
 	value_ptr<CommandElement> command;
-	Table<ElementType::Enum, int> allowed_next_elements_right;
-	Table<ElementType::Enum, int> allowed_next_elements_left;
+	AllowedTypes allowed;
 	int skip_count;
 	std::vector<ElementToken> undo_stack;
 	int undo_count;

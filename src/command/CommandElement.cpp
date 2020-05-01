@@ -7,11 +7,8 @@ namespace Command
 // GetAllowedArgumentTypes, AppendArgument, and RemoveLastExplicitElement
 // is there a better way to factor this out?
 
-// pair is left args, right args
-std::pair<Table<ElementType::Enum, int>, Table<ElementType::Enum, int>> CommandElement::GetAllowedArgumentTypes()
+void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 {
-	Table<ElementType::Enum, int> allowed_left;
-	Table<ElementType::Enum, int> allowed_right;
 	int last_param_with_args = -1;
 
 	// find the last parameter that has arguments.
@@ -30,19 +27,10 @@ std::pair<Table<ElementType::Enum, int>, Table<ElementType::Enum, int>> CommandE
 			&& argument->IsExplicitOrHasExplicitChild())
 		{
 			last_param_with_args = index;
-			auto arg_allowed = argument->GetAllowedArgumentTypes();
-
-			for (auto pair : arg_allowed.first)
-			{
-				allowed_left[pair.first] += pair.second;
-			}
-			for (auto pair : arg_allowed.second)
-			{
-				allowed_right[pair.first] += pair.second;
-			}
+			argument->GetAllowedArgumentTypes(allowed);
 			if (!argument->ParametersSatisfied())
 			{
-				return {allowed_left, allowed_right};
+				return;
 			}
 			break;
 		}
@@ -54,18 +42,10 @@ std::pair<Table<ElementType::Enum, int>, Table<ElementType::Enum, int>> CommandE
 		if (argument != nullptr)
 		{
 			// this is an implicit argument, recurse on its parameters
-			auto arg_allowed = argument->GetAllowedArgumentTypes();
-			for (auto pair : arg_allowed.first)
-			{
-				allowed_left[pair.first] += pair.second;
-			}
-			for (auto pair : arg_allowed.second)
-			{
-				allowed_right[pair.first] += pair.second;
-			}
+			argument->GetAllowedArgumentTypes(allowed);
 			if (!argument->ParametersSatisfied())
 			{
-				return {allowed_left, allowed_right};
+				return;
 			}
 			continue;
 		}
@@ -74,10 +54,17 @@ std::pair<Table<ElementType::Enum, int>, Table<ElementType::Enum, int>> CommandE
 		// so we just ask the parameter directly
 		Set<ElementType::Enum> param_allowed = parameters[index]->GetAllowedTypes();
 
+		for (auto&& type : param_allowed)
+		{
+			allowed.Append({type});
+		}
+
 		// @Cleanup @Performance we could probably do this once in the Parameter
 		// rather than every time in the element
 		// checking for implied args to param here so that
 		// the count (used for skip) matches the number of params
+		// it's nice that they're lower priority than the normal allowed types
+		// should we keep track of what we would imply? for the CommandCard to show
 		Set<ElementType::Enum> param_allowed_with_implied;
 		for (auto&& pair : CommandContext::allowed_with_implied)
 		{
@@ -87,27 +74,23 @@ std::pair<Table<ElementType::Enum, int>, Table<ElementType::Enum, int>> CommandE
 			}
 			param_allowed_with_implied.merge(Set<ElementType::Enum>{pair.second});
 		}
-		param_allowed.merge(param_allowed_with_implied);
-
-		for (auto&& type : param_allowed)
+		for (auto&& type : param_allowed_with_implied)
 		{
-			// @Bug make sure this doesn't initialize to anything other than 0
-			// when allowed[type] doesn't already exist
-			allowed_right[type] += 1;
+			allowed.Append({type});
 		}
 
-		// @Incomplete permutable
+		// @Feature permutable
 		if (parameters[index]->IsRequired())
 		{
-			return {allowed_left, allowed_right};
+			return;
 		}
 	}
 
 	// if we got this far we know we have our parameters satisfied, no need to call again
-	allowed_left[Type()] += 1;
+	// this is a left argument
+	allowed.Append({Type(), true});
 
-
-	return {allowed_left, allowed_right};
+	return;
 }
 
 ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int & skip_count)

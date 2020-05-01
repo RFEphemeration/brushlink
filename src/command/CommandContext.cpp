@@ -403,13 +403,14 @@ ErrorOr<Success> CommandContext::InitNewCommand()
 
 void CommandContext::RefreshAllowedTypes()
 {
-	auto allowed = command->GetAllowedArgumentTypes();
-	allowed_next_elements_left = allowed.first;
-	allowed_next_elements_right = allowed.second;
+	allowed.priority.clear();
+	allowed.total_right.clear();
+	allowed.total_left.clear();
+	command->GetAllowedArgumentTypes(allowed);
 
 	Table<ElementType::Enum, int> allowed_combined;
 	int max_type_count = 1;
-	for (auto&& pair : allowed_next_elements_left)
+	for (auto&& pair : allowed.total_left)
 	{
 		allowed_combined[pair.first] = pair.second;
 		if (pair.second > max_type_count)
@@ -417,7 +418,7 @@ void CommandContext::RefreshAllowedTypes()
 			max_type_count = pair.second;
 		}
 	}
-	for (auto&& pair : allowed_next_elements_right)
+	for (auto&& pair : allowed.total_right)
 	{
 		allowed_combined[pair.first] += pair.second;
 
@@ -427,22 +428,26 @@ void CommandContext::RefreshAllowedTypes()
 		}
 	}
 
-	allowed_next_elements_right[ET::Skip] = max_type_count - 1;
-	allowed_next_elements_right[ET::Undo] = undo_stack.size() - undo_count;
-	allowed_next_elements_right[ET::Redo] = undo_count;
+	allowed.total_instruction[ET::Skip] = max_type_count - 1;
+	allowed.total_instruction[ET::Undo] = undo_stack.size() - undo_count;
+	allowed.total_instruction[ET::Redo] = undo_count;
 
 	if (command->ParametersSatisfied())
 	{
-		allowed_next_elements_right[ET::Termination] = 1;
+		allowed.total_instruction[ET::Termination] = 1;
 	}
-	allowed_next_elements_right[ET::Cancel] = 1;
+	else
+	{
+		allowed.total_instruction[ET::Termination] = 0;
+	}
+	allowed.total_instruction[ET::Cancel] = 1;
 }
 
 ErrorOr<Success> CommandContext::PerformUndo()
 {
 	// we just performed an Undo, so we can do one fewer
-	allowed_next_elements_right[ET::Undo] -= 1;
-	allowed_next_elements_right[ET::Redo] += 1;
+	allowed.total_instruction[ET::Undo] -= 1;
+	allowed.total_instruction[ET::Redo] += 1;
 	undo_count += 1;
 	if (skip_count == 0)
 	{
@@ -458,7 +463,7 @@ ErrorOr<Success> CommandContext::PerformUndo()
 	{
 		// undoing a skip
 		skip_count -= 1;
-		allowed_next_elements_right[ET::Skip] += 1;
+		allowed.total_instruction[ET::Skip] += 1;
 	}
 	return Success();
 }
@@ -475,9 +480,9 @@ ErrorOr<Success> CommandContext::PerformRedo()
 	if (token.type == ET::Skip)
 	{
 		skip_count += 1;
-		allowed_next_elements_right[ET::Skip] -= 1;
-		allowed_next_elements_right[ET::Undo] = undo_stack.size() - undo_count;
-		allowed_next_elements_right[ET::Redo] = undo_count;
+		allowed.total_instruction[ET::Skip] -= 1;
+		allowed.total_instruction[ET::Undo] = undo_stack.size() - undo_count;
+		allowed.total_instruction[ET::Redo] = undo_count;
 	}
 	else
 	{
@@ -500,8 +505,8 @@ void CommandContext::BreakUndoChain(ElementToken token)
 	}
 	undo_stack.push_back(token);
 	undo_count = 0;
-	allowed_next_elements_right[ET::Undo] = undo_stack.size();
-	allowed_next_elements_right[ET::Redo] = 0;
+	allowed.total_instruction[ET::Undo] = undo_stack.size();
+	allowed.total_instruction[ET::Redo] = 0;
 }
 
 bool CommandContext::IsAllowed(ElementToken token)
@@ -512,17 +517,16 @@ bool CommandContext::IsAllowed(ElementToken token)
 		return false;
 	}
 
-	if (instruction_element_types.count(token.type) > 0
-		&& allowed_next_elements_right.count(token.type) > 0
-		&& allowed_next_elements_right[token.type] > 0)
+	if (allowed.total_instruction.count(token.type) > 0
+		&& allowed.total_instruction[token.type] > 0)
 	{
 		return true;
 	}
 
-	int allowed_count = allowed_next_elements_right[token.type];
+	int allowed_count = allowed.total_right[token.type];
 	if (token.has_left_parameter)
 	{
-		allowed_count += allowed_next_elements_left[type];
+		allowed_count += allowed.total_left[type];
 	}
 	if (skip_count >= allowed_count)
 	{
