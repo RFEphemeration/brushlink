@@ -524,9 +524,9 @@ bool CommandContext::IsAllowed(ElementToken token)
 	}
 
 	int allowed_count = allowed.total_right[token.type];
-	if (token.has_left_parameter)
+	if (token.has_left_param)
 	{
-		allowed_count += allowed.total_left[type];
+		allowed_count += allowed.total_left[token.type];
 	}
 	if (skip_count >= allowed_count)
 	{
@@ -568,7 +568,7 @@ ErrorOr<Success> CommandContext::AppendElement(value_ptr<CommandElement>&& next)
 
 ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 {
-	if (!IsAllowed(token.name))
+	if (!IsAllowed(token))
 	{
 		return Error("This token type is not allowed");
 	}
@@ -576,7 +576,7 @@ ErrorOr<Success> CommandContext::HandleToken(ElementToken token)
 	{
 		case ET::Skip:
 			skip_count += 1;
-			allowed_next_elements_right[ET::Skip] -= 1;
+			allowed.total_instruction[ET::Skip] -= 1;
 			BreakUndoChain(token);
 			return Success();
 		case ET::Undo:

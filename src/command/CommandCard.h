@@ -18,7 +18,7 @@ enum class TabNav
 	NextHighestPriority,
 	MoreOptionsForCurrentType,
 	Back
-}
+};
 
 struct CommandCard
 {
@@ -29,7 +29,8 @@ struct CommandCard
 		// bool collapse_allowed;
 		// @Feature ordering/placing of tokens on tab
 		std::vector<std::vector<ElementToken>> tokens;
-	}
+	};
+
 	struct CardInput
 	{
 		// direct token, card navigation, or tab relative hotkey
@@ -42,7 +43,7 @@ struct CommandCard
 	};
 
 	// these should be user setting controlled
-	
+
 	int columns;
 	int rows;
 	Table<std::string, CardInput> hotkeys;
@@ -55,7 +56,7 @@ struct CommandCard
 	// are punctuation elements always available?
 	// should the tabs automatically be split by type?
 	// or could some be combined?
-	Table<ElementType, int> tab_type_indexes;
+	Table<ElementType::Enum, int> tab_type_indexes;
 
 	// these change as you input
 
@@ -73,7 +74,9 @@ struct CommandCard
 	void PickTabBasedOnContextState();
 	void SwitchToTab(int index);
 	void SwitchToNextPageOnTab();
-}
+
+	std::string MakeCurrentTabPrintString();
+};
 
 } // namespace Command
 

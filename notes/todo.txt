@@ -22,6 +22,11 @@ features
 	load definitions from data
 		type checking at command element load time rather than runtime
 	String tokens for named values
+		can have a tab with enter your own or suggestions
+			how to sort suggestions?
+			should you be able to assign hotkeys at runtime? or change sort priority?
+		suggestions can be all the current values that match the type, retrieved from context
+		could also have this be a way to enter elements by their name, too, rather than having to look for them. ElementWithName returns all the elements of an acceptable type, using GetAllowedNextElements. Should have autocomplete enabled for these.
 	literals with buffered input
 	element types and value mapping from data
 		might need to use std::any instead of variant
@@ -31,11 +36,12 @@ features
 		so interface can select next tab automatically
 		should we have an element for accepting a default value as explicit? or for ending a series of literal? in order to take the command card to the next priority input
 
-
 interface
 	tabs of tokens grouped by type
 	switch between tabs
 	hotkeys for tokens on current tab
+	cursor in command tree for where current elements on current tab would go
+		- this might differ if some accept left parameters and some don't
 
 cleanup
 	Consider shared interface for CommandElement and CommandParameter because so much is shared anyways

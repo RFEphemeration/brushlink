@@ -217,7 +217,7 @@ Set<ElementType::Enum> ParamSingleImpliedOptions::GetAllowedTypes() const
 	}
 	Set<ElementType::Enum> allowed_set = {type};
 
-	AlloweTypes allowed;
+	AllowedTypes allowed;
 
 	// @Feature @Bug left param replacing implied option parent
 	for (auto & option : implied_options)
@@ -274,9 +274,10 @@ ErrorOr<Success> ParamSingleImpliedOptions::SetArgumentInternal(CommandContext &
 	// @Incomplete @Bug LeftParams of implied options
 	for (auto & option : implied_options)
 	{
-		auto option_allowed = option->GetAllowedArgumentTypes().second;
-		if (option_allowed.count(argument->Type()) > 0
-			&& option_allowed.at(argument->Type()) > 0)
+		AllowedTypes option_allowed;
+		option->GetAllowedArgumentTypes(option_allowed);
+		if (option_allowed.total_right.count(argument->Type()) > 0
+			&& option_allowed.total_right.at(argument->Type()) > 0)
 		{
 			// intentional call to copy constructor, we want to preserve
 			// the original option in case we Undo adding this argument

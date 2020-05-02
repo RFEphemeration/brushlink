@@ -1,5 +1,7 @@
 #include "CommandCard.h"
 
+#include "TerminalExtensions.h"
+
 namespace Command
 {
 
@@ -7,6 +9,7 @@ const int default_columns = 4;
 const int default_rows = 4;
 const Table<std::string, CommandCard::CardInput> default_hotkeys{
 	{"Tab", {TabNav::NextHighestPriority}},
+
 	// @Feature difference between hold shift and tap shift
 	// @Bug modifier key input detection
 	// could consider reserving shift for punctuation / tab nav input
@@ -15,11 +18,24 @@ const Table<std::string, CommandCard::CardInput> default_hotkeys{
 	{"Escape", {ElementToken{ElementType::Cancel, "Cancel"}}},
 	{"Space", {ElementToken{ElementType::Termination, "Termination"}}},
 	{"`", {ElementToken{ElementType::Undo, "Undo"}}},
-	{"1", {0,0}}, {"2", {0,1}}, {"3", {0,2}}, {"4", {0,3}},
-	{"q", {1,0}}, {"w", {1,1}}, {"e", {1,2}}, {"r", {1,3}},
-	{"a", {2,0}}, {"s", {2,1}}, {"d", {2,2}}, {"f", {2,3}},
-	{"z", {3,0}}, {"x", {3,1}}, {"c", {3,2}}, {"v", {3,3}}
+	{"1", {std::pair<int,int>{0,0}}},
+	{"2", {std::pair<int,int>{0,1}}},
+	{"3", {std::pair<int,int>{0,2}}},
+	{"4", {std::pair<int,int>{0,3}}},
+	{"q", {std::pair<int,int>{1,0}}},
+	{"w", {std::pair<int,int>{1,1}}},
+	{"e", {std::pair<int,int>{1,2}}},
+	{"r", {std::pair<int,int>{1,3}}},
+	{"a", {std::pair<int,int>{2,0}}},
+	{"s", {std::pair<int,int>{2,1}}},
+	{"d", {std::pair<int,int>{2,2}}},
+	{"f", {std::pair<int,int>{2,3}}},
+	{"z", {std::pair<int,int>{3,0}}},
+	{"x", {std::pair<int,int>{3,1}}},
+	{"c", {std::pair<int,int>{3,2}}},
+	{"v", {std::pair<int,int>{3,3}}},
 };
+
 // @Feature different default_hotkeys for numbers of columns/rows
 
 CommandCard::CommandCard(CommandContext & context)
@@ -37,7 +53,7 @@ CommandCard::CommandCard(CommandContext & context)
 	PickTabBasedOnContextState();
 }
 
-CommandCard::SetupTabs(std::vector<ElementToken> tokens)
+void CommandCard::SetupTabs(std::vector<ElementToken> tokens)
 {
 	// first tab is for punctuation, for now
 	tabs.emplace_back();
@@ -82,35 +98,34 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 	}
 	else
 	{
-		auto & key = hotkeys[input].input;
-		if (std::holds_alternative<ElementToken>(key))
+		auto & key = hotkeys.at(input);
+		if (std::holds_alternative<ElementToken>(key.input))
 		{
-			CHECK_RETURN(context.HandleToken(std::get<ElementToken>(key)));
+			CHECK_RETURN(context.HandleToken(std::get<ElementToken>(key.input)));
 			priority_next_count = 0;
 			PickTabBasedOnContextState();
 			return Success();
 		}
-		else if (std::holds_alternative<TabNav>(key))
+		else if (std::holds_alternative<TabNav>(key.input))
 		{
-			switch(std::get<TabNav>(key))
+			switch(std::get<TabNav>(key.input))
 			{
-				case GoToType:
+				case TabNav::GoToType:
 					return Error("GoToType is unimplemented");
-				case Left:
+				case TabNav::Left:
 					SwitchToTab((active_tab_index - 1) % tabs.size());
 					return Success();
-				case Right:
+				case TabNav::Right:
 					SwitchToTab((active_tab_index + 1) % tabs.size());
 					return Success();
-				case NextHighestPriority:
-					// @Feature PriorityAppend
+				case TabNav::NextHighestPriority:
 					priority_next_count += 1;
 					PickTabBasedOnContextState();
 					return Success();
-				case MoreOptionsForCurrentType:
+				case TabNav::MoreOptionsForCurrentType:
 					SwitchToNextPageOnTab();
 					return Success();
-				case Back:
+				case TabNav::Back:
 					// @Feature TabNavBack
 					return Error("TabNav Back is unimplemented");
 				default:
@@ -119,7 +134,7 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 		}
 		else // this is a tab dependent hotkey
 		{
-			auto index = std::get<std::pair<int, int> >(key);
+			auto index = std::get<std::pair<int, int> >(key.input);
 			auto & tab = tabs[active_tab_index];
 			if (tab.tokens.size() <= index.first + page_row_offset)
 			{
@@ -129,7 +144,7 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 			{
 				return Error("Hotkey is out of tab bounds, column");
 			}
-			CHECK_RETURN(context.HandleToken(std::get<ElementToken>(key)));
+			CHECK_RETURN(context.HandleToken(tab.tokens[index.first][index.second]));
 			priority_next_count = 0;
 			PickTabBasedOnContextState();
 			return Success();
@@ -212,10 +227,40 @@ void CommandCard::SwitchToNextPageOnTab()
 {
 	page_row_offset += rows;
 
-	if (page_row_offset >= tabs[active_tab_index].size())
+	if (page_row_offset >= tabs[active_tab_index].tokens.size())
 	{
 		page_row_offset = 0;
 	}
+}
+
+std::string CommandCard::MakeCurrentTabPrintString()
+{
+	std::string output;
+	output += "Tab " + std::to_string(active_tab_index) + "\n";
+	auto & tab = tabs[active_tab_index];
+	int last_row = std::min(page_row_offset + rows, static_cast<int>(tab.tokens.size()));
+	for (int r = page_row_offset; r < last_row; r++)
+	{
+		for(int c = 0; c < tab.tokens[r].size(); c++)
+		{
+			if (c > 0)
+			{
+				output += "\t";
+			}
+			if (!context.IsAllowed(tab.tokens[r][c]))
+			{
+				output += KRED + tab.tokens[r][c].name.value + RST;
+			}
+			else
+			{
+				output += tab.tokens[r][c].name.value;
+			}
+			
+		}
+
+		output += "\n";
+	}
+	return output;
 }
 
 } // namespace Command
