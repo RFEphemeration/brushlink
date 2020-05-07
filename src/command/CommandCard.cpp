@@ -190,7 +190,7 @@ void CommandCard::PickTabBasedOnContextState()
 	{
 		ElementType::Enum current = remaining.priority[0].type;
 		int priority_next = priority_next_count;
-		for(int i = 1; i < priority_length; i++)
+		for(int i = 0; i < priority_length; i++)
 		{
 			// is next by type, and skip for disambiguating between arguments of the same type?
 			// or should you be able to use next instead of skip?
@@ -203,6 +203,7 @@ void CommandCard::PickTabBasedOnContextState()
 			if (priority_next == 0)
 			{
 				SwitchToTab(tab_type_indexes[current]);
+                return;
 			}
 		}
 
