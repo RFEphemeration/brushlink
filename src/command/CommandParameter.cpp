@@ -1,6 +1,8 @@
 #include "CommandParameter.hpp"
-#include "CommandElement.hpp"
 
+#include "ContainerExtensions.hpp"
+
+#include "CommandElement.hpp"
 
 namespace Command
 {
@@ -71,7 +73,7 @@ ErrorOr<Success> CommandParameter::SetArgument(CommandContext & context, value_p
 	{
 		return Error("Argument is null");
 	}
-	if (GetAllowedTypes().count(argument->Type()) == 0)
+	if (!Contains(GetAllowedTypes(), argument->Type()))
 	{
 		return Error("Argument is of unacceptable type");
 	}
@@ -209,13 +211,14 @@ std::string ParamSingleImpliedOptions::GetPrintString(std::string line_prefix) c
 	return lines;
 }
 
-Set<ElementType::Enum> ParamSingleImpliedOptions::GetAllowedTypes() const
+std::vector<ElementType::Enum> ParamSingleImpliedOptions::GetAllowedTypes() const
 {
 	if (argument != nullptr)
 	{
 		return {};
 	}
 	Set<ElementType::Enum> allowed_set = {type};
+	std::vector<ElementType::Enum> allowed_list = {type};
 
 	AllowedTypes allowed;
 
@@ -226,9 +229,13 @@ Set<ElementType::Enum> ParamSingleImpliedOptions::GetAllowedTypes() const
 	}
 	for (auto && pair : allowed.total_right)
 	{
-		allowed_set.insert(pair.first);
+		if (allowed_set.count(pair.first) == 0)
+		{
+			allowed_set.insert(pair.first);
+			allowed_list.push_back(pair.first);
+		}
 	}
-	return allowed_set;
+	return allowed_list;
 }
 
 bool ParamSingleImpliedOptions::IsRequired() const
@@ -488,16 +495,25 @@ std::string OneOf::GetPrintString(std::string line_prefix) const
 	return print_string;
 }
 
-Set<ElementType::Enum> OneOf::GetAllowedTypes() const
+std::vector<ElementType::Enum> OneOf::GetAllowedTypes() const
 {
 	if (chosen_index != -1)
 	{
 		return possibilities[chosen_index]->GetAllowedTypes();
 	}
-	Set<ElementType::Enum> allowed;
+	Set<ElementType::Enum> allowed_set;
+	std::vector<ElementType::Enum> allowed;
 	for (auto& parameter : possibilities)
 	{
-		allowed.merge(parameter->GetAllowedTypes());
+		auto param_allowed = parameter->GetAllowedTypes();
+		for(auto& type : param_allowed)
+		{
+			if (allowed_set.count(type) == 0)
+			{
+				allowed_set.insert(type);
+				allowed.push_back(type);
+			}
+		}
 	}
 	return allowed;
 }

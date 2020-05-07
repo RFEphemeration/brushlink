@@ -1,5 +1,7 @@
 #include "CommandElement.hpp"
 
+#include "ContainerExtensions.hpp"
+
 namespace Command
 {
 
@@ -52,7 +54,7 @@ void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 
 		// there are no implicit arguments in this parameter
 		// so we just ask the parameter directly
-		Set<ElementType::Enum> param_allowed = parameters[index]->GetAllowedTypes();
+		auto param_allowed = parameters[index]->GetAllowedTypes();
 
 		for (auto&& type : param_allowed)
 		{
@@ -68,7 +70,7 @@ void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 		Set<ElementType::Enum> param_allowed_with_implied;
 		for (auto&& pair : CommandContext::allowed_with_implied)
 		{
-			if (param_allowed.count(pair.first) <= 0)
+			if (!Contains(param_allowed, pair.first))
 			{
 				continue;
 			}
@@ -130,7 +132,7 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 		auto allowed_types = parameters[index]->GetAllowedTypes();
 		// without implied types for same type take priority
 		// and we only want to decrement skip count at most once per parameter
-		if (allowed_types.count(next->Type()) > 0)
+		if (Contains(allowed_types, next->Type()))
 		{
 			if (skip_count == 0)
 			{
@@ -184,7 +186,7 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 	if (next->left_parameter != nullptr
 		&& next->left_parameter->GetLastArgument() == nullptr
 		&& next->Type() == Type() 
-		&& next->left_parameter->GetAllowedTypes().count(Type()) > 0
+		&& Contains(next->left_parameter->GetAllowedTypes(), Type())
 		&& location_in_parent != nullptr)
 	{
 		if (skip_count == 0)
@@ -312,16 +314,6 @@ ErrorOr<bool> CommandElement::RemoveLastExplicitElement()
 
 	// no need for parent to remove because we did the removal ourselves by swapping
 	return false;
-}
-
-
-Set<ElementType::Enum> CommandElement::ParameterAllowedTypes(int index)
-{
-	if (index >= ParameterCount())
-	{
-		return {};
-	}
-	return parameters[index]->GetAllowedTypes();
 }
 
 bool CommandElement::IsExplicitOrHasExplicitChild()

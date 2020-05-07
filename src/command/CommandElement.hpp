@@ -90,8 +90,6 @@ struct CommandElement
 
 	int ParameterCount() { return parameters.size(); }
 
-	Set<ElementType::Enum> ParameterAllowedTypes(int index);
-
 	bool IsExplicitOrHasExplicitChild();
 
 	// return value is whether to remove this element, also

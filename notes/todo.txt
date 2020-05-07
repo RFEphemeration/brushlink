@@ -12,8 +12,6 @@ features
 		right now we're just handling this as an implied node
 	# Undo / Back
 	GetPrintString for Numbers
-	AcceptedArgumentType priority
-		most distal and lowest parameter index
 	# default_value_ptr list, allowing parameters to all of them in order
 		main use case is default Command > (Select/SelectorActors,Select/Selector/CommandGroup)
 			so if you just hit a number you select that command group
@@ -34,7 +32,9 @@ features
 		and the function deserialization requires an explicit mapping
 	AllowedArgumentTypes -> ordered priority
 		so interface can select next tab automatically
-		should we have an element for accepting a default value as explicit? or for ending a series of literal? in order to take the command card to the next priority input
+		should we have an element for accepting a default value as explicit? or for ending a series of literal? in order to take the command card to the next priority input	
+	AcceptedArgumentType priority
+		most distal and lowest parameter index
 
 interface
 	tabs of tokens grouped by type

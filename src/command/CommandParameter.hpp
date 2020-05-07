@@ -70,7 +70,7 @@ struct CommandParameter
 
 	// todo: should this take into consideration the current state of parameters?
 	// should probably have a separate function for that
-	virtual Set<ElementType::Enum> GetAllowedTypes() const = 0;
+	virtual std::vector<ElementType::Enum> GetAllowedTypes() const = 0;
 
 	virtual bool IsSatisfied() const = 0;
 
@@ -137,7 +137,7 @@ struct ParamSingleRequired : CommandParameter
 
 	std::string GetPrintString(std::string line_prefix) const override;
 
-	Set<ElementType::Enum> GetAllowedTypes() const override
+	std::vector<ElementType::Enum> GetAllowedTypes() const override
 	{
 		if (argument.get() == nullptr)
 		{
@@ -216,7 +216,7 @@ struct ParamSingleImpliedOptions : ParamSingleRequired
 
 	std::string GetPrintString(std::string line_prefix) const override;
 
-	Set<ElementType::Enum> GetAllowedTypes() const override;
+	std::vector<ElementType::Enum> GetAllowedTypes() const override;
 
 	bool IsRequired() const override;
 
@@ -250,7 +250,7 @@ struct ParamRepeatableRequired : CommandParameter
 
 	std::string GetPrintString(std::string line_prefix) const override;
 
-	Set<ElementType::Enum> GetAllowedTypes() const override { return {type}; }
+	std::vector<ElementType::Enum> GetAllowedTypes() const override { return {type}; }
 
 	bool IsRequired() const override { return true; }
 
@@ -328,7 +328,7 @@ struct OneOf : CommandParameter
 
 	std::string GetPrintString(std::string line_prefix) const override;
 
-	Set<ElementType::Enum> GetAllowedTypes() const override;
+	std::vector<ElementType::Enum> GetAllowedTypes() const override;
 
 	bool IsRequired() const override;
 
