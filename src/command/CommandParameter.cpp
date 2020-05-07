@@ -227,13 +227,15 @@ std::vector<ElementType::Enum> ParamSingleImpliedOptions::GetAllowedTypes() cons
 	{
 		option->GetAllowedArgumentTypes(allowed);
 	}
-	for (auto && pair : allowed.total_right)
+	for (auto && allowed_type : allowed.priority)
 	{
-		if (allowed_set.count(pair.first) == 0)
+		if (allowed_type.is_left
+			|| Contains(allowed_set, allowed_type.type))
 		{
-			allowed_set.insert(pair.first);
-			allowed_list.push_back(pair.first);
+			continue;
 		}
+		allowed_set.insert(allowed_type.type);
+		allowed_list.push_back(allowed_type.type);
 	}
 	return allowed_list;
 }

@@ -1,5 +1,6 @@
 #include "CommandCard.h"
 
+#include "ContainerExtensions.hpp"
 #include "TerminalExtensions.h"
 
 namespace Command
@@ -9,6 +10,9 @@ const int default_columns = 4;
 const int default_rows = 4;
 const Table<std::string, CommandCard::CardInput> default_hotkeys{
 	{"Tab", {TabNav::NextHighestPriority}},
+	{"Back", {TabNav::Back}},
+	{"Left", {TabNav::Left}},
+	{"Right", {TabNav::Right}},
 
 	// @Feature difference between hold shift and tap shift
 	// @Bug modifier key input detection
@@ -35,6 +39,8 @@ const Table<std::string, CommandCard::CardInput> default_hotkeys{
 	{"c", {std::pair<int,int>{3,2}}},
 	{"v", {std::pair<int,int>{3,3}}},
 };
+
+const std::string horizontal_line = "––––––––––––––––––––––––––––––––––––––––";
 
 // @Feature different default_hotkeys for numbers of columns/rows
 
@@ -127,7 +133,13 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 					return Success();
 				case TabNav::Back:
 					// @Feature TabNavBack
-					return Error("TabNav Back is unimplemented");
+					priority_next_count -= 1;
+					if (priority_next_count < 0)
+					{
+						priority_next_count = 0;
+					}
+					PickTabBasedOnContextState();
+					// return Error("TabNav Back is unimplemented");
 				default:
 					return Error("Invalid TabNav value");
 			}
@@ -164,7 +176,7 @@ void CommandCard::PickTabBasedOnContextState()
 	{
 		AllowedTypes skipped;
 		for (auto && allowed : context.allowed.priority)
-		{ 
+		{
 			int total_skipped = skipped.total_right[allowed.type]
 				+ skipped.total_left[allowed.type];
 			if (total_skipped < context.skip_count)
@@ -237,7 +249,47 @@ void CommandCard::SwitchToNextPageOnTab()
 std::string CommandCard::MakeCurrentTabPrintString()
 {
 	std::string output;
-	output += "Tab " + std::to_string(active_tab_index) + "\n";
+	std::string line;
+	for (int i = 0; i < tabs.size(); i++)
+	{
+		std::string tab_name = [&]() -> std::string {
+			for (auto&& pair : tab_type_indexes)
+			{
+				if (pair.second != i)
+				{
+					continue;
+				}
+				if (Contains(CommandContext::instruction_element_types, pair.first))
+				{
+					return "Instructions";
+				}
+				else
+				{
+					return ToString(pair.first);
+				}
+			}
+			return "?";
+		}();
+		if (line.size() > 0)
+		{
+			line += "\t";
+		}
+		if (i == active_tab_index)
+		{
+			line += KCYN + tab_name + RST;
+		}
+		else
+		{
+			line += tab_name;
+		}
+		if (line.size() > 50)
+		{
+			output += line + "\n";
+			line = "";
+		}
+	}
+	output += line + "\n" + horizontal_line + "\n";
+	line = "";
 	auto & tab = tabs[active_tab_index];
 	int last_row = std::min(page_row_offset + rows, static_cast<int>(tab.tokens.size()));
 	for (int r = page_row_offset; r < last_row; r++)

@@ -131,6 +131,10 @@ inline std::string ToString(ElementType::Enum a)
 		return "Number";
 	case ElementType::Skip:
 		return "Skip";
+	case ElementType::Undo:
+		return "Undo";
+	case ElementType::Redo:
+		return "Redo";
 	case ElementType::Termination:
 		return "Termination";
 	case ElementType::Cancel:

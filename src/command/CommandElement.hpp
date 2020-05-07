@@ -85,11 +85,6 @@ struct CommandElement
 
 	ErrorOr<bool> AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int &skip_count);
 
-	// what are these functions for if not to assist with
-	// building the command tree?
-
-	int ParameterCount() { return parameters.size(); }
-
 	bool IsExplicitOrHasExplicitChild();
 
 	// return value is whether to remove this element, also
