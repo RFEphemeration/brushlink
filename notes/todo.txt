@@ -2,7 +2,6 @@
 features
 	# implied nodes
 	# left parameters - most important for numbers
-	Skip for left parameters
 	left param from implied value
 		Command
 			(Select/SelectorFriendly)
@@ -39,11 +38,13 @@ features
 	hide some elements from the command card
 
 interface
-	tabs of tokens grouped by type
-	switch between tabs
-	hotkeys for tokens on current tab
+	# tabs of tokens grouped by type
+	# switch between tabs
+	# hotkeys for tokens on current tab
 	cursor in command tree for where current elements on current tab would go
 		- this might differ if some accept left parameters and some don't
+	if there are no valid elements on current tab, go to next
+	maybe skip left parameters by default, and have a different hotkey for enabling them (so tab is go to next, shift might be show left params for this type, or caps lock to toggle allowing them or not)
 
 cleanup
 	Consider shared interface for CommandElement and CommandParameter because so much is shared anyways
@@ -65,6 +66,7 @@ bugs
 	? CommandParameter::GetAllowedTypes -> Table<ET::Enum, int> with counts
 		ParamSingleImpliedOptions can accept multiple counts of the same argument type, I think? most parameters still return a single count. What about OneOf?
 	Evaluate should be const. default_value should not be assigned to argument
+	The current setup for numbers allows for an extra left-param because the rightmost leaf also accepts one. Should resolve by changing how literals are input
 
 
 # old

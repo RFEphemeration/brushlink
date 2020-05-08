@@ -52,6 +52,7 @@ CommandCard::CommandCard(CommandContext & context)
 	, tabs{}
 	, tab_type_indexes{}
 	, active_tab_index{0}
+	, active_tab_has_allowed{true}
 	, page_row_offset{0}
 	, priority_next_count{0}
 {
@@ -96,10 +97,7 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 		}
 		else
 		{
-			CHECK_RETURN(context.HandleToken(result.GetValue()));
-			priority_next_count = 0;
-			PickTabBasedOnContextState();
-			return Success();
+			return HandleToken(result.GetValue());
 		}
 	}
 	else
@@ -107,39 +105,22 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 		auto & key = hotkeys.at(input);
 		if (std::holds_alternative<ElementToken>(key.input))
 		{
-			CHECK_RETURN(context.HandleToken(std::get<ElementToken>(key.input)));
-			priority_next_count = 0;
-			PickTabBasedOnContextState();
-			return Success();
+			return HandleToken(std::get<ElementToken>(key.input));
 		}
 		else if (std::holds_alternative<TabNav>(key.input))
 		{
-			switch(std::get<TabNav>(key.input))
+			TabNav operation = std::get<TabNav>(key.input);
+			switch(operation)
 			{
 				case TabNav::GoToType:
 					return Error("GoToType is unimplemented");
 				case TabNav::Left:
-					SwitchToTab((active_tab_index - 1) % tabs.size());
-					return Success();
 				case TabNav::Right:
-					SwitchToTab((active_tab_index + 1) % tabs.size());
-					return Success();
 				case TabNav::NextHighestPriority:
-					priority_next_count += 1;
-					PickTabBasedOnContextState();
-					return Success();
 				case TabNav::MoreOptionsForCurrentType:
-					SwitchToNextPageOnTab();
-					return Success();
 				case TabNav::Back:
-					// @Feature TabNavBack
-					priority_next_count -= 1;
-					if (priority_next_count < 0)
-					{
-						priority_next_count = 0;
-					}
-					PickTabBasedOnContextState();
-					// return Error("TabNav Back is unimplemented");
+					RepeatTabOperationUntilContainsAllowed(operation);
+					return Success();
 				default:
 					return Error("Invalid TabNav value");
 			}
@@ -156,12 +137,62 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 			{
 				return Error("Hotkey is out of tab bounds, column");
 			}
-			CHECK_RETURN(context.HandleToken(tab.tokens[index.first][index.second]));
-			priority_next_count = 0;
-			PickTabBasedOnContextState();
-			return Success();
+			return HandleToken(tab.tokens[index.first][index.second]);
 		}
 	}
+}
+
+ErrorOr<Success> CommandCard::HandleToken(ElementToken token)
+{
+	CHECK_RETURN(context.HandleToken(token));
+	// feels a little weird to preempt adding 1 inside of Repeat...
+	priority_next_count = -1;
+	RepeatTabOperationUntilContainsAllowed(TabNav::NextHighestPriority);
+	return Success();
+}
+
+void CommandCard::RepeatTabOperationUntilContainsAllowed(TabNav operation)
+{
+	// that priority_next_count goes up/down by more than one with each operation
+	// feels pretty bad... but going over each possibility and only counting it if
+	// there are allowed elements feels expensive.
+	do
+	{
+		switch(operation)
+		{
+			case TabNav::Left:
+				SwitchToTab((active_tab_index - 1) % tabs.size());
+				break;
+			case TabNav::Right:
+				SwitchToTab((active_tab_index + 1) % tabs.size());
+				break;
+			case TabNav::NextHighestPriority:
+				priority_next_count += 1;
+				PickTabBasedOnContextState();
+				break;
+			case TabNav::MoreOptionsForCurrentType:
+				SwitchToNextPageOnTab();
+				break;
+			case TabNav::Back:
+				{
+					// @Feature TabNavBack
+					priority_next_count -= 1;
+					bool hit_end = priority_next_count <= 0;
+					if (hit_end)
+					{
+						priority_next_count = 0;
+					}
+					PickTabBasedOnContextState();
+					if (hit_end)
+					{
+						return;
+					}
+				}
+				break;
+			default:
+				break;
+		}
+	} while (active_tab_index != 0 && !active_tab_has_allowed);
 }
 
 void CommandCard::PickTabBasedOnContextState()
@@ -227,17 +258,38 @@ void CommandCard::PickTabBasedOnContextState()
 
 void CommandCard::SwitchToTab(int index)
 {
-	int old_active = active_tab_index;
 	active_tab_index = index % tabs.size();
-	if (old_active != active_tab_index)
+	auto & tab = tabs[active_tab_index];
+	// should we always reset page row offset?
+	// automatically scroll to first page_row_offset with a value?
+	// could consider caching this on append element, or at least when calculated
+	for (int offset = 0; offset < tab.tokens.size(); offset += rows)
 	{
-		// should we always reset page row offset?
-		page_row_offset = 0;
+		page_row_offset = offset;
+		int last_row = std::min(page_row_offset + rows,
+			static_cast<int>(tab.tokens.size()));
+
+		for (int r = page_row_offset; r < last_row; r++)
+		{
+			for(int c = 0; c < tab.tokens[r].size(); c++)
+			{
+				if(context.IsAllowed(tab.tokens[r][c]))
+				{
+					active_tab_has_allowed = true;
+					return;
+				}
+			}
+		}
 	}
+	
+	// none of the offsets had an allowed value
+	page_row_offset = 0;
+	active_tab_has_allowed = false;
 }
 
 void CommandCard::SwitchToNextPageOnTab()
 {
+	// should this skip to next allowed elements or not?
 	page_row_offset += rows;
 
 	if (page_row_offset >= tabs[active_tab_index].tokens.size())

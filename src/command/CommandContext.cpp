@@ -1,5 +1,6 @@
 #include "CommandContext.h"
 
+#include "ContainerExtensions.hpp"
 #include "VariantExtensions.hpp"
 
 #include "CommandParameter.hpp"
@@ -512,12 +513,12 @@ void CommandContext::BreakUndoChain(ElementToken token)
 bool CommandContext::IsAllowed(ElementToken token)
 {
 	// should we assume tokens have associated elements?
-	if (element_dictionary.count(token.name.value) <= 0)
+	if (!Contains(element_dictionary, token.name.value))
 	{
 		return false;
 	}
 
-	if (allowed.total_instruction.count(token.type) > 0
+	if (Contains(allowed.total_instruction, token.type)
 		&& allowed.total_instruction[token.type] > 0)
 	{
 		return true;

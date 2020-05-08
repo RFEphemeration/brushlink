@@ -61,6 +61,7 @@ struct CommandCard
 	// these change as you input
 
 	int active_tab_index;
+	bool active_tab_has_allowed;
 	// reset when you switch tabs
 	int page_row_offset;
 	// reset when you append an element
@@ -71,6 +72,8 @@ struct CommandCard
 	void SetupTabs(std::vector<ElementToken> tokens);
 
 	ErrorOr<Success> HandleInput(std::string input);
+	ErrorOr<Success> HandleToken(ElementToken token);
+	void RepeatTabOperationUntilContainsAllowed(TabNav operation);
 	void PickTabBasedOnContextState();
 	void SwitchToTab(int index);
 	void SwitchToNextPageOnTab();
