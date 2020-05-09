@@ -18,6 +18,7 @@ const Table<ET::Enum, Set<ET::Enum>> CommandContext::allowed_with_implied{
 	//{ET::Selector, {ET::Set, ET::Filter, ET::Group_Size, ET::Superlative}},
 	//{ET::Location, {ET::Point, ET::Line, ET::Direction, ET::Area}},
 	//{ET::Set, {ET::Number}} // Command Group, this feels like it would come up unintentionally too often
+	{ET::Number, {ET::Digit}} // Number literal
 };
 
 // @Incomplete implied node priority
@@ -45,6 +46,8 @@ const Table<ET::Enum, Table<ET::Enum, ElementName>> CommandContext::implied_elem
 					// this might depend on next_type, too
 					// in which case we might as well just type them out
 					name = "CommandGroup";
+				case ET::Number:
+					name = "NumberLiteral";
 				default:
 					Error("Add more element types to the implied elements constructor").Log();
 			}
@@ -122,7 +125,14 @@ void CommandContext::InitElementDictionary()
 					Param(*this, ET::Area)
 				})
 			}
-		)}
+		)},
+		{"NumberLiteral", MakeContextFunction(
+			ET::Number,
+			&CommandContext::NumberLiteral,
+			{
+				Param(*this, ET::Digit, Repeatable)
+			}
+		)},
 	});
 
 	// in stages...
@@ -299,8 +309,19 @@ void CommandContext::InitElementDictionary()
 			{ }
 		)},
 		*/
+		{"Zero", MakeLiteral(Digit(0))},
+		{"One", MakeLiteral(Digit(1))},
+		{"Two", MakeLiteral(Digit(2))},
+		{"Three", MakeLiteral(Digit(3))},
+		{"Four", MakeLiteral(Digit(4))},
+		{"Five", MakeLiteral(Digit(5))},
+		{"Six", MakeLiteral(Digit(6))},
+		{"Seven", MakeLiteral(Digit(7))},
+		{"Eight", MakeLiteral(Digit(8))},
+		{"Nine", MakeLiteral(Digit(9))},
 	});
 
+	/*
 	auto add_number = [&](std::string name, int value)
 	{
 		element_dictionary.insert({
@@ -331,6 +352,7 @@ void CommandContext::InitElementDictionary()
 	add_number("Seven", 7);
 	add_number("Eight", 8);
 	add_number("Nine",  9);
+	*/
 
 	/* // word elements defined in terms of the others
 	element_dictionary.insert({
@@ -863,9 +885,21 @@ ErrorOr<Point> CommandContext::PositionOf(UnitGroup group)
 	return total / group.members.size();
 }
 
+/*
 ErrorOr<Number> CommandContext::AppendDecimalDigit(Number so_far, Number next)
 {
 	return Number{so_far.value * 10 + next.value};
+}
+*/
+
+ErrorOr<Number> CommandContext::NumberLiteral(std::vector<Digit> digits)
+{
+	int value = 0;
+	for (auto & digit : digits)
+	{
+		value = (value * 10) + digit.value;
+	}
+	return Number{value};
 }
 
 } // namespace Command

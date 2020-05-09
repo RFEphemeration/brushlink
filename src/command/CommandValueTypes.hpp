@@ -52,6 +52,12 @@ struct NumberTag
 };
 using Number = NamedType<int, NumberTag>;
 
+struct DigitTag
+{
+	static HString GetName() { return "Command::Digit"; }
+};
+using Digit = NamedType<int, DigitTag>;
+
 using Filter = std::function<UnitGroup(UnitGroup)>;
 // is GroupSize this just a number?
 using GroupSize = std::function<Number(UnitGroup)>;
@@ -282,6 +288,7 @@ using Value = std::variant<
 	GroupSize,
 	Superlative,
 	Number,
+	Digit,
 	Unit_Type,
 	Ability_Type,
 	Attribute_Type,
@@ -297,6 +304,10 @@ ElementType::Enum GetElementType()
 	if constexpr(std::is_same_v<TVal, Number>)
 	{
 		return ElementType::Number;
+	}
+	else if constexpr(std::is_same_v<TVal, Digit>)
+	{
+		return ElementType::Digit;
 	}
 	else if constexpr(std::is_same_v<TVal, Unit_Type>)
 	{
@@ -348,6 +359,7 @@ template<typename... Ts>
 using One_Of = std::variant<Ts...>;
 
 
+
 template<typename TValue>
 struct Underlying
 {
@@ -355,20 +367,7 @@ struct Underlying
 };
 
 template<typename TValue>
-struct Underlying<Repeatable<TValue> >
-{
-	using Type = TValue;
-};
-
-template<typename TValue>
-struct Underlying<Optional<TValue> >
-{
-	using Type = TValue;
-};
-
-// uncomment if OptionalRepeatable uses a different type than Repeatable
-template<typename TValue>
-struct Underlying<OptionalRepeatable<TValue> >
+struct Underlying<std::vector<TValue> >
 {
 	using Type = TValue;
 };

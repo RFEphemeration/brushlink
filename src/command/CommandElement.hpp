@@ -240,6 +240,19 @@ struct ContextFunction : CommandElement
 		return new ContextFunction(*this);
 	}
 
+	template<int N>
+	ErrorOr<NthTypeOf<N, TArgs...> > EvaluateParam(CommandParameter * param, CommandContext & context)
+	{
+		if constexpr (IsSpecialization<NthTypeOf<N, TArgs...>, std::vector>::value)
+		{
+			return param->template EvaluateAsRepeatable<typename NthTypeOf<N, TArgs...>::value_type>(context);
+		}
+		else
+		{
+			return param->template EvaluateAs<NthTypeOf<N, TArgs...> >(context);
+		}
+	}
+
 	ErrorOr<Value> Evaluate(CommandContext & context) override
 	{
 		if constexpr(sizeof...(TArgs) == 0)
@@ -261,14 +274,14 @@ struct ContextFunction : CommandElement
 
 		if constexpr(sizeof...(TArgs) == 1)
 		{
-			auto one = params[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
+			auto one = EvaluateParam<0>(params[0], context);
 			if (one.IsError()) return one.GetError();
 			return Value{CHECK_RETURN((context.*func)(one.GetValue()))};
 		}
 		else if constexpr(sizeof...(TArgs) == 2)
 		{
-			auto one = params[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
-			auto two = params[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
+			auto one = EvaluateParam<0>(params[0], context);
+			auto two = EvaluateParam<1>(params[1], context);
 			if (one.IsError()) return one.GetError();
 			if (two.IsError()) return two.GetError();
 			return Value{CHECK_RETURN((context.*func)(
@@ -277,9 +290,9 @@ struct ContextFunction : CommandElement
 		}
 		else if constexpr(sizeof...(TArgs) == 3)
 		{
-			auto one = params[0]->template EvaluateAs<NthTypeOf<0, TArgs...> >(context);
-			auto two = params[1]->template EvaluateAs<NthTypeOf<1, TArgs...> >(context);
-			auto three = params[2]->template EvaluateAs<NthTypeOf<2, TArgs...> >(context);
+			auto one = EvaluateParam<0>(params[0], context);
+			auto two = EvaluateParam<1>(params[1], context);
+			auto three = EvaluateParam<2>(params[2], context);
 			if (one.IsError()) return one.GetError();
 			if (two.IsError()) return two.GetError();
 			if (three.IsError()) return three.GetError();

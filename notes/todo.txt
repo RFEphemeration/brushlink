@@ -37,6 +37,7 @@ features
 		most distal and lowest parameter index
 	hide some elements from the command card
 	sort elements on command card
+	replace previous argument of type (for back up the stack editing without undo)
 
 interface
 	# tabs of tokens grouped by type
@@ -46,6 +47,7 @@ interface
 		- this might differ if some accept left parameters and some don't
 	if there are no valid elements on current tab, go to next
 	maybe skip left parameters by default, and have a different hotkey for enabling them (so tab is go to next, shift might be show left params for this type, or caps lock to toggle allowing them or not)
+	if you type in an element from a tab and at the next cursor location the same tab is valid, but another tab appears before it in the priority list, I think we shouldn't switch. This is probably useful for things like Names which can be made of Letters and Digits
 
 cleanup
 	Consider shared interface for CommandElement and CommandParameter because so much is shared anyways

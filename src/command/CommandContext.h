@@ -145,7 +145,9 @@ struct CommandContext
 
 	// This is used to construct the base numbers
 	// that take a left param & implicit right param
-	ErrorOr<Number> AppendDecimalDigit(Number so_far, Number next);
+	//ErrorOr<Number> AppendDecimalDigit(Number so_far, Number next);
+
+	ErrorOr<Number> NumberLiteral(std::vector<Digit> digits);
 
 
 }; // struct CommandContext;

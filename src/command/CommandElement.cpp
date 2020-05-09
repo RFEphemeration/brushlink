@@ -11,7 +11,8 @@ namespace Command
 
 void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 {
-	int last_param_with_args = -1;
+	// @Feature permutable
+	int first_param_for_args = 0;
 
 	// find the last parameter that has arguments.
 	// we can't go backwards (for now, until we implement permutable)
@@ -28,17 +29,12 @@ void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 		if (argument != nullptr
 			&& argument->IsExplicitOrHasExplicitChild())
 		{
-			last_param_with_args = index;
-			argument->GetAllowedArgumentTypes(allowed);
-			if (!argument->ParametersSatisfied())
-			{
-				return;
-			}
+			first_param_for_args = index;
 			break;
 		}
 	}
 
-	for (int index = last_param_with_args + 1; index < parameters.size(); index++)
+	for (int index = first_param_for_args; index < parameters.size(); index++)
 	{
 		CommandElement * argument = parameters[index]->GetLastArgument();
 		if (argument != nullptr)
@@ -49,40 +45,50 @@ void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 			{
 				return;
 			}
-			continue;
+			// intentional fall through here for Repeatable params
 		}
 
 		// there are no implicit arguments in this parameter
 		// so we just ask the parameter directly
 		auto param_allowed = parameters[index]->GetAllowedTypes();
 
-		for (auto&& type : param_allowed)
+		if (param_allowed.size() > 0)
 		{
-			allowed.Append({type});
-		}
-
-		// @Cleanup @Performance we could probably do this once in the Parameter
-		// rather than every time in the element
-		// checking for implied args to param here so that
-		// the count (used for skip) matches the number of params
-		// it's nice that they're lower priority than the normal allowed types
-		// should we keep track of what we would imply? for the CommandCard to show
-		Set<ElementType::Enum> param_allowed_with_implied;
-		for (auto&& pair : CommandContext::allowed_with_implied)
-		{
-			if (!Contains(param_allowed, pair.first))
+			for (auto&& type : param_allowed)
 			{
-				continue;
+				allowed.Append({type});
 			}
-			param_allowed_with_implied.merge(Set<ElementType::Enum>{pair.second});
-		}
-		for (auto&& type : param_allowed_with_implied)
-		{
-			allowed.Append({type});
+
+			// @Cleanup @Performance we could probably do this once in the Parameter
+			// rather than every time in the element
+			// checking for implied args to param here so that
+			// the count (used for skip) matches the number of params
+			// it's nice that they're lower priority than the normal allowed types
+			// should we keep track of what we would imply? for the CommandCard to show
+			Set<ElementType::Enum> param_allowed_with_implied;
+			for (auto&& pair : CommandContext::allowed_with_implied)
+			{
+				if (!Contains(param_allowed, pair.first))
+				{
+					continue;
+				}
+				param_allowed_with_implied.merge(Set<ElementType::Enum>{pair.second});
+			}
+			for (auto&& type : param_allowed_with_implied)
+			{
+				// don't double add something that is allowed as implied and not implied
+				// @Cleanup do we need this?
+				if (Contains(param_allowed, type))
+				{
+					continue;
+				}
+				allowed.Append({type});
+			}
 		}
 
 		// @Feature permutable
-		if (parameters[index]->IsRequired())
+		if (parameters[index]->IsRequired()
+			&& !parameters[index]->IsSatisfied())
 		{
 			return;
 		}
@@ -97,7 +103,7 @@ void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 
 ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int & skip_count)
 {
-	int last_param_with_args = -1;
+	int first_param_for_args = 0;
 	for (int index = parameters.size() - 1; index >= 0 ; index--)
 	{
 		// earlier arguments to parameters can't be revisited
@@ -105,17 +111,12 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 		if (argument != nullptr
 			&& argument->IsExplicitOrHasExplicitChild())
 		{
-			last_param_with_args = index;
-			bool result = CHECK_RETURN(argument->AppendArgument(context, std::move(next), skip_count));
-			if (result)
-			{
-				return true;
-			}
+			first_param_for_args = index;
 			break;
 		}
 	}
 
-	for (int index = last_param_with_args+1; index < parameters.size(); index++)
+	for (int index = first_param_for_args; index < parameters.size(); index++)
 	{
 		CommandElement * argument = parameters[index]->GetLastArgument();
 		if (argument != nullptr)
@@ -126,7 +127,7 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 			{
 				return true;
 			}
-			continue;
+			// intentional fallthrough for Repeatable parameters
 		}
 		
 		auto allowed_types = parameters[index]->GetAllowedTypes();
@@ -172,7 +173,8 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 		}
 
 		// @Incomplete permutable
-		if (parameters[index]->IsRequired())
+		if (parameters[index]->IsRequired()
+			&& !parameters[index]->IsSatisfied())
 		{
 			return Error("Can't append because a preceding parameter has not been satisfied");
 		}
