@@ -36,6 +36,7 @@ features
 	AcceptedArgumentType priority
 		most distal and lowest parameter index
 	hide some elements from the command card
+	sort elements on command card
 
 interface
 	# tabs of tokens grouped by type

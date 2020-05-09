@@ -40,6 +40,43 @@ const Table<std::string, CommandCard::CardInput> default_hotkeys{
 	{"v", {std::pair<int,int>{3,3}}},
 };
 
+const Table<ElementType::Enum, int> default_tab_type_indexes{
+	{ElementType::Skip, 0},
+	{ElementType::Undo, 0},
+	{ElementType::Redo, 0},
+	{ElementType::Cancel, 0},
+	{ElementType::Termination, 0},
+
+	{ElementType::Command, -1},
+
+	{ElementType::Action, 1},
+
+	{ElementType::Condition, 2},
+
+	{ElementType::Selector, 3}, // for Union and such
+	{ElementType::Set, 3}, // could this be shared with selector?
+	{ElementType::Filter, 3},
+	{ElementType::Group_Size, 3},
+	{ElementType::Superlative, 3},
+
+	{ElementType::Location, 4},
+	{ElementType::Point, 4},
+	{ElementType::Line, 4},
+	{ElementType::Area, 4},
+	{ElementType::Direction, 4},
+
+	{ElementType::Number, 5},
+	{ElementType::Digit, 5},
+
+	//Name
+	//Letter
+
+	{ElementType::Unit_Type, 6},
+	{ElementType::Attribute_Type, 7},
+	{ElementType::Ability_Type, 8},
+	{ElementType::Resource_Type, 9},
+};
+
 const std::string horizontal_line = "––––––––––––––––––––––––––––––––––––––––";
 
 // @Feature different default_hotkeys for numbers of columns/rows
@@ -49,8 +86,8 @@ CommandCard::CommandCard(CommandContext & context)
 	, rows{default_rows}
 	, hotkeys{default_hotkeys}
 	, context{context}
-	, tabs{}
-	, tab_type_indexes{}
+	, tabs{10}
+	, tab_type_indexes{default_tab_type_indexes}
 	, active_tab_index{0}
 	, active_tab_has_allowed{true}
 	, page_row_offset{0}
@@ -63,7 +100,10 @@ CommandCard::CommandCard(CommandContext & context)
 void CommandCard::SetupTabs(std::vector<ElementToken> tokens)
 {
 	// first tab is for punctuation, for now
-	tabs.emplace_back();
+	if (tabs.size() == 0)
+	{
+		tabs.emplace_back();
+	}
 	tab_type_indexes[ElementType::Skip] = 0;
 	tab_type_indexes[ElementType::Undo] = 0;
 	tab_type_indexes[ElementType::Redo] = 0;
@@ -75,6 +115,11 @@ void CommandCard::SetupTabs(std::vector<ElementToken> tokens)
 		{
 			tab_type_indexes[token.type] = tabs.size();
 			tabs.emplace_back();
+		}
+		if (tab_type_indexes[token.type] == -1)
+		{
+			// this token is not of a public type, i.e. Command
+			continue;
 		}
 		auto & tab = tabs[tab_type_indexes[token.type]];
 		if (tab.tokens.size() == 0
@@ -115,7 +160,11 @@ ErrorOr<Success> CommandCard::HandleInput(std::string input)
 				case TabNav::GoToType:
 					return Error("GoToType is unimplemented");
 				case TabNav::Left:
+					SwitchToTab((active_tab_index + tabs.size() - 1) % tabs.size());
+					return Success();
 				case TabNav::Right:
+					SwitchToTab((active_tab_index + 1) % tabs.size());
+					return Success();
 				case TabNav::NextHighestPriority:
 				case TabNav::MoreOptionsForCurrentType:
 				case TabNav::Back:
@@ -231,22 +280,25 @@ void CommandCard::PickTabBasedOnContextState()
 	}
 	else
 	{
-		ElementType::Enum current = remaining.priority[0].type;
+		// next should change tab, so we keep track of the tab index rather than the type
+		int current_tab_index = tab_type_indexes[remaining.priority[0].type];
 		int priority_next = priority_next_count;
-		for(int i = 0; i < priority_length; i++)
+		for (auto & allowed : remaining.priority)
 		{
-			// is next by type, and skip for disambiguating between arguments of the same type?
-			// or should you be able to use next instead of skip?
-			// in which case we don't really need skip
-			if (remaining.priority[i].type != current)
+			int tab_index = tab_type_indexes[allowed.type];
+			if (tab_index < 0)
+			{
+				continue;
+			}
+			if (tab_index != current_tab_index)
 			{
 				priority_next -= 1;
-				current = remaining.priority[i].type;
+				current_tab_index = tab_index;
 			}
 			if (priority_next == 0)
 			{
-				SwitchToTab(tab_type_indexes[current]);
-                return;
+				SwitchToTab(current_tab_index);
+				return;
 			}
 		}
 
@@ -340,8 +392,12 @@ std::string CommandCard::MakeCurrentTabPrintString()
 			line = "";
 		}
 	}
-	output += line + "\n" + horizontal_line + "\n";
-	line = "";
+	if (!line.empty())
+	{
+		output += line + "\n";
+		line = "";
+	}
+	output += horizontal_line + "\n";
 	auto & tab = tabs[active_tab_index];
 	int last_row = std::min(page_row_offset + rows, static_cast<int>(tab.tokens.size()));
 	for (int r = page_row_offset; r < last_row; r++)

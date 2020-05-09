@@ -38,28 +38,31 @@ enum Enum
 	Area =                 1 << 11,
 	Direction =            1 << 12,
 
-	// Direction?
-
 	Unit_Type =            1 << 13,
 	Attribute_Type =       1 << 14, // drop _Type?
 	Ability_Type =         1 << 15, // skill?
 	Resource_Type =        1 << 16,
 
 	Number =               1 << 17,
+	// used for Number literal construction
+	Digit =                1 << 18,
+
+	//Name
+	//Letter
 
 	// @Cleanup maybe combine into single type Instruction? Punctuation?
 	// would require handling Allowed slightly differently
-	Skip =                 1 << 18,
-	Termination =          1 << 19,
-	Cancel =               1 << 20,
-	Undo =                 1 << 21,
-	Redo =                 1 << 22,
+	Skip =                 1 << 19,
+	Termination =          1 << 20,
+	Cancel =               1 << 21,
+	Undo =                 1 << 22,
+	Redo =                 1 << 23,
 	// RepeatLastCommand
 	// Begin_Word? End_Word?
 
-	Mouse_Input =          1 << 23,
+	Mouse_Input =          1 << 24,
 
-	Parameter_Reference =  1 << 24
+	Parameter_Reference =  1 << 25
 
 	// these are probably not appropriate types because of the way fields are compared
 	// but really I need to think about how to compare fields more thoroughly
@@ -129,6 +132,8 @@ inline std::string ToString(ElementType::Enum a)
 		return "Resource_Type";
 	case ElementType::Number:
 		return "Number";
+	case ElementType::Digit:
+		return "Digit";
 	case ElementType::Skip:
 		return "Skip";
 	case ElementType::Undo:

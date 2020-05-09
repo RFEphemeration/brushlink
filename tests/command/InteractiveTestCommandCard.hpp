@@ -32,11 +32,6 @@ public:
 
 		CommandCard card{context};
 
-		std::cout << "AST - " << std::endl;
-		std::cout << context.command->GetPrintString("    ");
-
-		Set<ElementName> validNextElements;
-
 		while (true)
 		{
 			std::cout << context.command->GetPrintString("");

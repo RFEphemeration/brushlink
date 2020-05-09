@@ -12,3 +12,6 @@ current command buffer
 
 	cursor
 		command card location should be enough combined with priority allowed arguments to put a cursor at the location where an element on this tab would go
+
+
+having selector be a left parameter of action had the nice side effect of letting action inputs delineate when to stop selecting. Otherwise selections are pretty intense.
