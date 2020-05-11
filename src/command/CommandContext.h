@@ -53,6 +53,7 @@ struct CommandContext
 	UnitGroup current_selection;
 	Table<int, UnitGroup> command_groups;
 	Table<HString, value_ptr<CommandElement> > element_dictionary;
+	Table<HString, value_ptr<CommandElement> > private_element_dictionary;
 
 	// these could be more levels of const but it's a pain to work with them
 	// so we're just going to pretend they're not and that one const is enough
@@ -141,14 +142,6 @@ struct CommandContext
 	// Point
 	ErrorOr<Point> PositionOf(UnitGroup group);
 	// Point MousePosition();
-
-
-	// This is used to construct the base numbers
-	// that take a left param & implicit right param
-	//ErrorOr<Number> AppendDecimalDigit(Number so_far, Number next);
-
-	ErrorOr<Number> NumberLiteral(std::vector<Digit> digits);
-
 
 }; // struct CommandContext;
 

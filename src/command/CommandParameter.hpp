@@ -99,9 +99,8 @@ value_ptr<CommandParameter> Param(
 	OccurrenceFlags::Enum flags);
 
 value_ptr<CommandParameter> ParamImplied(
-	CommandContext & context,
-	ElementName default_value_name,
-	value_ptr<CommandElement>&& default_value);
+	CommandContext& context,
+	value_ptr<CommandElement>& default_value);
 
 inline value_ptr<CommandParameter> Param(CommandContext & context, ElementType::Enum type, ElementName default_value)
 {
@@ -201,7 +200,7 @@ struct ParamSingleImpliedOptions : ParamSingleRequired
 	// @Incomplete should optional without default value be possible?
 	std::vector<value_ptr<CommandElement>> implied_options;
 
-	ParamSingleImpliedOptions(ElementType::Enum type, std::vector<value_ptr<CommandElement>> implied_options);
+	ParamSingleImpliedOptions(ElementType::Enum type, std::vector<value_ptr<CommandElement>>&& implied_options);
 
 	ParamSingleImpliedOptions(const ParamSingleImpliedOptions & other)
 		: ParamSingleRequired(other)

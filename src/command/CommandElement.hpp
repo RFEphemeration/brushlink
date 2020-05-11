@@ -19,35 +19,52 @@ enum class Implicit
 
 struct CommandElement
 {
-	// @Incomplete make name const and pass through constructor chain
-	ElementName name;
-	// @Incomplete probably should do this with implied, too
-	Implicit implicit;
+	const ElementName name;
 	const ElementType::Enum type;
 	// todo: think more about left parameter here
 	// out of scope idea: left parameter OneOf causing dependent type.
 	const value_ptr<CommandParameter> left_parameter;
 	const std::vector<value_ptr<CommandParameter> > parameters;
 
+	// these changes depending on contextual use, so they cannot be const
+	Implicit implicit;
+
 	// @Cleanup this is an awkward member
 	// should probably just point to parent and call functions
 	value_ptr<CommandElement> * location_in_parent;
 
-	CommandElement(ElementType::Enum type,
-		value_ptr<CommandParameter> left_parameter,
-		std::vector<value_ptr<CommandParameter> > parameters)
-		: implicit(Implicit::None)
+	CommandElement(ElementName name,
+		ElementType::Enum type,
+		value_ptr<CommandParameter>&& left_parameter,
+		std::vector<value_ptr<CommandParameter> >&& parameters,
+		Implicit implicit = Implicit::None)
+		: name(name)
 		, type(type)
 		, left_parameter(std::move(left_parameter))
-		, parameters(parameters)
+		, parameters(std::move(parameters))
+		, implicit(implicit)
+		, location_in_parent(nullptr)
 	{ }
 
-	CommandElement(ElementType::Enum type,
-		std::vector<value_ptr<CommandParameter> > parameters)
-		: implicit(Implicit::None)
+	CommandElement(ElementName name,
+		ElementType::Enum type,
+		std::vector<value_ptr<CommandParameter> >&& parameters = {},
+		Implicit implicit = Implicit::None)
+		: name(name)
 		, type(type)
 		, left_parameter(nullptr)
-		, parameters(parameters)
+		, parameters(std::move(parameters))
+		, implicit(implicit)
+		, location_in_parent(nullptr)
+	{ }
+
+	CommandElement(CommandElement && other)
+		: name(other.name)
+		, implicit(other.implicit)
+		, type(other.type)
+		, left_parameter(std::move(other.left_parameter))
+		, parameters(std::move(other.parameters))
+		, location_in_parent(nullptr)
 	{ }
 
 	CommandElement(const CommandElement & other)
@@ -56,6 +73,7 @@ struct CommandElement
 		, type(other.type)
 		, left_parameter(other.left_parameter)
 		, parameters(other.parameters)
+		, location_in_parent(nullptr)
 	{ }
 
 	virtual ~CommandElement() = default;
@@ -92,7 +110,7 @@ struct CommandElement
 
 	bool ParametersSatisfied();
 
-	std::string GetPrintString(std::string line_prefix);
+	virtual std::string GetPrintString(std::string line_prefix);
 
 	template<typename T>
 	ErrorOr<T> EvaluateAs(CommandContext & context)
@@ -169,10 +187,21 @@ struct Literal : CommandElement
 {
 	TVal value;
 
-	Literal(ElementType::Enum type, TVal value)
-		: CommandElement(type, {})
+	Literal(ElementName name, TVal value)
+		: CommandElement(name, GetElementType<TVal>())
 		, value(value)
 	{ }
+
+
+	Literal(CommandElement&& element, TVal value)
+		: CommandElement(element)
+		, value(value)
+	{
+		if (parameters.size() > 0 || left_parameter != nullptr)
+		{
+			// todo error here
+		}
+	}
 
 	Literal(const Literal & other)
 		: CommandElement(other)
@@ -191,39 +220,17 @@ struct Literal : CommandElement
 	}
 };
 
-template<typename TVal>
-value_ptr<CommandElement> MakeLiteral(
-	TVal value,
-	ElementName name = "")
-{
-	auto * element = new Literal<TVal>{ GetElementType<TVal>(), value };
-	if (name.value != "")
-	{
-		element->name = name;
-	}
-	return element;
-}
-
 template<typename TRet, typename ... TArgs>
 struct ContextFunction : CommandElement
 {
 	ErrorOr<TRet> (CommandContext::*func)(TArgs...);
 
-	ContextFunction(ElementType::Enum type,
-		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-		value_ptr<CommandParameter>&& left_parameter,
-		std::vector<value_ptr<CommandParameter> > params)
-		: CommandElement(type, left_parameter, params)
-		, func(func)
-	{ }
-
-	ContextFunction(ElementType::Enum type,
-		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-		std::vector<value_ptr<CommandParameter> > params)
-		: CommandElement(type, params)
+	ContextFunction(CommandElement&& element,
+		ErrorOr<TRet> (CommandContext::*func)(TArgs...))
+		: CommandElement(element)
 		, func(func)
 	{
-		if (sizeof...(TArgs) != params.size())
+		if (sizeof...(TArgs) != parameters.size())
 		{
 			// todo: error here, also consider checking types
 		}
@@ -305,38 +312,16 @@ struct ContextFunction : CommandElement
 };
 
 template<typename TRet, typename ... TArgs>
-value_ptr<CommandElement> MakeContextFunction(
-	ElementType::Enum type,
-	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-	std::vector<value_ptr<CommandParameter>> params)
-{
-	return new ContextFunction{ type, func, params };
-}
-
-template<typename TRet, typename ... TArgs>
-value_ptr<CommandElement> MakeContextFunction(
-	ElementType::Enum type,
-	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-	value_ptr<CommandParameter>&& left_parameter,
-	std::vector<value_ptr<CommandParameter>> params)
-{
-	return new ContextFunction{ type, func, std::move(left_parameter), params };
-}
-
-
-
-template<typename TRet, typename ... TArgs>
 struct ContextFunctionWithActors : CommandElement
 {
 	ErrorOr<TRet> (CommandContext::*func)(TArgs...);
 
-	ContextFunctionWithActors(ElementType::Enum type,
-		ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-		std::vector<value_ptr<CommandParameter> > params)
-		: CommandElement(type, params)
+	ContextFunctionWithActors(CommandElement&& element,
+		ErrorOr<TRet> (CommandContext::*func)(TArgs...))
+		: CommandElement(element)
 		, func(func)
 	{
-		if (sizeof...(TArgs) != params.size())
+		if (sizeof...(TArgs) != parameters.size())
 		{
 			// todo: error here
 		}
@@ -408,21 +393,12 @@ struct ContextFunctionWithActors : CommandElement
 	}
 };
 
-template<typename TRet, typename ... TArgs>
-value_ptr<CommandElement> MakeContextAction(
-	ElementType::Enum type,
-	ErrorOr<TRet> (CommandContext::*func)(TArgs...),
-	std::vector<value_ptr<CommandParameter>> params)
-{
-	return new ContextFunctionWithActors<TRet, TArgs...>{ type, func, params };
-}
-
 // used for Command, maybe nothing else
 struct EmptyCommandElement : CommandElement
 {
-	EmptyCommandElement(ElementType::Enum type,
-		std::vector<value_ptr<CommandParameter>> params)
-		: CommandElement(type, params)
+
+	EmptyCommandElement(CommandElement&& element)
+		: CommandElement(element)
 	{ }
 
 	EmptyCommandElement(const EmptyCommandElement & other)
@@ -456,8 +432,17 @@ struct SelectorCommandElement : CommandElement
 	{ }
 	*/
 
-	SelectorCommandElement(std::vector<value_ptr<CommandParameter>>&& params)
-		: CommandElement(ElementType::Selector, params)
+	SelectorCommandElement(value_ptr<CommandParameter>&& set_param)
+		: CommandElement("Selector",
+			ElementType::Selector,
+			{set_param,
+			new ParamRepeatableOptional{ElementType::Filter, ""},
+			new ParamSingleOptional{ElementType::Group_Size, ""},
+			new ParamSingleOptional{ElementType::Superlative, "SuperlativeRandom"}})
+	{ }
+
+	SelectorCommandElement(CommandElement&& element)
+		: CommandElement(element)
 	{ }
 
 	SelectorCommandElement(const SelectorCommandElement & other)
@@ -473,6 +458,56 @@ struct SelectorCommandElement : CommandElement
 public:
 
 	ErrorOr<Value> Evaluate(CommandContext & context) override;
+};
+
+struct NumberLiteralCommandElement : CommandElement
+{
+	NumberLiteralCommandElement()
+		: CommandElement("NumberLiteral", ElementType::Number, {new ParamRepeatableRequired{ElementType::Digit}})
+	{ }
+
+
+	NumberLiteralCommandElement(const NumberLiteralCommandElement & other)
+		: CommandElement(other)
+	{ }
+
+	// this is intended to only be used by value_ptr internals
+	virtual CommandElement * clone() const override
+	{
+		return new NumberLiteralCommandElement(*this);
+	}
+
+	virtual std::string GetPrintString(std::string line_prefix) override
+	{
+		// @Cleanup this feels pretty gross...
+		auto* param = dynamic_cast<ParamRepeatableRequired*>(parameters[0].get());
+		if (param == nullptr)
+		{
+			return "Invalid NumberLiteral parameter";
+		}
+		int value = 0;
+		for (auto & arg : param->arguments)
+		{
+			auto* literal = dynamic_cast<Literal<Digit>*>(arg.get());
+			if (literal == nullptr)
+			{
+				return "NumberLiteral is expected to only have Literal Digit arguments";
+			}
+			value = (value * 10) + literal->value.value;
+		}
+		return line_prefix + std::to_string(value) + "\n";
+	}
+
+	ErrorOr<Value> Evaluate(CommandContext & context) override
+	{
+		auto digits = CHECK_RETURN(parameters[0]->EvaluateAsRepeatable<Digit>(context));
+		int value = 0;
+		for (auto & digit : digits)
+		{
+			value = (value * 10) + digit.value;
+		}
+		return Value{Number{value}};
+	}
 };
 
 } // namespace Command

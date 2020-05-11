@@ -57,12 +57,10 @@ value_ptr<CommandParameter> Param(
 
 value_ptr<CommandParameter> ParamImplied(
 	CommandContext& context,
-	ElementName default_value_name,
-	value_ptr<CommandElement>&& default_value)
+	value_ptr<CommandElement>& default_value)
 {
 	auto * param = new ParamSingleRequired(default_value->Type());
 	default_value->implicit = Implicit::Child;
-	default_value->name = default_value_name;
 	param->SetArgument(context, std::move(default_value));
 	return param;
 }
@@ -171,7 +169,7 @@ ErrorOr<Value> ParamSingleOptional::Evaluate(CommandContext & context) const
 
 ParamSingleImpliedOptions::ParamSingleImpliedOptions(
 	ElementType::Enum type,
-	std::vector<value_ptr<CommandElement>> implied_options)
+	std::vector<value_ptr<CommandElement>>&& implied_options)
 	: ParamSingleRequired(type)
 	, implied_options(implied_options)
 {

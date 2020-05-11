@@ -61,133 +61,147 @@ const Set<ElementType::Enum> CommandContext::instruction_element_types{
 	ET::Skip, ET::Undo, ET::Redo, ET::Termination, ET::Cancel
 };
 
+/*
+
+void CommandContext::AddDef(CommandElement * element)
+{
+	element_dictionary.insert({element->name, element});
+}
+
+using json = nlohmann::json;
+
+template<typename T>
+ErrorOr<T> GetAs(json j, std::string member)
+{
+	if (!j.contains(member))
+	{
+		return Error("object does not contain " + member);
+	}
+
+}
+
+template<typename T>
+T GetOrDefault(json j, std::string member, T value)
+{
+	auto result = GetAs<T>(j, member);
+	if (result.IsError())
+	{
+		return value;
+	}
+	return result.GetValue();
+}
+
+ErrorOr<value_ptr<CommandElement>> GetDef(json j)
+{
+	if (j.type() != json::value_t::object)
+	{
+		return Error("Expected definition to be an object");
+	}
+	std::string name = CHECK_RETURN(GetAs<std::string>(j, "name"));
+}
+
+*/
+
 void CommandContext::InitElementDictionary()
 {
+
+	auto WithImplied = [&](
+		value_ptr<CommandElement>& element,
+		int param_index,
+		value_ptr<CommandElement>& implied_value) -> value_ptr<CommandElement>&
+	{
+		implied_value->implicit = Implicit::Child;
+		element->parameters[param_index]->SetArgument(*this, std::move(implied_value));
+		return element;
+	};
+
 	element_dictionary.clear();
 
 	// basic control elements
 	element_dictionary.insert({
 		{"Termination", new EmptyCommandElement{
-			ET::Termination, { }
+			{"Termination", ET::Termination}
 		}},
 		{"Cancel", new EmptyCommandElement{
-			ET::Cancel, { }
+			{"Cancel", ET::Cancel}
 		}},
 		{"Skip", new EmptyCommandElement{
-			ET::Skip, { }
+			{"Skip", ET::Skip}
 		}},
 		{"Undo", new EmptyCommandElement{
-			ET::Undo, { }
+			{"Undo", ET::Undo}
 		}},
 		{"Redo", new EmptyCommandElement{
-			ET::Redo, { }
+			{"Redo", ET::Redo}
 		}}
 	});
 
 	// elements that are hidden or used in implied params
-	element_dictionary.insert({
-		{"Selector", new SelectorCommandElement{{
-			Param(*this, ET::Set),
-			Param(*this, ET::Filter, Repeatable | Optional),
-			Param(*this, ET::Group_Size, Optional),
-			Param(*this, ET::Superlative, "SuperlativeRandom")
-		}}},
-		// is this an appropriate way to do context sensitive defaults?
-		// it doesn't feel great
-		// maybe we should be using child command contexts
-		{"SelectorActors", new SelectorCommandElement{{
-			Param(*this, ET::Set, "CurrentSelection"),
-			Param(*this, ET::Filter, Repeatable | Optional),
-			Param(*this, ET::Group_Size, Optional),
-			Param(*this, ET::Superlative, "SuperlativeRandom")
-		}}},
-		{"SelectorFriendly", new SelectorCommandElement{{
-			Param(*this, ET::Set, "Allies"),
-			Param(*this, ET::Filter, Repeatable | Optional),
-			Param(*this, ET::Group_Size, Optional),
-			Param(*this, ET::Superlative, "SuperlativeRandom")
-		}}},
-		{"SelectorTarget", new SelectorCommandElement{{
-			Param(*this, ET::Set, "Enemies"),
-			Param(*this, ET::Filter, Repeatable | Optional),
-			Param(*this, ET::Group_Size, Optional),
-			Param(*this, ET::Superlative, "SuperlativeRandom")
-		}}},
-		{"Location", MakeContextFunction(
-			ET::Location,
-			&CommandContext::LocationConversion,
-			{
-				new OneOf(
-				{
+	private_element_dictionary.insert({
+		{"Selector", new SelectorCommandElement{
+			new ParamSingleRequired{ET::Set}
+		}},
+		{"SelectorActors", new SelectorCommandElement{
+			new ParamSingleOptional{ET::Set, "CurrentSelection"}
+		}},
+		{"SelectorFriendly", new SelectorCommandElement{
+			new ParamSingleOptional{ET::Set, "Allies"}
+		}},
+		{"SelectorTarget", new SelectorCommandElement{
+			new ParamSingleOptional{ET::Set, "Enemies"}
+		}},
+		{"Location", new ContextFunction{
+			{"Location", ET::Location, {
+				new OneOf({
 					Param(*this, ET::Point),
 					Param(*this, ET::Line),
 					Param(*this, ET::Direction),
 					Param(*this, ET::Area)
 				})
-			}
-		)},
-		{"NumberLiteral", MakeContextFunction(
-			ET::Number,
-			&CommandContext::NumberLiteral,
-			{
-				Param(*this, ET::Digit, Repeatable)
-			}
-		)},
+			}},
+			&CommandContext::LocationConversion
+		}},
+		{"NumberLiteral", new NumberLiteralCommandElement{}}
 	});
 
 	// in stages...
 	element_dictionary.insert({
-		{"Select", MakeContextAction(
-			ET::Action,
-			&CommandContext::Select,
-			{
-				Param(*this, ET::Selector, "SelectorFriendly", Implied)
-			}
-		)},
-		{"CommandGroup", MakeContextFunction(
-			ET::Set,
-			&CommandContext::CommandGroup,
-			{
-				Param(*this, ET::Number)
-			}
-		)},
+		{"Select", new ContextFunctionWithActors{
+			{"Select", ET::Action, {
+				ParamImplied(*this, GetNewCommandElement("SelectorFriendly").GetValue())
+			}},
+			&CommandContext::Select
+		}},
+		{"CommandGroup", new ContextFunction{
+			{"CommandGroup", ET::Set, {
+				new ParamSingleRequired(ET::Number)
+			}},
+			&CommandContext::CommandGroup
+		}},
+	});
+
+	private_element_dictionary.insert({
+		{"Selector/CommandGroup", new SelectorCommandElement{
+			ParamImplied(*this, GetNewCommandElement("CommandGroup").GetValue())
+		}}
 	});
 
 	element_dictionary.insert({
-		{"Selector/CommandGroup", new SelectorCommandElement{{
-			Param(*this, ET::Set, "CommandGroup", Implied),
-			Param(*this, ET::Filter, Repeatable | Optional),
-			Param(*this, ET::Group_Size, Optional),
-			Param(*this, ET::Superlative, "SuperlativeRandom")
-		}}},
-	});
-
-	element_dictionary.insert({
-		{"Select/SelectorFriendly", MakeContextAction(
-			ET::Action,
-			&CommandContext::Select,
-			{
-				Param(*this, ET::Selector, "SelectorFriendly", Implied)
-			}
-		)},
-		{"Select/Selector/CommandGroup", MakeContextAction(
-			ET::Action,
-			&CommandContext::Select,
-			{
-				Param(*this, ET::Selector, "Selector/CommandGroup", Implied)
-			}
-		)}
-	});
-
-	element_dictionary.insert({
-		{"Command", new EmptyCommandElement{
-			ET::Command,
-			{
+		{"Command", new EmptyCommandElement{{
+			"Command", ET::Command, {
 				// @Bug load order is too delicate and annoying
 				// consider loading from text in passes
-				new ParamSingleImpliedOptions(ET::Action, {
-					GetNewCommandElement("Select/SelectorFriendly").GetValue(),
-					GetNewCommandElement("Select/Selector/CommandGroup").GetValue()
+				new ParamSingleImpliedOptions(ET::Action, std::vector<value_ptr<CommandElement>>{
+					WithImplied(
+						GetNewCommandElement("Select").GetValue(),
+						0, 
+						GetNewCommandElement("SelectorFriendly").GetValue()
+					),
+					WithImplied(
+						GetNewCommandElement("Select").GetValue(),
+						0,
+						GetNewCommandElement("Selector/CommandGroup").GetValue()
+					)
 				})
 				// Param(*this, ET::Action)
 				/* @Incomplete OneOf doesn't seem to work
@@ -196,112 +210,89 @@ void CommandContext::InitElementDictionary()
 					Param(ET::Action)
 				})
 				*/
-			}
-		}}
+			}, Implicit::Child // for Undo purposes, Command is always present
+		}}}
 	});
-
-	// Considering command an implicit child for Undo purposes
-	// so we can check if any tokens have been added with command->IsExplicitOr...
-	element_dictionary["Command"]->implicit = Implicit::Child;
 
 	// the rest of the non-word elements
 	element_dictionary.insert({
-		{"Select", MakeContextAction(
-			ET::Action,
-			&CommandContext::Select,
-			{
-				Param(*this, ET::Selector, "SelectorFriendly", Implied)
-			}
-		)},
-		{"Move", MakeContextAction(
-			ET::Action,
+		{"Move", new ContextFunctionWithActors{
+			{"Move", ET::Action, {
+				ParamImplied(*this, GetNewCommandElement("SelectorActors").GetValue()),
+				ParamImplied(*this, GetNewCommandElement("Location").GetValue())
+			}},
 			&CommandContext::Move,
-			{
-				Param(*this, ET::Selector, "SelectorActors", Implied),
-				// @Bug two implied elements locks off the first
-				Param(*this, ET::Location, "Location", Implied)
-			}
-		)},
-		{"Attack", MakeContextAction(
-			ET::Action,
+		}},
+		{"Attack", new ContextFunctionWithActors{
+			{"Attack", ET::Action, {
+				ParamImplied(*this, GetNewCommandElement("SelectorActors").GetValue()),
+				ParamImplied(*this, GetNewCommandElement("SelectorTarget").GetValue())
+			}},
 			&CommandContext::Attack,
-			{
-				Param(*this, ET::Selector, "SelectorActors", Implied),
-				Param(*this, ET::Selector, "SelectorTarget", Implied)
-			}
-		)},
-		{"SetCommandGroup", MakeContextAction(
-			ET::Action,
+		}},
+		{"SetCommandGroup", new ContextFunctionWithActors{
+			{"SetCommandGroup", ET::Action, {
+				ParamImplied(*this, GetNewCommandElement("SelectorActors").GetValue()),
+				new ParamSingleRequired(ET::Number)
+			}},
 			&CommandContext::SetCommandGroup,
-			{
-				Param(*this, ET::Selector, "SelectorActors", Implied),
-				Param(*this, ET::Number)
-			}
-		)},
-		{"Enemies", MakeContextFunction(
-			ET::Set,
+		}},
+		{"Enemies", new ContextFunction{
+			{ "Enemies", ET::Set, { } },
 			&CommandContext::Enemies,
-			{}
-		)},
-		{"Allies", MakeContextFunction(
-			ET::Set,
+		}},
+		{"Allies", new ContextFunction{
+			{ "Allies", ET::Set, { } },
 			&CommandContext::Allies,
-			{}
-		)},
-		{"CurrentSelection", MakeContextFunction(
-			ET::Set,
+		}},
+		{"CurrentSelection", new ContextFunction{
+			{ "CurrentSelection", ET::Set, { } },
 			&CommandContext::CurrentSelection,
-			{}
-		)},
-		{"Actors", MakeContextFunction(
-			ET::Set,
+		}},
+		{"Actors", new ContextFunction{
+			{ "Actors", ET::Set, { } },
 			&CommandContext::Actors,
-			{}
-		)},
-		{"WithinActorsRange", MakeContextFunction(
-			ET::Filter,
+		}},
+		{"WithinActorsRange", new ContextFunction{
+			{ "WithinActorsRange", ET::Filter, { 
+				new ParamSingleRequired(ET::Number)
+			}},
 			&CommandContext::WithinActorsRange,
-			{
-				Param(*this, ET::Number)
-			}
-		)},
-		{"OnScreen", MakeContextFunction(
-			ET::Filter,
+		}},
+		{"OnScreen", new ContextFunction{
+			{ "OnScreen", ET::Filter, { }},
 			&CommandContext::OnScreen,
-			{ }
-		)},
-		{"GroupSizeLiteral", MakeContextFunction(
-			ET::Group_Size,
+		}},
+		{"GroupSizeLiteral", new ContextFunction{
+			{ "GroupSizeLiteral", ET::Group_Size, {
+				new ParamSingleRequired(ET::Number)
+			}},
 			&CommandContext::GroupSizeLiteral,
-			{
-				Param(*this, ET::Number)
-			}
-		)},
-		{"GroupActorsRatio", MakeContextFunction(
-			ET::Group_Size,
+		}},
+		{"GroupActorsRatio", new ContextFunction{
+			{ "GroupActorsRatio", ET::Group_Size, {
+				new ParamSingleRequired(ET::Number)
+			}},
 			&CommandContext::GroupActorsRatio,
-			{
-				Param(*this, ET::Number)
-			}
-		)},
-		{"SuperlativeRandom", MakeContextFunction(
-			ET::Superlative,
+		}},
+		{"SuperlativeRandom", new ContextFunction{
+			{ "SuperlativeRandom", ET::Superlative, { }},
 			&CommandContext::SuperlativeRandom,
-			{ }
-		)},
-		{"ClosestToActors", MakeContextFunction(
-			ET::Superlative,
+		}},
+		{"ClosestToActors", new ContextFunction{
+			{ "ClosestToActors", ET::Superlative, { }},
 			&CommandContext::ClosestToActors,
-			{ }
-		)},
-		{"PositionOf", MakeContextFunction(
-			ET::Point,
+		}},
+		{"ClosestToActors", new ContextFunction{
+			{ "ClosestToActors", ET::Superlative, { }},
+			&CommandContext::ClosestToActors,
+		}},
+		{"PositionOf", new ContextFunction{
+			{ "PositionOf", ET::Point, {
+				ParamImplied(*this, GetNewCommandElement("Selector").GetValue())
+			}},
 			&CommandContext::PositionOf,
-			{
-				// @Incomplete: the default for this selector
-				Param(*this, ET::Selector, "Selector", Implied)
-			}
-		)},
+		}},
 		/*
 		{"MouseInputPosition", MakeContextFunction(
 			ET::Location,
@@ -309,16 +300,16 @@ void CommandContext::InitElementDictionary()
 			{ }
 		)},
 		*/
-		{"Zero", MakeLiteral(Digit(0))},
-		{"One", MakeLiteral(Digit(1))},
-		{"Two", MakeLiteral(Digit(2))},
-		{"Three", MakeLiteral(Digit(3))},
-		{"Four", MakeLiteral(Digit(4))},
-		{"Five", MakeLiteral(Digit(5))},
-		{"Six", MakeLiteral(Digit(6))},
-		{"Seven", MakeLiteral(Digit(7))},
-		{"Eight", MakeLiteral(Digit(8))},
-		{"Nine", MakeLiteral(Digit(9))},
+		{"Zero",  new Literal{"Zero",  Digit{0}}},
+		{"One",   new Literal{"One",   Digit{1}}},
+		{"Two",   new Literal{"Two",   Digit{2}}},
+		{"Three", new Literal{"Three", Digit{3}}},
+		{"Four",  new Literal{"Four",  Digit{4}}},
+		{"Five",  new Literal{"Five",  Digit{5}}},
+		{"Six",   new Literal{"Six",   Digit{6}}},
+		{"Seven", new Literal{"Seven", Digit{7}}},
+		{"Eight", new Literal{"Eight", Digit{8}}},
+		{"Nine",  new Literal{"Nine",  Digit{9}}},
 	});
 
 	/*
@@ -365,12 +356,13 @@ void CommandContext::InitElementDictionary()
 
 ErrorOr<value_ptr<CommandElement> > CommandContext::GetNewCommandElement(HString name)
 {
-	if (element_dictionary.find(name) != element_dictionary.end())
+	if (Contains(element_dictionary, name))
 	{
-		auto copy = element_dictionary[name]->clone();
-		// @Incomplete, name should be passed through constructor
-		copy->name = name;
-		return value_ptr<CommandElement>(copy);
+		return value_ptr<CommandElement>(element_dictionary[name]->clone());
+	}
+	else if (Contains(private_element_dictionary, name))
+	{
+		return value_ptr<CommandElement>(private_element_dictionary[name]->clone());
 	}
 	else
 	{
@@ -883,23 +875,6 @@ ErrorOr<Point> CommandContext::PositionOf(UnitGroup group)
 		total = total + Point(unit.value, unit.value);
 	}
 	return total / group.members.size();
-}
-
-/*
-ErrorOr<Number> CommandContext::AppendDecimalDigit(Number so_far, Number next)
-{
-	return Number{so_far.value * 10 + next.value};
-}
-*/
-
-ErrorOr<Number> CommandContext::NumberLiteral(std::vector<Digit> digits)
-{
-	int value = 0;
-	for (auto & digit : digits)
-	{
-		value = (value * 10) + digit.value;
-	}
-	return Number{value};
 }
 
 } // namespace Command

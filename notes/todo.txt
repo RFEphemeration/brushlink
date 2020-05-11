@@ -6,12 +6,12 @@ features
 		Command
 			(Select/SelectorFriendly)
 			->Union
-	convert between variant subtypes (Location, Value, Target?)
+	 convert between variant subtypes (Location, Value, Target?)
 		I assume this means OneOf should be handled as a Value
 		Location/Point -> Location/Line on repeat of point...
 		right now we're just handling this as an implied node
 	# Undo / Back
-	GetPrintString for Numbers
+	# GetPrintString for Numbers
 	# default_value_ptr list, allowing parameters to all of them in order
 		main use case is default Command > (Select/SelectorActors,Select/Selector/CommandGroup)
 			so if you just hit a number you select that command group
@@ -25,19 +25,22 @@ features
 			should you be able to assign hotkeys at runtime? or change sort priority?
 		suggestions can be all the current values that match the type, retrieved from context
 		could also have this be a way to enter elements by their name, too, rather than having to look for them. ElementWithName returns all the elements of an acceptable type, using GetAllowedNextElements. Should have autocomplete enabled for these.
-	literals with buffered input
+	- literals with buffered input
 	element types and value mapping from data
 		might need to use std::any instead of variant
 		though we're still restricted to any type returnable by a function
 		and the function deserialization requires an explicit mapping
-	AllowedArgumentTypes -> ordered priority
+	# AllowedArgumentTypes -> ordered priority
 		so interface can select next tab automatically
 		should we have an element for accepting a default value as explicit? or for ending a series of literal? in order to take the command card to the next priority input	
-	AcceptedArgumentType priority
+	# AcceptedArgumentType priority
 		most distal and lowest parameter index
 	hide some elements from the command card
 	sort elements on command card
+	permutable parameters for Selector
 	replace previous argument of type (for back up the stack editing without undo)
+	Add more elements
+	Word Elements, parameters in context, child contexts
 
 interface
 	# tabs of tokens grouped by type
@@ -45,7 +48,7 @@ interface
 	# hotkeys for tokens on current tab
 	cursor in command tree for where current elements on current tab would go
 		- this might differ if some accept left parameters and some don't
-	if there are no valid elements on current tab, go to next
+	# if there are no valid elements on current tab, go to next
 	maybe skip left parameters by default, and have a different hotkey for enabling them (so tab is go to next, shift might be show left params for this type, or caps lock to toggle allowing them or not)
 	if you type in an element from a tab and at the next cursor location the same tab is valid, but another tab appears before it in the priority list, I think we shouldn't switch. This is probably useful for things like Names which can be made of Letters and Digits
 
@@ -58,11 +61,16 @@ cleanup
 		Evaluate
 		EvaluateAs
 		GetAllowedArgumentTypes vs GetAllowedTypes
-	if we do unify the parameter and element interface can we compile down to just a tree of elements for more efficient evaluation? Repeatable params might prevent that, but we could use a helper element
+	if we do unify the parameter and element interface can we compile down to just a tree of elements for more efficient evaluation? Repeatable params might prevent that, but we could use a helper element, or just keep the param
 		after that composing std::functions using lambdas is probably okay
 		because we're not going to need any additional parameters
 	disable actor-dependent elements when actors is unset -- might be tricky
 	reconsider getting actors from parent elements
+	delete command_old after adding remaining elements
+	context dependent default values for Selector Set
+	remove context from append stack
+		I think it's only used for default values, which we should have full elements for anyways, not using get by name
+		context should only be required for evaluation, I think
 
 bugs
 	# why isn't GroupSize valid as a first element after SelectorFriendly
