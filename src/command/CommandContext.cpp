@@ -108,10 +108,15 @@ void CommandContext::InitElementDictionary()
 	auto WithImplied = [&](
 		value_ptr<CommandElement>& element,
 		int param_index,
-		value_ptr<CommandElement>& implied_value) -> value_ptr<CommandElement>&
+		value_ptr<CommandElement>&& implied_value) -> value_ptr<CommandElement>&
 	{
 		implied_value->implicit = Implicit::Child;
-		element->parameters[param_index]->SetArgument(*this, std::move(implied_value));
+		element->parameters[param_index]->RemoveLastArgument();
+		auto result = element->parameters[param_index]->SetArgument(*this, std::move(implied_value));
+		if (result.IsError())
+		{
+			result.GetError().Log();
+		}
 		return element;
 	};
 
@@ -168,7 +173,7 @@ void CommandContext::InitElementDictionary()
 	element_dictionary.insert({
 		{"Select", new ContextFunctionWithActors{
 			{"Select", ET::Action, {
-				ParamImplied(*this, GetNewCommandElement("SelectorFriendly").GetValue())
+				ParamImplied(*this, "SelectorFriendly")
 			}},
 			&CommandContext::Select
 		}},
@@ -180,11 +185,20 @@ void CommandContext::InitElementDictionary()
 		}},
 	});
 
+/*
 	private_element_dictionary.insert({
-		{"Selector/CommandGroup", new SelectorCommandElement{
-			ParamImplied(*this, GetNewCommandElement("CommandGroup").GetValue())
-		}}
+		{"Selector/CommandGroup", }
 	});
+
+	private_element_dictionary.insert({
+		{"Select/Selector/CommandGroup", new ContextFunctionWithActors{
+			{"Select", ET::Action, {
+				ParamImplied(*this, GetNewCommandElement("Selector/CommandGroup").GetValue())
+			}},
+			&CommandContext::Select
+		}},
+	});
+	*/
 
 	element_dictionary.insert({
 		{"Command", new EmptyCommandElement{{
@@ -192,15 +206,18 @@ void CommandContext::InitElementDictionary()
 				// @Bug load order is too delicate and annoying
 				// consider loading from text in passes
 				new ParamSingleImpliedOptions(ET::Action, std::vector<value_ptr<CommandElement>>{
-					WithImplied(
-						GetNewCommandElement("Select").GetValue(),
-						0, 
-						GetNewCommandElement("SelectorFriendly").GetValue()
-					),
+					GetNewCommandElement("Select").GetValue(),
 					WithImplied(
 						GetNewCommandElement("Select").GetValue(),
 						0,
-						GetNewCommandElement("Selector/CommandGroup").GetValue()
+						new SelectorCommandElement{
+							ParamImplied(*this, new ContextFunction{
+								{"CommandGroup", ET::Set, {
+									new ParamSingleRequired(ET::Number)
+								}},
+								&CommandContext::CommandGroup
+							})
+						}
 					)
 				})
 				// Param(*this, ET::Action)
@@ -218,21 +235,21 @@ void CommandContext::InitElementDictionary()
 	element_dictionary.insert({
 		{"Move", new ContextFunctionWithActors{
 			{"Move", ET::Action, {
-				ParamImplied(*this, GetNewCommandElement("SelectorActors").GetValue()),
-				ParamImplied(*this, GetNewCommandElement("Location").GetValue())
+				ParamImplied(*this, "SelectorActors"),
+				ParamImplied(*this, "Location")
 			}},
 			&CommandContext::Move,
 		}},
 		{"Attack", new ContextFunctionWithActors{
 			{"Attack", ET::Action, {
-				ParamImplied(*this, GetNewCommandElement("SelectorActors").GetValue()),
-				ParamImplied(*this, GetNewCommandElement("SelectorTarget").GetValue())
+				ParamImplied(*this, "SelectorActors"),
+				ParamImplied(*this, "SelectorTarget")
 			}},
 			&CommandContext::Attack,
 		}},
 		{"SetCommandGroup", new ContextFunctionWithActors{
 			{"SetCommandGroup", ET::Action, {
-				ParamImplied(*this, GetNewCommandElement("SelectorActors").GetValue()),
+				ParamImplied(*this, "SelectorActors"),
 				new ParamSingleRequired(ET::Number)
 			}},
 			&CommandContext::SetCommandGroup,
@@ -289,7 +306,7 @@ void CommandContext::InitElementDictionary()
 		}},
 		{"PositionOf", new ContextFunction{
 			{ "PositionOf", ET::Point, {
-				ParamImplied(*this, GetNewCommandElement("Selector").GetValue())
+				ParamImplied(*this, "Selector")
 			}},
 			&CommandContext::PositionOf,
 		}},
@@ -366,13 +383,13 @@ ErrorOr<value_ptr<CommandElement> > CommandContext::GetNewCommandElement(HString
 	}
 	else
 	{
-		return Error("Couldn't find element with name" + name);
+		return Error("Couldn't find element with name " + name);
 	}
 }
 
 ErrorOr<ElementToken> CommandContext::GetTokenForName(ElementName name)
 {
-	if (element_dictionary.find(name.value) != element_dictionary.end())
+	if (Contains(element_dictionary, name.value))
 	{
 		return ElementToken{
 			element_dictionary[name.value]->Type(),
@@ -380,9 +397,17 @@ ErrorOr<ElementToken> CommandContext::GetTokenForName(ElementName name)
 			element_dictionary[name.value]->left_parameter != nullptr
 		};
 	}
+	else if (Contains(private_element_dictionary, name.value))
+	{
+		return ElementToken{
+			private_element_dictionary[name.value]->Type(),
+			name,
+			private_element_dictionary[name.value]->left_parameter != nullptr
+		};
+	}
 	else
 	{
-		return Error("Couldn't find element with name" + name.value);
+		return Error("Couldn't find element with name " + name.value);
 	}
 }
 
@@ -527,7 +552,8 @@ void CommandContext::BreakUndoChain(ElementToken token)
 bool CommandContext::IsAllowed(ElementToken token)
 {
 	// should we assume tokens have associated elements?
-	if (!Contains(element_dictionary, token.name.value))
+	if (!Contains(element_dictionary, token.name.value)
+		&& !Contains(private_element_dictionary, token.name.value))
 	{
 		return false;
 	}

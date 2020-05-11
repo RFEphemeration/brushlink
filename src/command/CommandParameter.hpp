@@ -100,7 +100,15 @@ value_ptr<CommandParameter> Param(
 
 value_ptr<CommandParameter> ParamImplied(
 	CommandContext& context,
-	value_ptr<CommandElement>& default_value);
+	value_ptr<CommandElement>&& default_value);
+
+inline value_ptr<CommandParameter> ParamImplied(
+	CommandContext& context,
+	ElementName name)
+{
+	return ParamImplied(context, std::move(context.GetNewCommandElement(name.value).GetValue()));
+}
+
 
 inline value_ptr<CommandParameter> Param(CommandContext & context, ElementType::Enum type, ElementName default_value)
 {

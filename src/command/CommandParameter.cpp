@@ -57,7 +57,7 @@ value_ptr<CommandParameter> Param(
 
 value_ptr<CommandParameter> ParamImplied(
 	CommandContext& context,
-	value_ptr<CommandElement>& default_value)
+	value_ptr<CommandElement>&& default_value)
 {
 	auto * param = new ParamSingleRequired(default_value->Type());
 	default_value->implicit = Implicit::Child;

@@ -78,6 +78,7 @@ bugs
 		ParamSingleImpliedOptions can accept multiple counts of the same argument type, I think? most parameters still return a single count. What about OneOf?
 	Evaluate should be const. default_value should not be assigned to argument
 	The current setup for numbers allows for an extra left-param because the rightmost leaf also accepts one. Should resolve by changing how literals are input
+	# implied Selector/CommandGroup isn't working
 
 
 # old
