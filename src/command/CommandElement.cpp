@@ -4,42 +4,78 @@
 
 namespace Command
 {
-
-// @Cleanup repetitive navigation is largely shared between
-// GetAllowedArgumentTypes, AppendArgument, and RemoveLastExplicitElement
-// is there a better way to factor this out?
-
-void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
+// bool is whether parameters are satisfied
+std::pair<std::vector<CommandParameter*>, bool> GetActiveParameters(CommandElement & element)
 {
 	// @Feature permutable
-	int first_param_for_args = 0;
-
-	// find the last parameter that has arguments.
-	// we can't go backwards (for now, until we implement permutable)
-	// perhaps a way to implement permutable parameters would be to
-	// move the first parameter in a permutable sequence to the front
-	// that sounds not too hard to do and maintains the structure here
-	// @Feature: permutable parameters
-	// we could even use this to allow users to set the parameter order
-	// perhaps trivially as a new word w/ the same name and swapped params
-	for (int index = parameters.size() - 1; index >= 0 ; index--)
+	std::vector<CommandParameter*> active;
+	int first_param = 0;
+	for (int index = element.parameters.size() - 1; index >= 0 ; index--)
 	{
-		// earlier arguments to parameters can't be revisited
-		CommandElement * argument = parameters[index]->GetLastArgument();
+		// arguments to parameters before the most recent explicit can't be revisited
+		CommandElement * argument = element.parameters[index]->GetLastArgument();
 		if (argument != nullptr
 			&& argument->IsExplicitOrHasExplicitChild())
 		{
-			first_param_for_args = index;
+			first_param = index;
 			break;
 		}
 	}
 
-	for (int index = first_param_for_args; index < parameters.size(); index++)
+	for(int index = first_param; index < element.parameters.size(); index++)
 	{
-		CommandElement * argument = parameters[index]->GetLastArgument();
+		active.push_back(element.parameters[index].get());
+
+		if (element.parameters[index]->IsRequired()
+			&& !element.parameters[index]->IsSatisfied())
+		{
+			return {active, false};
+		}
+	}
+
+	return {active, true};
+}
+
+Set<ElementType::Enum> GetAllowedWithImplied(Set<ElementType::Enum> allowed)
+{
+	static Table<Set<ElementType::Enum>, Set<ElementType::Enum> > cache;
+	if (Contains(cache, allowed))
+	{
+		return cache[allowed];
+	}
+	Set<ElementType::Enum> allowed_with_implied;
+	for (auto&& pair : CommandContext::allowed_with_implied)
+	{
+		if (!Contains(allowed, pair.first))
+		{
+			continue;
+		}
+		allowed_with_implied.merge(Set<ElementType::Enum>{pair.second});
+	}
+	for (auto&& type : allowed_with_implied)
+	{
+		// don't double add something that is allowed as implied and not implied
+		// @Cleanup do we need this?
+		if (Contains(allowed, type))
+		{
+			allowed_with_implied.erase(type);
+		}
+	}
+	cache[allowed] = allowed_with_implied;
+	return allowed_with_implied;
+}
+
+void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
+{
+	auto [ active, satisfied ] = GetActiveParameters(*this);
+
+	for (auto * param : active)
+	{
+		CommandElement * argument = param->GetLastArgument();
 		if (argument != nullptr)
 		{
-			// this is an implicit argument, recurse on its parameters
+			// this argument could be the last explicit argument
+			// or any implicit argument
 			argument->GetAllowedArgumentTypes(allowed);
 			if (!argument->ParametersSatisfied())
 			{
@@ -48,77 +84,32 @@ void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 			// intentional fall through here for Repeatable params
 		}
 
-		// there are no implicit arguments in this parameter
-		// so we just ask the parameter directly
-		auto param_allowed = parameters[index]->GetAllowedTypes();
-
-		if (param_allowed.size() > 0)
+		auto param_allowed = param->GetAllowedTypes();
+		for (auto&& type : param_allowed)
 		{
-			for (auto&& type : param_allowed)
-			{
-				allowed.Append({type});
-			}
-
-			// @Cleanup @Performance we could probably do this once in the Parameter
-			// rather than every time in the element
-			// checking for implied args to param here so that
-			// the count (used for skip) matches the number of params
-			// it's nice that they're lower priority than the normal allowed types
-			// should we keep track of what we would imply? for the CommandCard to show
-			Set<ElementType::Enum> param_allowed_with_implied;
-			for (auto&& pair : CommandContext::allowed_with_implied)
-			{
-				if (!Contains(param_allowed, pair.first))
-				{
-					continue;
-				}
-				param_allowed_with_implied.merge(Set<ElementType::Enum>{pair.second});
-			}
-			for (auto&& type : param_allowed_with_implied)
-			{
-				// don't double add something that is allowed as implied and not implied
-				// @Cleanup do we need this?
-				if (Contains(param_allowed, type))
-				{
-					continue;
-				}
-				allowed.Append({type});
-			}
+			allowed.Append({type});
 		}
-
-		// @Feature permutable
-		if (parameters[index]->IsRequired()
-			&& !parameters[index]->IsSatisfied())
+		for (auto&& type : GetAllowedWithImplied(Set<ElementType::Enum>{param_allowed.begin(), param_allowed.end()}))
 		{
-			return;
+			allowed.Append({type});
 		}
 	}
 
-	// if we got this far we know we have our parameters satisfied, no need to call again
-	// this is a left argument
-	allowed.Append({Type(), true});
+	if (satisfied)
+	{
+		// this is a left argument
+		allowed.Append({Type(), true});
+	}
 
 	return;
 }
 
 ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr<CommandElement>&& next, int & skip_count)
 {
-	int first_param_for_args = 0;
-	for (int index = parameters.size() - 1; index >= 0 ; index--)
+	auto [ active, satisfied ] = GetActiveParameters(*this);
+	for (auto * param : active)
 	{
-		// earlier arguments to parameters can't be revisited
-		CommandElement * argument = parameters[index]->GetLastArgument();
-		if (argument != nullptr
-			&& argument->IsExplicitOrHasExplicitChild())
-		{
-			first_param_for_args = index;
-			break;
-		}
-	}
-
-	for (int index = first_param_for_args; index < parameters.size(); index++)
-	{
-		CommandElement * argument = parameters[index]->GetLastArgument();
+		CommandElement * argument = param->GetLastArgument();
 		if (argument != nullptr)
 		{
 			// this is an implicit argument, recurse on its parameters
@@ -130,14 +121,14 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 			// intentional fallthrough for Repeatable parameters
 		}
 		
-		auto allowed_types = parameters[index]->GetAllowedTypes();
+		auto allowed_types = param->GetAllowedTypes();
 		// without implied types for same type take priority
 		// and we only want to decrement skip count at most once per parameter
 		if (Contains(allowed_types, next->Type()))
 		{
 			if (skip_count == 0)
 			{
-				CHECK_RETURN(parameters[index]->SetArgument(context, std::move(next)));
+				CHECK_RETURN(param->SetArgument(context, std::move(next)));
 				return true;
 			}
 			skip_count--;
@@ -167,18 +158,17 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 				{
 					return Error("Could not append new element to implied element");
 				}
-				CHECK_RETURN(parameters[index]->SetArgument(context, std::move(implied_element)));
+				CHECK_RETURN(param->SetArgument(context, std::move(implied_element)));
 				return true;
 			}
 		}
-
-		// @Incomplete permutable
-		if (parameters[index]->IsRequired()
-			&& !parameters[index]->IsSatisfied())
-		{
-			return Error("Can't append because a preceding parameter has not been satisfied");
-		}
 	}
+
+	if (!satisfied)
+	{
+		return Error("Can't append because a preceding parameter has not been satisfied");
+	}
+
 	// left parameters have lower priority than right parameters
 	// because after left parameters are applied you can't access any right parameters
 
@@ -207,7 +197,7 @@ ErrorOr<bool> CommandElement::AppendArgument(CommandContext & context, value_ptr
 			// should maybe do all of this in the parameter...
 			// could also consider passing in parent as function argument
 			loc->reset(next.release());
-            loc->get()->location_in_parent = loc;
+			loc->get()->location_in_parent = loc;
 
 			return true;
 		}

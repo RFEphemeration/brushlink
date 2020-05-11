@@ -202,4 +202,23 @@ inline OccurrenceFlags::Enum operator|(OccurrenceFlags::Enum a, OccurrenceFlags:
 
 } // namespace Command
 
+namespace std
+{
+template<>
+class hash<Set<Command::ElementType::Enum>>
+{
+public:
+	size_t operator()(const Set<Command::ElementType::Enum> & set) const
+	{
+		// @Cleanup if we ever change ElementType to not be <<
+		size_t sum;
+		for(auto type : set)
+		{
+			sum += static_cast<size_t>(type);
+		}
+		return sum;
+	}
+};
+} // namespace std
+
 #endif // BRUSHLINK_COMMAND_TYPES_HPP
