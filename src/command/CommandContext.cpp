@@ -61,29 +61,29 @@ const Set<ElementType::Enum> CommandContext::instruction_element_types{
 	ET::Skip, ET::Undo, ET::Redo, ET::Termination, ET::Cancel
 };
 
-/*
-
-void CommandContext::AddDef(CommandElement * element)
-{
-	element_dictionary.insert({element->name, element});
-}
 
 using json = nlohmann::json;
 
-template<typename T>
-ErrorOr<T> GetAs(json j, std::string member)
+ErrorOr<std::string> Get(json j, std::string member)
 {
 	if (!j.contains(member))
 	{
 		return Error("object does not contain " + member);
 	}
+	try
+	{
+		return j[member].get<std::string>();
+	}
+	catch(json::exception& e)
+	{
+		return Errror(e.what());
+	}
 
 }
 
-template<typename T>
-T GetOrDefault(json j, std::string member, T value)
+std::string GetOrDefault(json j, std::string member, std::string value)
 {
-	auto result = GetAs<T>(j, member);
+	auto result = Get(j, member);
 	if (result.IsError())
 	{
 		return value;
@@ -93,18 +93,40 @@ T GetOrDefault(json j, std::string member, T value)
 
 ErrorOr<value_ptr<CommandElement>> GetDef(json j)
 {
-	if (j.type() != json::value_t::object)
+	struct ParamDef
 	{
-		return Error("Expected definition to be an object");
+		ElementType type;
+
+		bool optional;
+		bool repeatable;
+		bool implied;
+
+		ParamDef()
+			: type(kNullElementType)
+			, optional(false)
+			, repeatable(false)
+			, implied(false)
+		{ }
+	};
+	try
+	{
+		std::string name = j["name"].get<std::string>()
+		ElementType::Enum type = j["type"].get<std::string>()
+		std::vector<ParamDef> params;
+		if (j.contains("params"))
+		{
+			
+		}
 	}
-	std::string name = CHECK_RETURN(GetAs<std::string>(j, "name"));
+	catch(json::exception& e)
+	{
+		return Errror(e.what());
+	}
 }
 
-*/
 
 void CommandContext::InitElementDictionary()
 {
-
 	auto WithImplied = [&](
 		value_ptr<CommandElement>& element,
 		int param_index,
