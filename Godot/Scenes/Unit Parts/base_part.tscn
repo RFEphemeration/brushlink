@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=2]
+
+[sub_resource type="QuadMesh" id=2]
+
+[node name="base_part" type="MeshInstance"]
+transform = Transform( 1, 0, 0, 0, -1.62921e-07, 1, 0, -1, -1.62921e-07, 0, 0, 0 )
+mesh = SubResource( 2 )
+material/0 = null

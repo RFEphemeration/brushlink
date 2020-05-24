@@ -1,0 +1,9 @@
+vertex weights for bones
+	by vertex group
+	for our purposes we only want weight 0 or 1
+	find vertex groups in Object Data Properties, an inverted triangle, with model selected
+	in edit mode, assign/remove select/deselect are the tools I use
+
+
+bone placement
+	bones rotate around parent's tail, so keep offset is only rarely what we want

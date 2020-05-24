@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="-200 -200 400 400" xmlns="http://www.w3.org/2000/svg">
+  <circle fill="rgb(169, 196, 200)" cx="0" cy="0" r="60">
+    <title>Bottom</title>
+  </circle>
+  <rect x="-20" y="-80" width="40" height="40" fill="rgb(169, 196, 200)">
+    <title>Pointer</title>
+  </rect>
+  <circle fill="rgb(216, 216, 216)" cx="0" cy="0" r="50">
+    <title>Top</title>
+  </circle>
+</svg>
