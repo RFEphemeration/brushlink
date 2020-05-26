@@ -8,9 +8,20 @@
 
 config_version=4
 
-_global_script_classes=[  ]
+_global_script_classes=[ {
+"base": "Spatial",
+"class": "Move",
+"language": "GDScript",
+"path": "res://Scripts/Game/Abilities/Move.gd"
+}, {
+"base": "Reference",
+"class": "UnitStats",
+"language": "GDScript",
+"path": "res://Scripts/Game/Units/UnitStats.gd"
+} ]
 _global_script_class_icons={
-
+"Move": "",
+"UnitStats": ""
 }
 
 [application]
