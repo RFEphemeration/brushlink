@@ -1,10 +1,26 @@
-enum class State
+CharType Parser::GetType(char c)
 {
-	Tree,
-	Line,
-	Identifier,
-	Name,
-	Number,
+	switch(c)
+	{
+	case '\r':
+		return CharType::Ignored;
+	case ' ':
+	case '\t':
+	case '\n':
+		return CharType::WhiteSpace;
+	case '\\':
+	case '"':
+	case '.':
+	case ',':
+		return CharType::Punctuation;
+	case '0' ... '9':
+		return CharType::Digit;
+	case 'a' ... 'z':
+	case 'A' ... 'Z':
+		return CharType::Letter;
+	default:
+		return CharType::Other
+	}
 }
 
 TokenTree Parser::Parse(std::stringstream text)
@@ -18,29 +34,23 @@ TokenTree Parser::Parse(std::stringstream text)
 	{
 		return tree;
 	}
-	auto AppendTokenToTree = [&stack](const Token & token)
-	{
-		stack.back()->linear_children.push_back(token);
-	}
-	auto NavigateStackTo = [&stack](int indentation, int expected_token_count)
+
+	State state = State::Tree;
+	int indentation = 0;
+
+	auto AppendTreeChild = [&stack](int indentation)
 	{
 		while(stack.size() > indentation + 1)
 		{
 			stack.pop_back();
 		}
-		stack.back()->nested_children.emplace_back();
-		stack.back()->nested_children.back().reserve(expected_token_count);
+		if (indentation > stack.size())
+		{
+			Error("Warning - Syntax: Unexpected indentation level is too deep").Log();
+		}
+		stack.back()->stack.back()->nested_children.emplace_back();
 		stack.push_back(stack.back()->nested_children.back());
 	};
-	auto PruneLineIfEmpty = [&stack]{
-		if (stack.back()->linear_children.size() > 0)
-		{
-			return;
-		}
-		stack.pop_back();
-		stack.back()->nested_children.pop_back();
-	};
-	State state = State::Tree;
 
 	auto BeginToken = [&state, &stack](TokenType type)
 	{
@@ -65,52 +75,222 @@ TokenTree Parser::Parse(std::stringstream text)
 		stack.back()->linear_children.back()->contents.append(c);
 	};
 
-	auto BeginTree
-	int indentation = 0;
+	auto PruneTreeIfEmpty = [&stack]
+	{
+		if (stack.back()->linear_children.size() > 0)
+		{
+			return;
+		}
+		if (stack.back()->nested_children.size() > 0)
+		{
+			Error("Error - Syntax: Unexpected tree node with children has no tokens").Log();
+			return;
+		}
+		stack.pop_back();
+		stack.back()->nested_children.pop_back();
+	};
+
+	auto PruneTokenIfEmpty = [&stack]
+	{
+		if (!stack.back()->linear_children.back()->contents.empty()
+			|| stack.back()->linear_children.back()->type == TokenType::Name)
+		{
+			return;
+		}
+
+		stack.back()->linear_children.pop_back();
+	}
+	
 	while(char c = text.get())
 	{
+		auto type = GetType(c);
+		// universal cases
+		switch(type)
+		{
+		case CharType::Ignored:
+			continue;
+		case CharType::Other:
+			Error("Warning - Syntax: Unexpected character '" + c + "'. Ignoring.").Log();
+			continue;
+		}
 		switch(state)
 		{
 		case State::Tree:
-			switch(c)
+			switch(type)
 			{
-			case '\t':
-				indentation += 1;
-				continue;
+			case CharType::WhiteSpace:
+				switch(c)
+				{
+				case '\t':
+					indentation += 1;
+					continue;
+				case '\n':
+					indentation = 0;
+					continue;
+				default:
+					Error("Warning - Syntax: unexpected whitespace before any tokens").Log();
+					continue;
+				}
+			default:
+				PruneTreeIfEmpty();
+				AppendTreeChild(indentation);
+				state = State::Line;
 			}
-			// intentional fallthrough because tree and line have a lot in common
+		// intentional fallthrough because we have entered the line state from tree
 		case State::Line:
-			switch(c)
+			switch(type)
 			{
-			case '0' ... '9':
+			case CharType::WhiteSpace:
+				Error("Warning - Syntax: unexpected extra whitespace space between tokens").Log();
+				if (c == '\n')
+				{
+					state = State::Tree;
+					indentation = 0;
+				}
+				continue;
+			case CharType::Digit:
 				BeginToken(TokenType::Number);
 				AppendCharToCurrentToken(c);
 				continue;
-			case '"':
-				BeginToken(TokenType::Name);
+			case CharType::Punctuation:
+				if (c == '"')
+				{
+					BeginToken(TokenType::Name);
+				}
+				else
+				{
+					Error("Warning - Syntax: unexpected punctuation " + c).Log();
+				}
 				continue;
-			default:
+			case CharType::Letter:
 				BeginToken(TokenType::Identifier);
 				AppendCharToCurrentToken(c);
 				continue;
+			default:
+				Error("Warning - Parser: unexpected state/type combination").Log();
 			}
 		case State::Identifier:
-			switch(c)
+			switch(type)
 			{
+			case CharType::WhiteSpace:
+				switch(c)
+				{
+				case '\t':
+					Error("Warning - Syntax: Unexpected tab after identifier").Log();
+					state = State::Line;
+					continue;
 				case ' ':
 					state = State::Line;
 					continue;
 				case '\n':
 					state = State::Tree;
+					indentation = 0;
 					continue;
+				}
+			case CharType::Punctuation:
+				Error("Warning - Syntax: Identifiers cannot contain punctuation").Log();
+				continue;
+			default:
+				AppendCharToCurrentToken(c);
+				continue;
+			}
+		case State::Name:
+			switch(type)
+			{
+			case CharType::Punctuation:
+				switch(c)
+				{
+				case '\\':
+					state = State::Escaped;
+					continue;
+				case '"':
+					state = State::Line;
+					char next = text.get();
+					switch(next)
+					{
+					case ' ':
+						continue;
+					case '\n':
+						state = State::Tree;
+						indentation = 0;
+						continue;
+					default:
+						Error("Warning - Syntax: unexpected character after name '" + next + "'. was expecting newline or space").Log();
+						text.unget();
+						continue;
+					}
 				default:
 					AppendCharToCurrentToken(c);
 					continue;
+				}
+				continue;
 			}
-		case State::Name:
+		case State::Escaped:
+			switch(c)
+			{
+			case '\\':
+				AppendCharToCurrentToken(c);
+				continue;
+			case 't':
+				AppendCharToCurrentToken('\t');
+				continue;
+			case 'n':
+				AppendCharToCurrentToken('\n');
+				continue;
+			case '"':
+				AppendCharToCurrentToken('"');
+				continue;
+			default:
+				Error("Warning - Syntax: unexpected escaped character '" + c + "'.").Log();
+				continue;
+			}
 		case State::Number:
+			switch(type)
+			{
+			case CharType::Digit:
+				AppendCharToCurrentToken(c);
+				continue;
+			case CharType::Punctuation:
+				switch(c)
+				{
+				case '.':
+				case ',':
+					AppendCharToCurrentToken(c);
+					continue;
+				default:
+					Error("Warning - Syntax: unexpected puncutation in Number '" + c + "'.").Log();
+					continue;
+				}
+			default:
+				Error("Warning - Syntax: unexpected character in Number '" + c + "'.").Log();
+				continue;
+			}
 		}
 	}
+
+	auto AppendTokenToTree = [&stack](const Token & token)
+	{
+		stack.back()->linear_children.push_back(token);
+	}
+	auto NavigateStackTo = [&stack](int indentation, int expected_token_count)
+	{
+		while(stack.size() > indentation + 1)
+		{
+			stack.pop_back();
+		}
+		stack.back()->nested_children.emplace_back();
+		stack.back()->nested_children.back().reserve(expected_token_count);
+		stack.push_back(stack.back()->nested_children.back());
+	};
+	auto PruneLineIfEmpty = [&stack]{
+		if (stack.back()->linear_children.size() > 0)
+		{
+			return;
+		}
+		stack.pop_back();
+		stack.back()->nested_children.pop_back();
+	};
+	
 	while(std::getline(text,line,'\n'))
 	{
 		if (line.empty())
@@ -125,7 +305,10 @@ TokenTree Parser::Parse(std::stringstream text)
 			}
 			return index;
 		}();
-		line = std::substr(indentation);
+		if (indentation > 0)
+		{
+			line = line.substr(indentation);
+		}
 
 		auto tokens = Split(line, ' ');
 		if (tokens.empty())
@@ -133,25 +316,39 @@ TokenTree Parser::Parse(std::stringstream text)
 			continue;
 		}
 		NavigateStackTo(indentation, tokens.size());
-		for (auto content & : tokens)
+		for (int i = 0; i < tokens.size(); i ++)
 		{
 			Token token;
-			token.content = content;
-			if (content.empty())
+			token.content = tokens[i];
+			if (token.content.empty())
 			{
 				Error("Warning - Syntax: sequential spaces are not allowed between tokens").Log();
 				continue;
 			}
-			else if (content[0] == '"')
+			else if (token.content[0] == '"')
 			{
-				if (content[content.size() - 1] != '"')
+				if (token.content[token.content.size() - 1] != '"')
 				{
-					// @Feature strings with spaces
-					Error("Warning - Syntax: Name " + content + " is missing closing quotation. Names with spaces are not allowed.").Log();
+					bool closing_found = false;
+					for (i++; i < tokens.size(); i++)
+					{
+						token.content += " " + tokens[i];
+						if (tokens[i].back() == '"'
+							&& (tokens[i].size() < 2
+								|| tokens[i][tokens[i].size() - 2] == '\\'))
+						{
+							closing_found = true;
+							break;
+						}
+					}
+					if (!closing_found)
+					{
+						Error("Warning - Syntax: Name is missing a closing \". Names cannot contain newline characters yet.").Log();
+					}
 				}
 				token.type = TokenType::Name;
 			}
-			else if (std::isdigit(content[0]))
+			else if (std::isdigit(token.content[0]))
 			{
 				token.type = TokeType::Number;
 			}

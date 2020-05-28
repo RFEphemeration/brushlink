@@ -24,7 +24,31 @@ struct TokenTree
 	{ }
 };
 
+
+
+enum class CharType
+{
+	Ignored,
+	WhiteSpace,
+	Punctuation,
+	Digit,
+	Letter,
+	Other,
+}
+
 struct Parser
 {
+	enum class State
+	{
+		Tree,
+		Line,
+		Identifier,
+		Name,
+		Escaped,
+		Number,
+	}
+
+	static CharType GetType(char c);
+
 	static TokenTree Parse(std::string text);
 };
