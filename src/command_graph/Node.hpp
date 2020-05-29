@@ -288,7 +288,6 @@ struct Node
 	}
 };
 
-
 // Node -> NodeImplNode process
 /*
 at first just does it, creates new NodeImplNode with no parameters

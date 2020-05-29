@@ -1,4 +1,27 @@
-CharType Parser::GetType(char c)
+
+/*
+
+enum class CharType
+{
+	Ignored,
+	WhiteSpace,
+	Punctuation,
+	Digit,
+	Letter,
+	Other,
+}
+
+enum class State
+{
+	Tree,
+	Line,
+	Identifier,
+	Name,
+	Escaped,
+	Number,
+}
+
+CharType GetType(char c)
 {
 	switch(c)
 	{
@@ -26,15 +49,9 @@ CharType Parser::GetType(char c)
 TokenTree Parser::Parse(std::stringstream text)
 {
 	TokenTree tree;
-	std::string line;
 	// these should be stable because we never hold onto children in the stack
 	// while modifying the parent. If we did, std::vector could move them from under us
 	std::vector<TokenTree *> stack{&tree};
-	if (text == nullptr)
-	{
-		return tree;
-	}
-
 	State state = State::Tree;
 	int indentation = 0;
 
@@ -54,8 +71,8 @@ TokenTree Parser::Parse(std::stringstream text)
 
 	auto BeginToken = [&state, &stack](TokenType type)
 	{
-		stack.back()->linear_children.emplace_back();
-		stack.back()->linear_children.back()->type = type;
+		stack.back()->linear_tokens.emplace_back();
+		stack.back()->linear_tokens.back()->type = type;
 		switch(type)
 		{
 			case TokenType::Identifier:
@@ -72,12 +89,12 @@ TokenTree Parser::Parse(std::stringstream text)
 
 	auto AppendCharToCurrentToken = [&stack](char c)
 	{
-		stack.back()->linear_children.back()->contents.append(c);
+		stack.back()->linear_tokens.back()->contents.append(c);
 	};
 
 	auto PruneTreeIfEmpty = [&stack]
 	{
-		if (stack.back()->linear_children.size() > 0)
+		if (stack.back()->linear_tokens.size() > 0)
 		{
 			return;
 		}
@@ -92,13 +109,13 @@ TokenTree Parser::Parse(std::stringstream text)
 
 	auto PruneTokenIfEmpty = [&stack]
 	{
-		if (!stack.back()->linear_children.back()->contents.empty()
-			|| stack.back()->linear_children.back()->type == TokenType::Name)
+		if (!stack.back()->linear_tokens.back()->contents.empty()
+			|| stack.back()->linear_tokens.back()->type == TokenType::Name)
 		{
 			return;
 		}
 
-		stack.back()->linear_children.pop_back();
+		stack.back()->linear_tokens.pop_back();
 	}
 	
 	while(char c = text.get())
@@ -267,30 +284,19 @@ TokenTree Parser::Parse(std::stringstream text)
 			}
 		}
 	}
+	return tree;
+}
+*/
 
-	auto AppendTokenToTree = [&stack](const Token & token)
-	{
-		stack.back()->linear_children.push_back(token);
-	}
-	auto NavigateStackTo = [&stack](int indentation, int expected_token_count)
-	{
-		while(stack.size() > indentation + 1)
-		{
-			stack.pop_back();
-		}
-		stack.back()->nested_children.emplace_back();
-		stack.back()->nested_children.back().reserve(expected_token_count);
-		stack.push_back(stack.back()->nested_children.back());
-	};
-	auto PruneLineIfEmpty = [&stack]{
-		if (stack.back()->linear_children.size() > 0)
-		{
-			return;
-		}
-		stack.pop_back();
-		stack.back()->nested_children.pop_back();
-	};
-	
+TokenTree Lex(std::stringstream text)
+{
+	// these should be stable because we never hold onto children in the stack
+	// while modifying the parent. If we did, std::vector could move them from under us
+	std::vector<TokenTree *> stack;
+
+	TokenTree tree;
+	std::string line;
+	stack.push_back(&tree);
 	while(std::getline(text,line,'\n'))
 	{
 		if (line.empty())
@@ -315,7 +321,15 @@ TokenTree Parser::Parse(std::stringstream text)
 		{
 			continue;
 		}
-		NavigateStackTo(indentation, tokens.size());
+
+		while(stack.size() > indentation + 1)
+		{
+			stack.pop_back();
+		}
+		stack.back()->nested_children.emplace_back();
+		stack.back()->nested_children.back().reserve(tokens.size());
+		stack.push_back(stack.back()->nested_children.back());
+
 		for (int i = 0; i < tokens.size(); i ++)
 		{
 			Token token;
@@ -356,8 +370,83 @@ TokenTree Parser::Parse(std::stringstream text)
 			{
 				token.type = TokenType::Identifier;
 			}
-			AppendTokenToTree(token);
+
+			stack.back()->linear_tokens.push_back(token);
 		}
-		PruneLineIfEmpty();
+
+		if (stack.back()->linear_tokens.size() == 0)
+		{
+			if (stack.back()->nested_children.size() > 0)
+			{
+				// the root node for parsing is expected to have children and no tokens
+				if (stack.size() > 1)
+				{
+					Error("Error - Syntax: Unexpected tree non root node has children but no tokens").Log();
+				}
+			}
+			else
+			{
+				stack.pop_back();
+				stack.back()->nested_children.pop_back();
+			}
+		}
 	}
+	return tree;
+}
+
+ErrorOr<Node> Parse(EvaluationContext& context, const TokenTree & tree)
+{
+	Node root = context.GetNode("ParseRoot");
+	std::vector<Node *> node_stack{&root};
+
+	int node_stack_size_for_line = node_stack.size();
+	for (auto token & : tree.linear_tokens)
+	{
+		Node node = CHECK_RETURN([&] -> ErrorOr<Node>
+		{
+			switch(token.type)
+			{
+			case TokenType::Identifier:
+				return context.GetNode(token.contents);
+			case TokenType::Name:
+				return context.MakeLiteral(ValueType::String, token.contents);
+			case TokenType::Number:
+				auto [int_value, success] = token.ExtractInt();
+				if (success)
+				{
+					return context.MakeLiteral(ValueType::Int, int_value);
+				}
+				auto [float_value, success] = token.ExtractFloat();
+				if (success)
+				{
+					return context.MakeLiteral(ValueType::Float, float_value);
+				}
+				return Error("Couldn't parse expected number as either int or float");
+			}
+		}());
+
+		bool appended = false;
+		for(;node_stack.size() >= node_stack_size_for_line; node_stack.pop_back())
+		{
+			// this can modify node_stack, increasing the stack depth for future tokens
+			auto result = node_stack.back()->RecursiveAppendArgument(node, node_stack);
+			if (!result.IsError())
+			{
+				appended = true;
+				break;
+			}
+		}
+		if (!appended)
+		{
+			return Error("Couldn't place node in expected place " + token.contents);
+		}
+	}
+
+	for (const auto & child_tree : tree.nested_children)
+	{
+		auto node = CHECK_RETURN(Parse(context, child_tree));
+		// force these children to be arguments to the last appended element
+		CHECK_RETURN(node_stack.back()->AppendArgument(node));
+	}
+	return Success();
 }
