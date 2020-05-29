@@ -339,6 +339,12 @@ TokenTree Lex(std::stringstream text)
 				Error("Warning - Syntax: sequential spaces are not allowed between tokens").Log();
 				continue;
 			}
+			// @Feature docstring/formatted comments
+			else if (token.content[0] == '#')
+			{
+				// the rest of the line is a comment, ignore remaining tokens
+				break;
+			}
 			else if (token.content[0] == '"')
 			{
 				if (token.content[token.content.size() - 1] != '"')
@@ -396,10 +402,15 @@ TokenTree Lex(std::stringstream text)
 
 ErrorOr<Node> Parse(EvaluationContext& context, const TokenTree & tree)
 {
-	Node root = context.GetNode("ParseRoot");
-	std::vector<Node *> node_stack{&root};
+	Node root;
+	std::vector<Node *> node_stack{};
 
-	int node_stack_size_for_line = node_stack.size();
+	if (tree.linear_tokens.empty())
+	{
+		root = context.GetNode("ParseRoot");
+		node_stack.push_back(&root);
+	}
+
 	for (auto token & : tree.linear_tokens)
 	{
 		Node node = CHECK_RETURN([&] -> ErrorOr<Node>
@@ -425,28 +436,46 @@ ErrorOr<Node> Parse(EvaluationContext& context, const TokenTree & tree)
 			}
 		}());
 
-		bool appended = false;
-		for(;node_stack.size() >= node_stack_size_for_line; node_stack.pop_back())
+		if (node_stack.size() == 0)
 		{
-			// this can modify node_stack, increasing the stack depth for future tokens
-			auto result = node_stack.back()->RecursiveAppendArgument(node, node_stack);
-			if (!result.IsError())
-			{
-				appended = true;
-				break;
-			}
+			root = node;
+			node_stack.push_back(&root);
 		}
-		if (!appended)
+		else
 		{
-			return Error("Couldn't place node in expected place " + token.contents);
+			bool appended = false;
+			for(;!node_stack.empty(); node_stack.pop_back())
+			{
+				// this can modify node_stack, increasing the stack depth for future tokens
+				auto result = node_stack.back()->SetArgument(node);
+				if (!result.IsError())
+				{
+					appended = true;
+					node_stack.insert(
+						node_stack.end(),
+						result.GetValue().begin(),
+						result.GetValue().end()
+					);
+					break;
+				}
+			}
+			if (!appended)
+			{
+				return Error("Couldn't place node in expected place " + token.contents);
+			}
 		}
 	}
 
 	for (const auto & child_tree : tree.nested_children)
 	{
+		// @Feature implied child options from node_stack.back() that are applicable
+		// in this context only
 		auto node = CHECK_RETURN(Parse(context, child_tree));
-		// force these children to be arguments to the last appended element
-		CHECK_RETURN(node_stack.back()->AppendArgument(node));
+		// these children are intended to be arguments to the last appended element
+		// @Feature maybe it should also be okay for them to be args to the first element?
+		// but not in between
+		CHECK_RETURN(node_stack.back()->SetArgument(node, Node::AllowLeft));
 	}
-	return Success();
+
+	return root;
 }

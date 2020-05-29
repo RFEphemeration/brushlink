@@ -1,0 +1,84 @@
+Type "TypeName" String
+
+# how to construct a TypeName from a Node?
+
+Type
+	"TypeInfo"
+	Struct
+	Dictionary String TypeName # uses implied optional repeatable child
+		"name" TypeName
+		"parent" List TypeName
+		"value_type" ValueType
+		"members" Dictionary String TypeName # are these types or nodes? are types nodes?
+
+
+# if types are value nodes, then how to define constructors?
+# are they types if they have no arguments? and nodes if they do?
+# what about types that have no values?
+
+# @Feature: dependent types: Dictionary String TypeName
+
+# @Feature variable names as values in context
+
+Node
+	"Sum"
+	"results"
+		Int
+	"parameters"
+		Int Optional Repeatable
+	"implementation"
+		NodeImplNode
+			Set "sum" 0
+			ForEach @1 "next"
+				Set "sum" sum + next
+			sum # using rust style last statement is function return
+
+Node "Sum" Int ` ` Int Optional Repeatable
+	Declare "sum" 0
+	ForEach @1 "next"
+		Set "sum" sum + next
+	sum
+
+
+# > < confusing for Ratios
+
+Define Action "BlinkAway"
+	Parameters
+		"actors" Implied PushActors
+		"target" UnitGroup Optional DefaultValue
+			Enemies WithinRange 1
+		"destination" Location Optional DefaultValue
+			DirectionFrom target actors
+	ForEach actors "actor"
+		PushActors actor
+		RepeatEachTick SelectorNotEmpty target
+			If StatPercent Health LessThan 15
+				If AbilityReady Movement
+					Ability Movement destination
+					Move destination
+			Attack target LowestStatValue Health
+		PopActors
+	PopActors
+
+
+void BlinkAway(
+	UnitGroup actors,
+	UnitGroup target = WithinRange(Enemies(), actors, 1),
+	Location destination = DirectionFrom(target, actors))
+{
+	SetActors(actors);
+	for ( auto actor : actors ) {
+		actor.SetTickBehavior([&]{
+			if (actor.GetStatPercent(Health) < 15) {
+				if (actor.GetAbilityStatus(Movement) != Ready) {
+					Move(actor, destination);
+				} else {
+					Ability(Movement, actor, destination);
+				}
+			} else {
+				Attack(actor, LowestStatValue(target, Health));
+			}
+			return SelectorNotEmpty(target);
+		});
+	}
+}

@@ -36,6 +36,8 @@ struct TypeInfo
 	std::vector<TypeId> child_types;
 	std::unordered_map<MemberName, TypeId> members;
 
+	bool MatchesOrIsParentOf(const TypeInfo & other) const;
+
 private:
 	TypeId id; // only set by TypeLibrary
 
@@ -128,6 +130,11 @@ struct NodeName
 
 struct Parameter
 {
+	// @Feature OneOf multiple allowed types
+	// or is that handled by creating a new parent type with the allowed children?
+	// would that mean a Type could have multiple parents?
+	// is that a problem? diamond?
+	TypeName type; 
 	bool required;
 	bool repeatable;
 	NodeName default_value;
@@ -268,24 +275,22 @@ struct Node
 	// should implied status be part of this? none, parent, child?
 	Implied implied;
 	observer_ptr<NodeDecl> decl;
-	std::vector<value_ptr<Node>> left_arguments;
-	std::vector<value_ptr<Node>> arguments;
+	std::vector<Node> left_arguments;
+	std::vector<Node> arguments;
 
-	ErrorOr<std::vector<Value>> Evaluate(EvaluationContext & context) const
+	ErrorOr<std::vector<Value>> Evaluate(EvaluationContext & context) const;
+
+	enum SetArgFlags
 	{
-		std::vector<Value> values;
-		for (auto & arg : left_arguments)
-		{
-			auto arg_values = CHECK_RETURN(arg->Evaluate());
-			values.insert(left_values.end(), arg_values.begin(), arg_values.end());
-		}
-		for (auto & arg : arguments)
-		{
-			auto arg_values = CHECK_RETURN(arg->Evaluate());
-			values.insert(values.end(), arg_values.begin(), arg_values.end());
-		}
-		return decl->impl->Evaluate(context, values);
+		DefaultSetArg = 0x0,
+		RecurseOnArgumentsFirst = 1 << 1,
+		AllowSetLeft = 1 << 2,
 	}
+
+	ErrorOr<std::vector<Node *>> SetArgument(
+		const EvaluationContext & context,
+		Node && arg,
+		SetArgFlags flags = DefaultSetArg);
 };
 
 // Node -> NodeImplNode process
