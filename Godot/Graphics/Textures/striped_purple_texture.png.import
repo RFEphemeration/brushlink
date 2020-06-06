@@ -2,25 +2,23 @@
 
 importer="texture"
 type="StreamTexture"
-path.s3tc="res://.import/striped_purple_texture.png-2d8a04c13b052313eae3fac788a3ee7e.s3tc.stex"
-path.etc2="res://.import/striped_purple_texture.png-2d8a04c13b052313eae3fac788a3ee7e.etc2.stex"
+path="res://.import/striped_purple_texture.png-2d8a04c13b052313eae3fac788a3ee7e.stex"
 metadata={
-"imported_formats": [ "s3tc", "etc2" ],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://Graphics/Textures/striped_purple_texture.png"
-dest_files=[ "res://.import/striped_purple_texture.png-2d8a04c13b052313eae3fac788a3ee7e.s3tc.stex", "res://.import/striped_purple_texture.png-2d8a04c13b052313eae3fac788a3ee7e.etc2.stex" ]
+dest_files=[ "res://.import/striped_purple_texture.png-2d8a04c13b052313eae3fac788a3ee7e.stex" ]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/lossy_quality=1.0
 compress/hdr_mode=0
 compress/bptc_ldr=0
-compress/normal_map=0
+compress/normal_map=1
 flags/repeat=true
 flags/filter=false
 flags/mipmaps=false

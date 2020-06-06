@@ -1,0 +1,50 @@
+[gd_scene load_steps=12 format=2]
+
+[ext_resource path="res://Graphics/Materials/striped_purple_material.tres" type="Material" id=1]
+[ext_resource path="res://Graphics/Models/cannon_building.gltf" type="PackedScene" id=2]
+[ext_resource path="res://Scripts/Game/Units/BillboardBones.gd" type="Script" id=3]
+
+[sub_resource type="AnimationNodeAnimation" id=1]
+animation = "Awake_board_loop"
+
+[sub_resource type="AnimationNodeAnimation" id=2]
+animation = "Idle"
+
+[sub_resource type="AnimationNodeAnimation" id=3]
+animation = "Wake board"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=4]
+switch_mode = 2
+auto_advance = true
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=5]
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=6]
+switch_mode = 2
+xfade_time = 0.5
+
+[sub_resource type="AnimationNodeStateMachine" id=7]
+states/Awake/node = SubResource( 1 )
+states/Awake/position = Vector2( 564.5, 111.25 )
+states/Idle/node = SubResource( 2 )
+states/Idle/position = Vector2( 195, 103.5 )
+states/Wake/node = SubResource( 3 )
+states/Wake/position = Vector2( 332.5, 189.875 )
+transitions = [ "Wake", "Awake", SubResource( 4 ), "Idle", "Wake", SubResource( 5 ), "Awake", "Idle", SubResource( 6 ) ]
+start_node = "Awake"
+
+[sub_resource type="AnimationNodeStateMachinePlayback" id=8]
+
+[node name="cannon_building" instance=ExtResource( 2 )]
+
+[node name="Model" parent="Armature/Skeleton" index="0"]
+material/0 = ExtResource( 1 )
+
+[node name="AnimationTree" type="AnimationTree" parent="." index="2"]
+tree_root = SubResource( 7 )
+anim_player = NodePath("../AnimationPlayer")
+parameters/playback = SubResource( 8 )
+
+[node name="BillboardBones" type="Node" parent="." index="3"]
+script = ExtResource( 3 )
+style = 1

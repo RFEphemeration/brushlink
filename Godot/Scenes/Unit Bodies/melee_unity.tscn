@@ -3,32 +3,32 @@
 [ext_resource path="res://Graphics/Models/melee_unit.gltf" type="PackedScene" id=1]
 [ext_resource path="res://Graphics/Materials/striped_purple_material.tres" type="Material" id=2]
 
-[sub_resource type="AnimationNodeOneShot" id=5]
+[sub_resource type="AnimationNodeOneShot" id=1]
 filter_enabled = true
 filters = [ "Armature/Skeleton:jaw_left", "Armature/Skeleton:jaw_right", "Armature/Skeleton:root" ]
 
-[sub_resource type="AnimationNodeAnimation" id=6]
+[sub_resource type="AnimationNodeAnimation" id=2]
 animation = "Bite"
 
-[sub_resource type="AnimationNodeAnimation" id=7]
+[sub_resource type="AnimationNodeAnimation" id=3]
 animation = "Empty loop"
 
-[sub_resource type="AnimationNodeAnimation" id=8]
+[sub_resource type="AnimationNodeAnimation" id=4]
 animation = "Move loop"
 
-[sub_resource type="AnimationNodeBlend2" id=9]
+[sub_resource type="AnimationNodeBlend2" id=5]
 
-[sub_resource type="AnimationNodeBlendTree" id=10]
+[sub_resource type="AnimationNodeBlendTree" id=6]
 graph_offset = Vector2( -144.079, 68.4937 )
-nodes/Attack/node = SubResource( 5 )
+nodes/Attack/node = SubResource( 1 )
 nodes/Attack/position = Vector2( 500, 150 )
-nodes/Bite/node = SubResource( 6 )
+nodes/Bite/node = SubResource( 2 )
 nodes/Bite/position = Vector2( 110, 310 )
-nodes/Idle/node = SubResource( 7 )
+nodes/Idle/node = SubResource( 3 )
 nodes/Idle/position = Vector2( 130, 60 )
-nodes/Move/node = SubResource( 8 )
+nodes/Move/node = SubResource( 4 )
 nodes/Move/position = Vector2( 112, 185 )
-nodes/MoveSpeed/node = SubResource( 9 )
+nodes/MoveSpeed/node = SubResource( 5 )
 nodes/MoveSpeed/position = Vector2( 320, 70 )
 nodes/output/position = Vector2( 690, 150 )
 node_connections = [ "output", 0, "Attack", "Attack", 0, "MoveSpeed", "Attack", 1, "Bite", "MoveSpeed", 0, "Idle", "MoveSpeed", 1, "Move" ]
@@ -39,7 +39,7 @@ node_connections = [ "output", 0, "Attack", "Attack", 0, "MoveSpeed", "Attack", 
 material/0 = ExtResource( 2 )
 
 [node name="AnimationTree" type="AnimationTree" parent="." index="2"]
-tree_root = SubResource( 10 )
+tree_root = SubResource( 6 )
 anim_player = NodePath("../AnimationPlayer")
 active = true
 parameters/Attack/active = false

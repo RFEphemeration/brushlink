@@ -38,27 +38,49 @@ ErrorOr<std::vector<Value>> Node::Evaluate(EvaluationContext & context) const
 
 int IsPendingArgumentValid(
 	const EvaluationContext & context,
-	const std::vector<TypeInfo> & paramters,
-	const std::vector<value_ptr<Node>> & arguments,
-	const std::vector<TypeInfo> & pending)
+	const std::vector<TypeInfo> & parameters,
+	const std::vector<Node> & arguments,
+	const Node & pending)
 {
 	// @Feature change parameters from TypeInfo to Parameter
-	// @Feature repeatable, optional
-	// @Bug multiple return values don't line up here
-	// because we assume arguments.size matches parameters.size
-	int first_index = arguments.size();
-	// @Feature dropping unused extra return values?
-	if (paramters.size() < first_index + pending.size())
+	// @Feature splitting multiple return values between different nodes
+	int param_index = -1;
+	for (int arg_index = 0;
+		param_index < parameters.size() && arg_index < arguments.size();
+		arg_index++)
+	{
+		auto arg_types = arguments[arg_index]->decl->results;
+		for (int i = 0; i < arg_types.size(); i++)
+		{
+			// @Feature repeatable, optional
+			// @Feature skips, maybe arguments need to be handled differently
+			param_index++;
+		}
+	}
+
+	if (param_index >= parameters.size() - 1)
 	{
 		return false;
 	}
-	for (int i = 0; i < pending.size(); i++)
+
+	for (int i = 0;
+		param_index < parameters.size() && i < pending->decl->results.size();
+		i++)
 	{
-		if (!parameters[first_index + i].MatchesOrIsParentOf(context, pending[i]))
+		const auto & type = pending->decl->results[i];
+		if (!parameters[param_index].MatchesOrIsParentOf(context, type))
 		{
 			return false;
 		}
+		// @Feature repeatable, optional, skips
+		param_index++;
 	}
+	// we expect param_index to match size here because we increment at the end of the loop
+	if (param_index > parameters.size())
+	{
+		return false;
+	}
+
 	return true;
 }
 
@@ -102,9 +124,9 @@ ErrorOr<std::vector<Node *>> Node::SetArgument(
 			context,
 			decl->left_parameters,
 			left_arguments,
-			arg->decl->results))
+			arg))
 	{
-		left_arguments.emplace_back(arg);
+		left_arguments.emplace_back(std::move(arg));
 		arg_location.push_back(&left_arguments.back());
 		return arg_location;
 	}
@@ -113,9 +135,9 @@ ErrorOr<std::vector<Node *>> Node::SetArgument(
 			context,
 			decl->parameters,
 			arguments,
-			arg->decl->results))
+			arg))
 	{
-		arguments.emplace_back(arg);
+		arguments.emplace_back(std::move(arg));
 		arg_location.push_back(&arguments.back());
 		return arg_location;
 	}

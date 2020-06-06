@@ -4,4 +4,5 @@
 
 [resource]
 flags_unshaded = true
+params_cull_mode = 2
 albedo_texture = ExtResource( 1 )

@@ -303,7 +303,8 @@ TokenTree Lex(std::stringstream text)
 		{
 			continue;
 		}
-		int indentation = [&]{
+		int indentation = [&]
+		{
 			int index = 0;
 			while (line[index] == '\t' && index < line.size())
 			{

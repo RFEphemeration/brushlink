@@ -82,3 +82,16 @@ void BlinkAway(
 		});
 	}
 }
+
+
+# @Feature recursive calls
+# @Feature tail recursion optimization when recursive call is last statement
+
+
+Node "Fibonacci" Int > > Int
+	If Equal @1 1
+		1
+		Recurse
+			*
+				@1
+				@1 - 1
