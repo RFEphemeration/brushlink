@@ -1,0 +1,41 @@
+[gd_resource type="Animation" format=2]
+
+[resource]
+resource_name = "Awake_board_loop"
+length = 5.0
+loop = true
+tracks/0/type = "transform"
+tracks/0/path = NodePath("Armature/Skeleton:base")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = true
+tracks/0/enabled = true
+tracks/0/keys = PoolRealArray( 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 5, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1 )
+tracks/1/type = "transform"
+tracks/1/path = NodePath("Armature/Skeleton:mouth")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = true
+tracks/1/enabled = true
+tracks/1/keys = PoolRealArray( 0, 1, 0, 0, 0, -1.28269e-28, 2.31214e-43, -1.80598e-15, 1, 1, 1, 1, 0.266667, 1, 0, 0, 0, 4.53949e-16, 0.166769, -1.78069e-15, 0.985996, 1, 1, 1, 0.533333, 1, 0, 0, 0, 9.08434e-16, 0.328867, -1.70552e-15, 0.944376, 1, 1, 1, 0.8, 1, 0, 0, 0, 1.36656e-15, 0.481754, -1.58259e-15, 0.876307, 1, 1, 1, 1.06667, 1, 0, 0, 0, 1.83773e-15, 0.621148, -2.81705e-16, 0.783693, 1, 1, 1, 1.33333, 1, 0, 0, 0, 2.34497e-15, 0.743145, -2.12914e-16, 0.66913, 1, 1, 1, 1.6, 1, 0, 0, 0, 2.94866e-15, 0.844328, 1.08227e-17, 0.535826, 1, 1, 1, 1.86667, 1, 0, 0, 0, 3.81462e-15, 0.921863, -6.99844e-16, 0.387515, 1, 1, 1, 2.13333, 1, 0, 0, 0, 4.76257e-15, 0.973579, -4.12395e-16, 0.22835, 1, 1, 1, 2.4, 1, 0, 0, 0, 2.01934e-15, 0.998027, -1.13398e-16, 0.0627902, 1, 1, 1, 2.66667, 1, 0, 0, 0, 1.70173e-15, 0.994522, 1.88776e-16, -0.104528, 1, 1, 1, 2.93333, 1, 0, 0, 0, -1.50219e-15, 0.963163, 4.85662e-16, -0.268919, 1, 1, 1, 3.2, 1, 0, 0, 0, -2.86163e-16, 0.904827, 7.68947e-16, -0.425779, 1, 1, 1, 3.33333, 1, 0, 0, 0, -6.72423e-22, 0.866026, 9.02988e-16, -0.5, 1, 1, 1, 3.4, 1, 0, 0, 0, -1.01013e-16, -0.844328, -1.94619e-15, 0.535826, 1, 1, 1, 3.66667, 1, 0, 0, 0, -3.39231e-16, -0.743145, -2.20395e-15, 0.66913, 1, 1, 1, 3.93333, 1, 0, 0, 0, -4.0583e-16, -0.621148, -2.54896e-15, 0.783693, 1, 1, 1, 4.2, 1, 0, 0, 0, -3.73514e-16, -0.481754, -1.58259e-15, 0.876306, 1, 1, 1, 4.46667, 1, 0, 0, 0, -2.79417e-16, -0.328868, -1.70552e-15, 0.944376, 1, 1, 1, 4.73333, 1, 0, 0, 0, -1.48413e-16, -0.16677, -1.78068e-15, 0.985996, 1, 1, 1, 5, 1, 0, 0, 0, -1.28269e-28, 2.31214e-43, -1.80598e-15, 1, 1, 1, 1 )
+tracks/2/type = "transform"
+tracks/2/path = NodePath("Armature/Skeleton:cannon_board")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = true
+tracks/2/enabled = true
+tracks/2/keys = PoolRealArray( 0, 1, 0, 0, 0, -1.06581e-14, -7.10543e-15, -4.23516e-21, 1, 1, 1, 1, 5, 1, 0, 0, 0, -1.06581e-14, -7.10543e-15, -4.23516e-21, 1, 1, 1, 1 )
+tracks/3/type = "method"
+tracks/3/path = NodePath("BillboardBones")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/keys = {
+"times": PoolRealArray( 0.1 ),
+"transitions": PoolRealArray( 1 ),
+"values": [ {
+"args": [ true ],
+"method": "set_board_every_frame"
+} ]
+}

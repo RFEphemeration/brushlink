@@ -1,90 +1,12 @@
-[gd_scene load_steps=16 format=2]
+[gd_scene load_steps=21 format=2]
 
 [ext_resource path="res://Graphics/Materials/striped_purple_material.tres" type="Material" id=1]
 [ext_resource path="res://Graphics/Models/command_building.gltf" type="PackedScene" id=2]
 [ext_resource path="res://Scripts/Game/Units/BuildingAnimationController.gd" type="Script" id=3]
 [ext_resource path="res://Graphics/Materials/dissolve.tres" type="Material" id=4]
-
-[sub_resource type="Animation" id=1]
-length = 20.0
-tracks/0/type = "value"
-tracks/0/path = NodePath("Armature/Skeleton/Model:material_override")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/keys = {
-"times": PoolRealArray( 0, 19.9854 ),
-"transitions": PoolRealArray( 0.00224355, 1 ),
-"update": 1,
-"values": [ ExtResource( 4 ), null ]
-}
-tracks/1/type = "bezier"
-tracks/1/path = NodePath("Armature/Skeleton/Model:material_override:shader_param/solidity")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/keys = {
-"points": PoolRealArray( 0.1, -0.25, 0, 0.0199256, 0.328759, 1, -6, -0.5, 0.25, 0 ),
-"times": PoolRealArray( 0, 19.9 )
-}
-tracks/2/type = "method"
-tracks/2/path = NodePath("BuildingAnimation")
-tracks/2/interp = 1
-tracks/2/loop_wrap = true
-tracks/2/imported = false
-tracks/2/enabled = true
-tracks/2/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"values": [ {
-"args": [  ],
-"method": "make_material_override_unique"
-} ]
-}
-
-[sub_resource type="Animation" id=2]
-length = 2.0
-tracks/0/type = "value"
-tracks/0/path = NodePath("Armature/Skeleton/Model:material_override")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 1,
-"values": [ ExtResource( 4 ) ]
-}
-tracks/1/type = "bezier"
-tracks/1/path = NodePath("Armature/Skeleton/Model:material_override:shader_param/solidity")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/keys = {
-"points": PoolRealArray( 1, -0.25, 0, 0.25, 0, 0, -0.25, 0, 0.25, 0 ),
-"times": PoolRealArray( 0, 2 )
-}
-tracks/2/type = "method"
-tracks/2/path = NodePath("BuildingAnimation")
-tracks/2/interp = 1
-tracks/2/loop_wrap = true
-tracks/2/imported = false
-tracks/2/enabled = true
-tracks/2/keys = {
-"times": PoolRealArray( 0, 2 ),
-"transitions": PoolRealArray( 1, 1 ),
-"values": [ {
-"args": [  ],
-"method": "make_material_override_unique"
-}, {
-"args": [  ],
-"method": "destruction_animation_complete"
-} ]
-}
+[ext_resource path="res://Graphics/Models/command_building/Building loop.tres" type="Animation" id=5]
+[ext_resource path="res://Graphics/Animations/Construction.tres" type="Animation" id=6]
+[ext_resource path="res://Graphics/Animations/Destruction.tres" type="Animation" id=7]
 
 [sub_resource type="AnimationNodeAnimation" id=3]
 animation = "Building loop"
@@ -92,12 +14,13 @@ animation = "Building loop"
 [sub_resource type="AnimationNodeTimeScale" id=4]
 
 [sub_resource type="AnimationNodeBlendTree" id=5]
+graph_offset = Vector2( -95.5762, 26.7975 )
 nodes/Animation/node = SubResource( 3 )
-nodes/Animation/position = Vector2( 40, 120 )
-nodes/active/node = SubResource( 4 )
-nodes/active/position = Vector2( 250, 90 )
+nodes/Animation/position = Vector2( 40, 90 )
+nodes/activity/node = SubResource( 4 )
+nodes/activity/position = Vector2( 260, 80 )
 nodes/output/position = Vector2( 450, 120 )
-node_connections = [ "active", 0, "Animation", "output", 0, "active" ]
+node_connections = [ "output", 0, "activity", "activity", 0, "Animation" ]
 
 [sub_resource type="AnimationNodeAnimation" id=6]
 animation = "Construction"
@@ -105,23 +28,36 @@ animation = "Construction"
 [sub_resource type="AnimationNodeAnimation" id=7]
 animation = "Destruction"
 
-[sub_resource type="AnimationNodeStateMachineTransition" id=8]
-switch_mode = 2
-auto_advance = true
+[sub_resource type="AnimationNodeAnimation" id=8]
+animation = "Idle"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id=9]
 
-[sub_resource type="AnimationNodeStateMachine" id=10]
-states/activity/node = SubResource( 5 )
-states/activity/position = Vector2( 409.5, 79 )
+[sub_resource type="AnimationNodeStateMachineTransition" id=10]
+switch_mode = 2
+auto_advance = true
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=11]
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=12]
+xfade_time = 0.25
+
+[sub_resource type="AnimationNodeStateMachineTransition" id=13]
+xfade_time = 0.25
+
+[sub_resource type="AnimationNodeStateMachine" id=14]
+states/active/node = SubResource( 5 )
+states/active/position = Vector2( 369.75, 43.1562 )
 states/construction/node = SubResource( 6 )
-states/construction/position = Vector2( 178, 79.3125 )
+states/construction/position = Vector2( 132, 88.3125 )
 states/destruction/node = SubResource( 7 )
 states/destruction/position = Vector2( 584, 104 )
-transitions = [ "construction", "activity", SubResource( 8 ), "activity", "destruction", SubResource( 9 ) ]
+states/idle/node = SubResource( 8 )
+states/idle/position = Vector2( 370.375, 147.5 )
+transitions = [ "active", "destruction", SubResource( 9 ), "construction", "idle", SubResource( 10 ), "idle", "destruction", SubResource( 11 ), "idle", "active", SubResource( 12 ), "active", "idle", SubResource( 13 ) ]
 start_node = "construction"
 
-[sub_resource type="AnimationNodeStateMachinePlayback" id=11]
+[sub_resource type="AnimationNodeStateMachinePlayback" id=15]
 
 [node name="command_building" instance=ExtResource( 2 )]
 
@@ -130,14 +66,15 @@ material_override = ExtResource( 4 )
 material/0 = ExtResource( 1 )
 
 [node name="AnimationPlayer" parent="." index="1"]
-anims/Construction = SubResource( 1 )
-anims/Destruction = SubResource( 2 )
+"anims/Building loop" = ExtResource( 5 )
+anims/Construction = ExtResource( 6 )
+anims/Destruction = ExtResource( 7 )
 
 [node name="AnimationTree" type="AnimationTree" parent="." index="2"]
-tree_root = SubResource( 10 )
+tree_root = SubResource( 14 )
 anim_player = NodePath("../AnimationPlayer")
-parameters/playback = SubResource( 11 )
-parameters/activity/active/scale = 1.0
+parameters/playback = SubResource( 15 )
+parameters/active/activity/scale = 0.0
 
 [node name="BuildingAnimation" type="Node" parent="." index="3"]
 script = ExtResource( 3 )

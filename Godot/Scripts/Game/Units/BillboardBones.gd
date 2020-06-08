@@ -18,13 +18,15 @@ onready var anim_tree : AnimationTree = $"../AnimationTree"
 onready var anim_playback : AnimationNodeStateMachinePlayback = anim_tree.get("parameters/playback")
 onready var bones : Array = get_board_bones()
 
+export var board_every_frame : bool = false
 
 func _ready():
 	anim_tree.active = true
 	anim_playback.travel("Awake")
 
 func _process(delta):
-	board_bones(delta)
+	if board_every_frame:
+		board_bones(delta)
 
 func get_board_bones():
 	var board_bones := []
@@ -33,11 +35,15 @@ func get_board_bones():
 			board_bones.append(i)
 	return board_bones
 
+func set_board_every_frame(var board):
+	if style == BillboardStyle.CameraVertical or style == BillboardStyle.CameraComplete:
+		board_every_frame = board
+	else:
+		if board:
+			board_bones(1.0)
+		board_every_frame = false
+
 func board_bones(delta):
-	
-	var node = anim_tree.tree_root.get_node(anim_playback.get_current_node())
-	if node.animation.find("board") == -1:
-		return
 	# @Feature tween boarding
 	#var amount := 1.0
 	var camera_pose := get_viewport().get_camera().get_camera_transform()
