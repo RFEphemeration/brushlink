@@ -11,6 +11,9 @@
 #include "MathUtils.h"
 
 #include "ElementType.h"
+#include "Action.h"
+#include "Location.h"
+#include "Unit.h"
 
 using namespace Farb;
 

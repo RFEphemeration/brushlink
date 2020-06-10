@@ -22,11 +22,11 @@ Type
 
 Node
 	"Sum"
-	"results"
+	@results
 		Int
-	"parameters"
+	@parameters
 		Int Optional Repeatable
-	"implementation"
+	@implementation
 		NodeImplNode
 			Set "sum" 0
 			ForEach @1 "next"
