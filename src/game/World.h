@@ -12,14 +12,32 @@ struct World_Settings
 	int height = 20;
 };
 
+enum class Space_Occupation
+{
+	Empty,
+	Leaving,
+	Entering,
+	Full,
+};
+
 struct World
 {
-	World_Settings world_settings;
+	World_Settings settings;
 	Area area;
 	std::shared_ptr<Tigr> drawn_terrain;
-	Map<UnitID, Unit> units;
+	std::map<UnitID, Unit> units; // intentionally an ordered map for traversal
+	Map<Point, UnitID> positions;
 
 	World(World_Settings & settings = World_Settings{});
 
-	Render(Tigr* camera, Point camera_bottom_left, PlayerID player);
+	void Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_left, PlayerID player);
+
+	bool AddUnit(Unit unit, Point loc);
+
+	void RemoveUnit(UnitID id);
+
+	Unit & GetUnit(UnitID id);
+
+	bool MoveUnit(UnitID id, Point destination);
+
 };

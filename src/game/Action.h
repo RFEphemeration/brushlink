@@ -11,8 +11,16 @@ enum class Action_Type
 
 struct Action_Settings
 {
+	Energy cost {0};
+	Energy magnitude {0}; // for heal and attack
+	Seconds cooldown {0.0};
+	Seconds duration {0.0};
+};
+
+struct Action_Event
+{
 	Action_Type type;
-	Energy cost;
-	Energy magnitude; // for heal and attack
-	
+	std::optional<Point> location;
+	std::optional<UnitID> target;
+	Tick time;
 };
