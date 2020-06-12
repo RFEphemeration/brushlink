@@ -36,7 +36,9 @@ struct World
 
 	void RemoveUnit(UnitID id);
 
-	Unit & GetUnit(UnitID id);
+	void RemoveUnits(Set<UnitID> ids);
+
+	Unit * GetUnit(UnitID id);
 
 	bool MoveUnit(UnitID id, Point destination);
 

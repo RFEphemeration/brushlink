@@ -22,5 +22,14 @@ struct Action_Event
 	Action_Type type;
 	std::optional<Point> location;
 	std::optional<UnitID> target;
-	Tick time;
+	//Tick time;
+};
+
+
+enum class Action_Result
+{
+	Waiting,
+	Success,
+	Retry,
+	Recompute
 };

@@ -5,9 +5,21 @@ struct Point
 	int x = 0;
 	int y = 0;
 
-	int Distance(Point other)
+	int CardinalDistance(Point other)
 	{
 		return abs(other.x - x) + abs(other.y - y);
+	}
+
+	bool IsNeighbor(Point other)
+	{
+		return abs(other.x - x) <= 1
+			&& abs(other.y - y) <= 1
+			&& (other.y != y || other.x != x);
+	}
+
+	bool IsCardinalNeighbor(Point other)
+	{
+		return CardinalDistance(other) == 1;
 	}
 };
 

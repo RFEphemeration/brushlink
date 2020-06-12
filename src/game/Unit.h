@@ -56,7 +56,7 @@ struct Unit
 	Energy energy;
 
 	Action_Event pending; // if pending.type == Idle there is no pending
-	std::vector<Action_Event> history;
+	Map<Action_Type, Ticks> history;
 	// Command type in unit context?
 	// need an already executed type stored by value
 	// and a repeatedly executed type full tree
