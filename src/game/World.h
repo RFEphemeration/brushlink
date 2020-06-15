@@ -32,7 +32,7 @@ struct World
 
 	void Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_left, PlayerID player);
 
-	bool AddUnit(Unit unit, Point loc);
+	bool AddUnit(Unit unit, Point position);
 
 	void RemoveUnit(UnitID id);
 

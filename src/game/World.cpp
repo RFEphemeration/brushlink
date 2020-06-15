@@ -28,14 +28,52 @@ World::World(World_Settings & settings)
 	}
 }
 
-bool World::MoveUnit(UnitID id, Point destination)
-{
-	Unit & unit = units[id];
-	if (positions.count(destination) > 0)
+
+bool World::AddUnit(Unit && unit, Point position)
+{	
+	UnitID id = unit.id;
+	if (Contains(positions, position)
+		|| Contains(units, id))
 	{
 		return false;
 	}
+	units[id] = unit;
+	positions[loc] = id;
+	units[id].position = position;
+}
+
+void World::RemoveUnit(UnitID id)
+{
 	positions.remove(unit.position);
-	unit.position = destination;
+	units.remove(id);
+}
+
+void World::RemoveUnits(Set<UnitID> ids)
+{
+	for (auto id : ids)
+	{
+		RemoveUnit(id);
+	}
+}
+
+Unit * World::GetUnit(UnitID id)
+{
+	if (Contains(units, id))
+	{
+		return &units[id];
+	}
+	return nullptr;
+}
+
+bool World::MoveUnit(UnitID id, Point destination)
+{
+	Unit * unit = GetUnit(id);
+	if (unit == nullptr
+		|| positions.count(destination) > 0)
+	{
+		return false;
+	}
+	positions.remove(unit->position);
+	unit->position = destination;
 	positions[destination] = unit.id;
 }

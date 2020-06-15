@@ -11,6 +11,7 @@ Type
 		"value_type" ValueType
 		"members" Dictionary String TypeName # are these types or nodes? are types nodes?
 
+# special case else blocks to left parameter last sibling?
 
 # if types are value nodes, then how to define constructors?
 # are they types if they have no arguments? and nodes if they do?
@@ -41,6 +42,10 @@ Node "Sum" Int ` ` Int Optional Repeatable
 
 
 # > < confusing for Ratios
+
+
+# GetUnitProperty should return different types depending on what property name was passed in, this could apply to any struct 
+
 
 Define Action "BlinkAway"
 	Parameters

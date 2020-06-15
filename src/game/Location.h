@@ -21,6 +21,23 @@ struct Point
 	{
 		return CardinalDistance(other) == 1;
 	}
+
+	std::vector<Point> GetNeighbors()
+	{
+		std::vector<Point> neighbors;
+		for (int i = -1; i <= 1; i++)
+		{
+			for (int j = -1; j <= 1; j++)
+			{
+				if (i == 0 && j == 0)
+				{
+					 continue;
+				}
+				ret.emplace_back(x+i, y+j);
+			}
+		}
+		return neighbors;
+	}
 };
 
 struct Line

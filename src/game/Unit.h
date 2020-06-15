@@ -1,5 +1,7 @@
 
 
+#include "Resources.h"
+#include "Player_Graphics.h"
 
 struct UnitIDTag
 {
@@ -12,13 +14,6 @@ struct UnitGroup
 	std::vector<UnitID> members;
 };
 
-struct EnergyTag
-{
-	static HString GetName() { return "Energy"; }
-};
-using Energy = NamedType<uint, Energy>;
-
-
 enum class Unit_Type
 {
 	Spawner,
@@ -26,15 +21,8 @@ enum class Unit_Type
 	Attacker,
 };
 
-enum class Player_Pattern
-{
-	Checkers,
-	Stripes,
-	Spots,
-	Grid,
-};
+Unit_Type GetRandomUnitType(std::mt19937 generator);
 
-using Player_Color = TPixel;
 
 struct Unit_Settings
 {
@@ -45,6 +33,7 @@ struct Unit_Settings
 	Map<std::pair<Player_Color, Player_Pattern>, Tigr> drawn_body;
 	Map<Action_Type, Action_Settings> actions;
 	int vision_radius = 4;
+	Map<Action_Type, Action_Magnitude_Modifier> targeted_modifiers;
 };
 
 struct Unit
@@ -54,6 +43,7 @@ struct Unit
 	PlayerID player;
 	Point position;
 	Energy energy;
+	Ticks crowded_duration;
 
 	Action_Event pending; // if pending.type == Idle there is no pending
 	Map<Action_Type, Ticks> history;

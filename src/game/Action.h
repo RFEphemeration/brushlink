@@ -33,3 +33,9 @@ enum class Action_Result
 	Retry,
 	Recompute
 };
+
+
+struct Action_Magnitude_Modifier
+{
+	Energy amount;
+};
