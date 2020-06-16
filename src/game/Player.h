@@ -7,6 +7,6 @@ using PlayerID = NamedType<int, PlayerIDTag>;
 
 struct Player
 {
-	
-}
+
+};
 

@@ -36,6 +36,8 @@ struct Game
 	UnitID next_unit_id;
 	Ticks tick;
 
+	void Initialize();
+
 	void Tick();
 	// helper functions for Tick
 	void ProcessPlayerInput();

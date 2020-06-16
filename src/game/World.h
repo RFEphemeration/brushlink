@@ -5,9 +5,10 @@ struct World_Settings
 {
 	int tile_px = 16;
 	std::pair<TPixel, TPixel> checker_colors {
-		TPixel{180, 180, 180, 255},
-		TPixel{70, 70, 70, 255}
+		TPixel{192, 192, 192, 255},
+		TPixel{96, 96, 96, 255}
 	};
+	TPixel fog_color{0,0,0,64};
 	int width = 20;
 	int height = 20;
 };
@@ -27,6 +28,9 @@ struct World
 	std::shared_ptr<Tigr> drawn_terrain;
 	std::map<UnitID, Unit> units; // intentionally an ordered map for traversal
 	Map<Point, UnitID> positions;
+	Map<PlayerID, std::pair<Player_Color, Player_Pattern> > player_colors;
+
+	std::shared_ptr<Tigr> energy_bars;
 
 	World(World_Settings & settings = World_Settings{});
 

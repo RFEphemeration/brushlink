@@ -57,6 +57,17 @@ const GameSettings GameSettings::default_settings {
 	Ticks {12},
 };
 
+void Game::Initialize()
+{
+	
+	for (auto & pair : players)
+	{
+		PlayerID id = pair.first;
+		Player & player = pair.second;
+		world.player_colors[id] = player.colors;
+	}
+}
+
 void Game::Tick()
 {
 	tick += 1;

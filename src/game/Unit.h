@@ -30,7 +30,7 @@ struct Unit_Settings
 	Energy starting_energy {6};
 	Energy max_energy {12};
 	std::pair<Energy, Seconds> recharge_rate {{1}, {1.0}};
-	Map<std::pair<Player_Color, Player_Pattern>, Tigr> drawn_body;
+	Map<std::pair<Player_Color, Player_Pattern>, std::shared_ptr<Tigr>> drawn_body;
 	Map<Action_Type, Action_Settings> actions;
 	int vision_radius = 4;
 	Map<Action_Type, Action_Magnitude_Modifier> targeted_modifiers;

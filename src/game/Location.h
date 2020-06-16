@@ -50,6 +50,10 @@ struct Area
 {
 	// discrete world space
 	Set<Point> points;
+
+	static Area Circle(Point center, Number radius);
+
+	void UnionWith(const Area & other);
 };
 
 // interpreted as a vector. Different type from Point for 
