@@ -1,4 +1,12 @@
+#pragma once
+#ifndef BRUSHLINK_GAME_H
+#define BRUSHLINK_GAME_H
 
+#include "Player.h"
+#include "World.h"
+
+namespace Brushlink
+{
 
 enum class Player_Type
 {
@@ -52,3 +60,7 @@ struct Game
 	Ticks SecondsToTicks(Seconds s);
 	
 };
+
+} // namespace Brushlink
+
+#endif // BRUSHLINK_GAME_H

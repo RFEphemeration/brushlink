@@ -1,27 +1,13 @@
-
+#pragma once
+#ifndef BRUSHLINK_UNIT_H
+#define BRUSHLINK_UNIT_H
 
 #include "Resources.h"
 #include "Player_Graphics.h"
+#include "Unit_Basics.h"
 
-struct UnitIDTag
+namespace Bushlink
 {
-	static HString GetName() { return "UnitID"; }
-};
-using UnitID = NamedType<int, UnitIDTag>;
-
-struct UnitGroup
-{
-	std::vector<UnitID> members;
-};
-
-enum class Unit_Type
-{
-	Spawner,
-	Healer,
-	Attacker,
-};
-
-Unit_Type GetRandomUnitType(std::mt19937 generator);
 
 
 struct Unit_Settings
@@ -54,3 +40,8 @@ struct Unit
 	Command idle_command;
 };
 
+
+
+} // namespace Bushlink
+
+#endif // BRUSHLINK_UNIT_H

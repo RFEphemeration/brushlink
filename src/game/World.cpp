@@ -1,4 +1,9 @@
 
+#include "World.h"
+
+namespace Brushlink
+{
+
 World::World(World_Settings & settings)
 	: settings(settings)
 {
@@ -246,3 +251,5 @@ bool World::MoveUnit(UnitID id, Point destination)
 	unit->position = destination;
 	positions[destination] = unit.id;
 }
+
+} // namespace Brushlink

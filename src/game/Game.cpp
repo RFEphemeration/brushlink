@@ -1,4 +1,8 @@
 
+#include "Game.h"
+
+namespace Brushlink
+{
 
 const GameSettings GameSettings::default_settings {
 	Map<PlayerID, PlayerSettings> {
@@ -59,7 +63,7 @@ const GameSettings GameSettings::default_settings {
 
 void Game::Initialize()
 {
-	
+
 	for (auto & pair : players)
 	{
 		PlayerID id = pair.first;
@@ -450,3 +454,5 @@ Ticks Game::SecondsToTicks(Seconds s)
 {
 	return Ticks{ Round(seconds.value * settings.speed.value) };
 }
+
+} // namespace Brushlink

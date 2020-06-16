@@ -1,5 +1,11 @@
+#pragma once
+#ifndef BRUSHLINK_WORLD_H
+#define BRUSHLINK_WORLD_H
 
 #include "Location.h"
+
+namespace Brushlink
+{
 
 struct World_Settings
 {
@@ -47,3 +53,7 @@ struct World
 	bool MoveUnit(UnitID id, Point destination);
 
 };
+
+} // namespace Brushlink
+
+#endif // BRUSHLINK_WORLD_H

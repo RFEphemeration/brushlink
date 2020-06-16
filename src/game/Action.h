@@ -1,3 +1,13 @@
+#pragma once
+#ifndef BRUSHLINK_ACTION_H
+#define BRUSHLINK_ACTION_H
+
+#include "Resources.h"
+#include "Time.h"
+#include "Location.h"
+
+namespace Brushlink
+{
 
 enum class Action_Type
 {
@@ -39,3 +49,8 @@ struct Action_Magnitude_Modifier
 {
 	Energy amount;
 };
+
+
+} // namespace Brushlink
+
+#endif // BRUSHLINK_ACTION_H
