@@ -6,7 +6,7 @@ COMMAND_SOURCE_FILES = $(wildcard src/command/*.cpp)
 
 GAME_MODULES = app game
 GAME_INCLUDES = $(addprefix -I src/, $(GAME_MODULES))
-GAME_SOURCE_FILES = $(wildcard src/app/*.cpp) $(wildcard src/game/*.cpp)
+GAME_SOURCE_FILES = $(foreach MODULE,$(GAME_MODULES),$(wildcard src/$(MODULE)/*.cpp))
 
 FARB_MODULES = core interface reflection serialization utils
 FARB_LIBS = tigr
@@ -19,3 +19,9 @@ build/bin/runtests: tests/RunTests.cpp src/command/* tests/command/* ../farb/bui
 
 build/bin/brushlink: src/game/* src/app/* ../farb/build/link/farb.a
 	$(CXX) $(CXXFLAGS) $(FARB_INCLUDES) $(GAME_INCLUDES) $(GAME_SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/brushlink $(TARGET_LINKS)
+
+stats:
+	for module in $(GAME_MODULES) ; do \
+		echo MODULE $$module ; \
+    	cloc ./src/$$module ; \
+	done
