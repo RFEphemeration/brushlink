@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 		/* todo: input processing,
 			starting new game,
 			menus/navigation,
-			changing settings,
+			changing settings, // this means globals or ui state machine handoffs
 			code editor
 		*/
 		Game game;
@@ -21,19 +21,8 @@ int main(int argc, char *argv[])
 			game.Tick();
 			game.Render(window.screen.get(), window.settings.world_portion);
 		}
+		// sleep, where should this go?
 	}
 
 	return 0;
-
-	Game game{};
-	while(!game.IsOver())
-	{
-		// process input
-
-		game.Tick();
-
-		// present screen
-
-		// sleep, where should this go?
-	}
 }

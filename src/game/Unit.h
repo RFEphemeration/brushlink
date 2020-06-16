@@ -5,10 +5,10 @@
 #include "Resources.h"
 #include "Player_Graphics.h"
 #include "Unit_Basics.h"
+#include "Command.h"
 
 namespace Bushlink
 {
-
 
 struct Unit_Settings
 {

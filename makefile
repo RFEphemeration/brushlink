@@ -1,6 +1,21 @@
-all: build/bin/runtests
+CXX=g++
+CXXFLAGS=-std=c++17 -Wall -pedantic -Wfatal-errors -Wno-gnu-statement-expression -Wno-unused-function -ferror-limit=1
+TARGET_LINKS=-framework OpenGL -framework Cocoa
 
-SOURCE_FILES = $(wildcard src/command/*.cpp)
+COMMAND_SOURCE_FILES = $(wildcard src/command/*.cpp)
+
+GAME_MODULES = app game
+GAME_INCLUDES = $(addprefix -I src/, $(GAME_MODULES))
+GAME_SOURCE_FILES = $(wildcard src/app/*.cpp) $(wildcard src/game/*.cpp)
+
+FARB_MODULES = core interface reflection serialization utils
+FARB_LIBS = tigr
+FARB_INCLUDES = $(addprefix -I ../farb/src/, $(FARB_MODULES)) $(addprefix -I ../farb/lib/, $(FARB_LIBS))
+
+all: build/bin/runtests build/bin/brushlink
 
 build/bin/runtests: tests/RunTests.cpp src/command/* tests/command/* ../farb/build/link/farb.a
-	g++ -std=c++17 -Wfatal-errors -ferror-limit=1 -I../farb/src/core -I../farb/src/interface -I../farb/src/reflection -I../farb/src/serialization -I../farb/src/utils tests/RunTests.cpp $(SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/runtests
+	g++ -std=c++17 -Wfatal-errors -ferror-limit=1 -I../farb/src/core -I../farb/src/interface -I../farb/src/reflection -I../farb/src/serialization -I../farb/src/utils tests/RunTests.cpp $(COMMAND_SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/runtests
+
+build/bin/brushlink: src/game/* src/app/* ../farb/build/link/farb.a
+	$(CXX) $(CXXFLAGS) $(FARB_INCLUDES) $(GAME_INCLUDES) $(GAME_SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/brushlink $(TARGET_LINKS)
