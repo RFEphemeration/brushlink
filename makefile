@@ -1,5 +1,5 @@
 CXX=g++
-CXXFLAGS=-std=c++17 -Wall -pedantic -Wfatal-errors -Wno-gnu-statement-expression -Wno-unused-function -ferror-limit=1
+CXXFLAGS=-std=c++17 -Wall -pedantic -Wfatal-errors -Wno-gnu-statement-expression -Wno-unused-function
 TARGET_LINKS=-framework OpenGL -framework Cocoa
 
 COMMAND_SOURCE_FILES = $(wildcard src/command/*.cpp)

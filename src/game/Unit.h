@@ -2,10 +2,16 @@
 #ifndef BRUSHLINK_UNIT_H
 #define BRUSHLINK_UNIT_H
 
+#include <vector>
+#include <utility>
+
+#include "BuiltinTypedefs.h"
+
 #include "Resources.h"
 #include "Player_Graphics.h"
 #include "Unit_Basics.h"
 #include "Command.h"
+#include "Action.h"
 
 namespace Bushlink
 {

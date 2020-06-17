@@ -1,4 +1,11 @@
+#pragma once
+#ifndef BRUSHLINK_TIME_H
+#define BRUSHLINK_TIME_H
 
+#include "NamedType.hpp"
+
+namespace Brushlink
+{
 
 struct TicksTag
 {
@@ -30,3 +37,8 @@ struct Seconds
 	{ }
 };
 */
+
+
+} // namespace Brushlink
+
+#endif // BRUSHLINK_TIME_H

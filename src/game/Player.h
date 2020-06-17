@@ -2,6 +2,10 @@
 #ifndef BRUSHLINK_PLAYER_H
 #define BRUSHLINK_PLAYER_H
 
+#include <vector>
+
+#include "NamedType.hpp"
+
 #include "Player_Graphics.h"
 
 namespace Brushlink

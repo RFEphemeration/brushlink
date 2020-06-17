@@ -2,6 +2,8 @@
 #ifndef BRUSHLINK_RESOURCES_H
 #define BRUSHLINK_RESOURCES_H
 
+#include "NamedType.hpp"
+
 namespace Brushlink
 {
 

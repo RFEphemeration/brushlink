@@ -5,6 +5,9 @@
 #include <random>
 #include <vector>
 
+#include "BuiltinTypedefs.h"
+#include "NamedType.hpp"
+
 namespace Brushlink
 {
 

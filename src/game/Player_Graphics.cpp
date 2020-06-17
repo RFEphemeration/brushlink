@@ -1,6 +1,9 @@
 
 #include "Player_Graphics.h"
 
+#include "TigrExtensions.h"
+
+
 namespace Brushlink
 {
 

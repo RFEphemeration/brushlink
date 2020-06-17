@@ -1,4 +1,14 @@
+#pragma once
+#ifndef BRUSHLINK_LOCATION_H
+#define BRUSHLINK_LOCATION_H
 
+#include <vector>
+#include <variant>
+
+#include "BuiltinTypedefs.h"
+
+namespace Brushlink
+{
 
 struct Point
 {
@@ -64,3 +74,7 @@ struct Direction
 };
 
 using Location = std::variant<Point, Line, Direction, Area>;
+
+} // namespace Brushlink
+
+#endif // BRUSHLINK_LOCATION_H

@@ -2,6 +2,12 @@
 #ifndef BRUSHLINK_GAME_H
 #define BRUSHLINK_GAME_H
 
+#include <random>
+#include <utility>
+
+#include "BuiltinTypedefs.h"
+
+#include "Unit_Basics.h"
 #include "Player.h"
 #include "World.h"
 

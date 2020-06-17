@@ -2,6 +2,8 @@
 #ifndef BRUSHLINK_ACTION_H
 #define BRUSHLINK_ACTION_H
 
+#include <optional>
+
 #include "Resources.h"
 #include "Time.h"
 #include "Location.h"

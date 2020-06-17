@@ -1,3 +1,7 @@
+#include "Location.h"
+
+namespace Brushlink
+{
 
 Area Area::Circle(Point center, Number radius)
 {
@@ -25,3 +29,6 @@ void Area::UnionWith(const Area & other)
 		points.insert(point);
 	}
 }
+
+
+} // namespace Brushlink
