@@ -6,33 +6,38 @@
 #include <variant>
 
 #include "BuiltinTypedefs.h"
+#include "ContainerExtensions.hpp"
+
+#include "Basic_Types.h"
 
 namespace Brushlink
 {
+
+using namespace Farb;
 
 struct Point
 {
 	int x = 0;
 	int y = 0;
 
-	int CardinalDistance(Point other)
+	inline int CardinalDistance(Point other)
 	{
 		return abs(other.x - x) + abs(other.y - y);
 	}
 
-	bool IsNeighbor(Point other)
+	inline bool IsNeighbor(Point other)
 	{
 		return abs(other.x - x) <= 1
 			&& abs(other.y - y) <= 1
 			&& (other.y != y || other.x != x);
 	}
 
-	bool IsCardinalNeighbor(Point other)
+	inline bool IsCardinalNeighbor(Point other)
 	{
 		return CardinalDistance(other) == 1;
 	}
 
-	std::vector<Point> GetNeighbors()
+	inline std::vector<Point> GetNeighbors()
 	{
 		std::vector<Point> neighbors;
 		for (int i = -1; i <= 1; i++)
@@ -43,12 +48,41 @@ struct Point
 				{
 					 continue;
 				}
-				ret.emplace_back(x+i, y+j);
+				neighbors.push_back({x+i, y+j});
 			}
 		}
 		return neighbors;
 	}
+
+	bool operator==(const Point & other) const
+	{
+		return x == other.x && y == other.y;
+	}
+
+	Point operator-(const Point & other) const
+	{
+		return Point{x - other.x, y - other.y};
+	}
 };
+
+} // namespace Brushlink
+
+namespace std
+{
+
+template<>
+struct hash<Brushlink::Point>
+{
+	std::size_t operator()(Brushlink::Point const& p) const noexcept
+	{
+		return std::hash<std::tuple<int,int>>{}(std::tuple{p.x, p.y});
+	}
+};
+
+} // namespace std
+
+namespace Brushlink
+{
 
 struct Line
 {

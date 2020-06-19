@@ -92,7 +92,7 @@ inline ElementType::Enum operator&(ElementType::Enum a, ElementType::Enum b)
 	return static_cast<ElementType::Enum>(static_cast<int>(a) & static_cast<int>(b));
 }
 
-const std::array<std::pair<ElementType::Enum, std::string>> element_type_mapping{{
+const std::vector<std::pair<ElementType::Enum, std::string> > element_type_mapping{{
 	{ ElementType::Command, "Command"},
 	{ ElementType::Condition, "Condition"},
 	{ ElementType::Action, "Action"},
@@ -121,7 +121,7 @@ const std::array<std::pair<ElementType::Enum, std::string>> element_type_mapping
 	{ ElementType::Parameter_Reference, "Parameter_Reference"},
 }};
 
-std::string ToString(ElementType::Enum type)
+inline std::string ToString(ElementType::Enum type)
 {
 	for (auto && pair : element_type_mapping)
 	{
@@ -133,7 +133,7 @@ std::string ToString(ElementType::Enum type)
 	return "Uknown Type";
 }
 
-ElementType::Enum FromString(const std::string & as_string)
+inline ElementType::Enum FromString(const std::string & as_string)
 {
 	for (auto && pair : element_type_mapping)
 	{

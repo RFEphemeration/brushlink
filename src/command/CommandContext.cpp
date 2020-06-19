@@ -1,16 +1,21 @@
 #include "CommandContext.h"
 
+#include "json.hpp"
+
 #include "ContainerExtensions.hpp"
 #include "VariantExtensions.hpp"
 
 #include "CommandParameter.hpp"
 #include "CommandElement.hpp"
 
+
 namespace Command
 {
 
 namespace ET = ElementType;
 using namespace OccurrenceFlags;
+
+using json = nlohmann::json;
 
 // @Incomplete implied node priority
 // implied type -> allowed new element types
@@ -61,9 +66,6 @@ const Set<ElementType::Enum> CommandContext::instruction_element_types{
 	ET::Skip, ET::Undo, ET::Redo, ET::Termination, ET::Cancel
 };
 
-
-using json = nlohmann::json;
-
 ErrorOr<std::string> Get(json j, std::string member)
 {
 	if (!j.contains(member))
@@ -76,7 +78,7 @@ ErrorOr<std::string> Get(json j, std::string member)
 	}
 	catch(json::exception& e)
 	{
-		return Errror(e.what());
+		return Error(e.what());
 	}
 
 }
@@ -95,7 +97,7 @@ ErrorOr<value_ptr<CommandElement>> GetDef(json j)
 {
 	struct ParamDef
 	{
-		ElementType type;
+		ElementType::Enum type;
 
 		bool optional;
 		bool repeatable;
@@ -110,8 +112,8 @@ ErrorOr<value_ptr<CommandElement>> GetDef(json j)
 	};
 	try
 	{
-		std::string name = j["name"].get<std::string>()
-		ElementType::Enum type = j["type"].get<std::string>()
+		std::string name = j["name"].get<std::string>();
+		ElementType::Enum type = FromString(j["type"].get<std::string>());
 		std::vector<ParamDef> params;
 		if (j.contains("params"))
 		{
@@ -120,8 +122,9 @@ ErrorOr<value_ptr<CommandElement>> GetDef(json j)
 	}
 	catch(json::exception& e)
 	{
-		return Errror(e.what());
+		return Error(e.what());
 	}
+	return Error("Unimplemented");
 }
 
 

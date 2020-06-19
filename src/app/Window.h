@@ -11,6 +11,9 @@
 namespace Brushlink
 {
 
+using Farb::UI::Dimensions;
+using Farb::UI::TigrDeleter;
+
 struct Key_Changes
 {
 	std::string_view up_values;
@@ -22,14 +25,14 @@ struct Window_Settings
 	int width{580};
 	int height{320};
 	std::string title{"BrushLink"};
-	TPixel clear_color{0xa0, 0x90, 0x80, 0x255};
+	TPixel clear_color{0xa0, 0x90, 0x80, 0xFF};
 	Dimensions world_portion{260, 0, 320, 320};
 };
 
 struct Window
 {
 	Window_Settings settings;
-	shared_ptr<Tigr> screen;
+	std::shared_ptr<Tigr> screen;
 	char key_down_buffer[256];
 	char key_up_buffer[256];
 
@@ -62,8 +65,8 @@ struct Window
 
 	inline Key_Changes GetKeyChanges()
 	{
-		int down_count = 0;
-		int up_count = 0;
+		unsigned int down_count = 0;
+		unsigned int up_count = 0;
 		tigrGetKeyChanges(screen.get(),
 			&key_down_buffer, &down_count,
 			&key_up_buffer, &up_count);

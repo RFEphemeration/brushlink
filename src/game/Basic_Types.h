@@ -7,6 +7,8 @@
 namespace Brushlink
 {
 
+using namespace Farb;
+
 struct NumberTag
 {
 	static HString GetName() { return "Command::Number"; }

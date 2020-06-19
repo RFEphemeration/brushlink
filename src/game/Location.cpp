@@ -7,7 +7,7 @@ Area Area::Circle(Point center, Number radius)
 {
 	Area a;
 	a.points.insert(center);
-	int radius_sqaured = radius.value * radius.value;
+	int radius_squared = radius.value * radius.value;
 	for(int x = -radius.value; x <= radius.value; x++)
 	{
 		for (int y = -radius.value; y <= radius.value; y++)
@@ -16,7 +16,7 @@ Area Area::Circle(Point center, Number radius)
 			{
 				continue;
 			}
-			a.points.emplace(center.x + x, center.y + y);
+			a.points.insert({center.x + x, center.y + y});
 		}
 	}
 	return a;

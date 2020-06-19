@@ -1,6 +1,6 @@
 #pragma once
-#ifndef BRUSHLINK_TIME_H
-#define BRUSHLINK_TIME_H
+#ifndef BRUSHLINK_GAME_TIME_H
+#define BRUSHLINK_GAME_TIME_H
 
 #include "NamedType.hpp"
 

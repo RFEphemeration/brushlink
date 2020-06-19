@@ -1,6 +1,11 @@
 
+#include <iostream> // for __compressed_pair
+#include <string> // for char_traits
+
 #include "Window.h"
 #include "Game.h"
+
+using namespace Brushlink;
 
 int main(int argc, char *argv[])
 {
@@ -14,7 +19,7 @@ int main(int argc, char *argv[])
 			code editor
 		*/
 		Game game;
-		while(!window.Closed
+		while(!window.Closed()
 			&& !game.IsOver())
 		{
 			window.Clear();

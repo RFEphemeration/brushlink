@@ -7,11 +7,13 @@
 namespace Brushlink
 {
 
+using namespace Farb;
+
 struct EnergyTag
 {
 	static HString GetName() { return "Energy"; }
 };
-using Energy = NamedType<uint, Energy>;
+using Energy = NamedType<int, EnergyTag>;
 
 
 } // namespace Brushlink

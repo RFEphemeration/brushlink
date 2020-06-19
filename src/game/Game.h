@@ -7,33 +7,20 @@
 
 #include "BuiltinTypedefs.h"
 
-#include "Unit_Basics.h"
+#include "Game_Basic_Types.h"
 #include "Player.h"
 #include "World.h"
 
 namespace Brushlink
 {
 
-enum class Player_Type
-{
-	AI,
-	Local_Player,
-	// Todo?: Remote_Player
-};
-
-struct PlayerSettings
-{
-	Player_Type type;
-	// Todo: dictionary of command elements
-};
-
 struct GameSettings
 {
-	Map<PlayerID, PlayerSettings> player_settings;
-	Map<Unit_Type, UnitSettings> unit_types;
+	Map<PlayerID, Player_Settings> player_settings;
+	Map<Unit_Type, Unit_Settings> unit_types;
 	Ticks speed {12}; // per second
 	Number crowded_threshold {6}; // number of neighbors at which we start decaying
-	std::pair<Number, Seconds> crowded_decay{{1}, {1.0}};
+	std::pair<Energy, Seconds> crowded_decay{{1}, {1.0}};
 
 	static const GameSettings default_settings;
 };
@@ -59,6 +46,9 @@ struct Game
 	void AllUnitsTakeAction();
 	Action_Result UnitTakeAction(Unit & unit);
 	void ApplyCrowdingDecayAndPruneExhaustedUnits();
+
+	void Render(Tigr * screen, const Dimensions & world_portion);
+	bool IsOver();
 
 	ErrorOr<UnitID> SpawnUnit(PlayerID player, Unit_Type unit, Point position);
 	void RemoveUnits(Set<UnitID> units);

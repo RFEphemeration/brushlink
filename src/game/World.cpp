@@ -1,33 +1,35 @@
 
 #include "World.h"
 
+#include <algorithm>
+
 namespace Brushlink
 {
 
-World::World(World_Settings & settings)
+World::World(const World_Settings & settings)
 	: settings(settings)
 {
 	const int px = settings.tile_px;
-	drawn_terrain = tigrBitmap(settings.width * px, settings.height * px);
+	drawn_terrain.reset(tigrBitmap(settings.width * px, settings.height * px));
 
 	for (int x = 0; x < settings.width; x++)
 	{
 		bool x_modularity = x % 6 / 3;
 		for (int y = 0; y < settings.height; y++)
 		{
-			area.points.emplace_back(x,y);
+			area.points.insert({x,y});
 			bool y_modularity = y % 6 / 3;
 			if (x_modularity == y_modularity)
 			{
 				tigrFill(drawn_terrain.get(),
 					x * px, y * px, px, px,
-					checker_colors.first);
+					settings.checker_colors.first);
 			}
 			else
 			{
 				tigrFill(drawn_terrain.get(),
 					x * px, y * px, px, px,
-					checker_colors.second);
+					settings.checker_colors.second);
 			}
 		}
 	}
@@ -71,9 +73,9 @@ void World::Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_le
 			source_dim.y -= screen_space_offset.x;
 			source_dim.width += screen_space_offset.x;
 		}
-		source_dim.width = min(source_dim.width,
+		source_dim.width = std::min(source_dim.width,
 			screen_space.width - screen_space_offset.x);
-		source_dim.height = min(source_dim.height,
+		source_dim.height = std::min(source_dim.height,
 			screen_space.height - screen_space_offset.y);
 		return source_dim;
 	};
@@ -81,7 +83,7 @@ void World::Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_le
 	auto Render_Unit = [&](Unit & unit)
 	{
 		// @Feature interpolate position while moving
-		Tigr * body = unit.type->drawn_body[player_colors[unit.player]].get();
+		Tigr * body = unit.type->drawn_body[player_graphics[unit.player]].get();
 		Point screen_space_offset = Get_Screen_Space_Offset(unit.position);
 		Dimensions sprite_source = Trim_Source_Dimensions(
 			Dimensions{0, 0, body->w, body->h},
@@ -102,7 +104,8 @@ void World::Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_le
 			sprite_source.x,
 			sprite_source.y,
 			sprite_source.width,
-			sprite_source.height);
+			sprite_source.height,
+			1.0);
 
 		// energy bar
 		float energy_ratio = static_cast<float>(unit.energy.value)
@@ -139,7 +142,8 @@ void World::Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_le
 			energy_source.x,
 			energy_source.y,
 			energy_source.width,
-			energy_source.height); 
+			energy_source.height,
+			1.0); 
 	};
 
 	// render friendly units
@@ -151,7 +155,7 @@ void World::Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_le
 		Unit & unit = pair.second;
 		if(unit.player != player)
 		{
-			non_player_units.append(unit.id);
+			non_player_units.push_back(unit.id);
 			continue;
 		}
 
@@ -175,9 +179,6 @@ void World::Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_le
 	// @Feature ability fx
 
 	// render fog
-	int camera_width = screen_space.width / settings.tile_px;
-	int camera_height = screen_space.height / settings.tile_px;
-	Point camera_bottom_left
 	Point camera_top_right { camera_bottom_left.x + screen_space.width / settings.tile_px,
 		camera_bottom_left.y + screen_space.height / settings.tile_px,
 	};
@@ -212,14 +213,19 @@ bool World::AddUnit(Unit && unit, Point position)
 		return false;
 	}
 	units[id] = unit;
-	positions[loc] = id;
+	positions[position] = id;
 	units[id].position = position;
+	return true;
 }
 
 void World::RemoveUnit(UnitID id)
 {
-	positions.remove(unit.position);
-	units.remove(id);
+	if (!Contains(units, id))
+	{
+		return;
+	}
+	positions.erase(units[id].position);
+	units.erase(id);
 }
 
 void World::RemoveUnits(Set<UnitID> ids)
@@ -247,9 +253,10 @@ bool World::MoveUnit(UnitID id, Point destination)
 	{
 		return false;
 	}
-	positions.remove(unit->position);
+	positions.erase(unit->position);
 	unit->position = destination;
-	positions[destination] = unit.id;
+	positions[destination] = unit->id;
+	return true;
 }
 
 } // namespace Brushlink

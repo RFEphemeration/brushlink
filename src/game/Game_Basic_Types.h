@@ -1,6 +1,6 @@
 #pragma once
-#ifndef BRUSHLINK_UNIT_BASICS_H
-#define BRUSHLINK_UNIT_BASICS_H
+#ifndef BRUSHLINK_GAME_BASIC_TYPES_H
+#define BRUSHLINK_GAME_BASIC_TYPES_H
 
 #include <random>
 #include <vector>
@@ -10,6 +10,15 @@
 
 namespace Brushlink
 {
+
+using Farb::HString;
+using Farb::NamedType;
+
+struct PlayerIDTag
+{
+	static HString GetName() { return "PlayerID"; }
+};
+using PlayerID = NamedType<int, PlayerIDTag>;
 
 struct UnitIDTag
 {
@@ -40,4 +49,4 @@ Unit_Type GetRandomUnitType(std::mt19937 generator);
 
 } // namespace Brushlink
 
-#endif // BRUSHLINK_UNIT_BASICS_H
+#endif // BRUSHLINK_GAME_BASIC_TYPES_H

@@ -2,10 +2,20 @@
 #ifndef BRUSHLINK_WORLD_H
 #define BRUSHLINK_WORLD_H
 
+#include "BuiltinTypedefs.h"
+#include "TigrExtensions.h"
+
+#include "Game_Basic_Types.h"
+#include "Unit.h"
 #include "Location.h"
+#include "Player_Graphics.h"
+
 
 namespace Brushlink
 {
+
+using namespace Farb;
+using namespace UI;
 
 struct World_Settings
 {
@@ -32,17 +42,17 @@ struct World
 	World_Settings settings;
 	Area area;
 	std::shared_ptr<Tigr> drawn_terrain;
-	std::map<UnitID, Unit> units; // intentionally an ordered map for traversal
+	Map<UnitID, Unit> units; // intentionally an ordered map for traversal
 	Map<Point, UnitID> positions;
-	Map<PlayerID, std::pair<Player_Color, Player_Pattern> > player_colors;
+	Map<PlayerID, Player_Graphics > player_graphics;
 
 	std::shared_ptr<Tigr> energy_bars;
 
-	World(World_Settings & settings = World_Settings{});
+	World(const World_Settings & settings = World_Settings{});
 
 	void Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_left, PlayerID player);
 
-	bool AddUnit(Unit unit, Point position);
+	bool AddUnit(Unit && unit, Point position);
 
 	void RemoveUnit(UnitID id);
 

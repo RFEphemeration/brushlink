@@ -3,17 +3,19 @@
 #define BRUSHLINK_UNIT_H
 
 #include <vector>
+#include <queue>
 #include <utility>
 
 #include "BuiltinTypedefs.h"
 
 #include "Resources.h"
 #include "Player_Graphics.h"
-#include "Unit_Basics.h"
+#include "Game_Basic_Types.h"
 #include "Command.h"
 #include "Action.h"
+#include "Player.h"
 
-namespace Bushlink
+namespace Brushlink
 {
 
 struct Unit_Settings
@@ -22,7 +24,7 @@ struct Unit_Settings
 	Energy starting_energy {6};
 	Energy max_energy {12};
 	std::pair<Energy, Seconds> recharge_rate {{1}, {1.0}};
-	Map<std::pair<Player_Color, Player_Pattern>, std::shared_ptr<Tigr>> drawn_body;
+	Map<Player_Graphics, std::shared_ptr<Tigr>> drawn_body;
 	Map<Action_Type, Action_Settings> actions;
 	int vision_radius = 4;
 	Map<Action_Type, Action_Magnitude_Modifier> targeted_modifiers;
@@ -42,12 +44,12 @@ struct Unit
 	// Command type in unit context?
 	// need an already executed type stored by value
 	// and a repeatedly executed type full tree
-	std::vector<Command> command_queue;
-	Command idle_command;
+	std::queue<value_ptr<Command> > command_queue;
+	value_ptr<Command> idle_command;
 };
 
 
 
-} // namespace Bushlink
+} // namespace Brushlink
 
 #endif // BRUSHLINK_UNIT_H

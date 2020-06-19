@@ -2,10 +2,10 @@
 #ifndef BRUSHLINK_VARIANT_H
 #define BRUSHLINK_VARIANT_H
 
-#include "Time.h"
-#include "Unit_Basics.h"
+#include "Game_Time.h"
+#include "Game_Basic_Types.h"
 #include "Location.h"
-#include "Aciton.h"
+#include "Action.h"
 #include "Resources.h"
 
 namespace Brushlink

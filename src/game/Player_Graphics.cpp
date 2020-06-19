@@ -7,12 +7,15 @@
 namespace Brushlink
 {
 
+using namespace Farb;
+using namespace UI;
+
 Palette Palette::SingleColor(TPixel mid)
 {
 	mid.a = 255;
-	TPixel light = Tint(mid, {255,255,255,255}, 0.25);
+	TPixel light = Tinted(mid, {255,255,255,255}, 0.25);
 	light.r = DiffAndClampChannel(light.r, + 32);
-	TPixel dark = Tint(mid, {0, 0, 0, 255}, 0.25)
+	TPixel dark = Tinted(mid, {0, 0, 0, 255}, 0.25);
 	dark.b = DiffAndClampChannel(dark.b, + 32);
 	return Palette{light, mid, dark};
 }
@@ -26,7 +29,7 @@ bool Player_Graphics::AcceptablyDifferentThan(
 		return false;
 	}
 	int palette_min_diff_squared = 0;
-	for (auto * p : std::vector<TPixel Palette::*>{
+	for (auto Palette::* p : std::vector<TPixel Palette::*>{
 			&Palette::light,
 			&Palette::mid,
 			&Palette::dark})
