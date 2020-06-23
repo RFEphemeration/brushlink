@@ -31,7 +31,7 @@ const GameSettings GameSettings::default_settings {
 				{ Action_Type::Move, Action_Settings{{0}, {0}, {0.5}, {0.25}} },
 				{ Action_Type::Reproduce, Action_Settings{{15}, {0}, {4.0}, {1.0}} },
 			},
-			6.8,
+			6.6,
 			{} // targeted_modifiers
 		}},
 		{ Unit_Type::Healer, {
@@ -45,7 +45,7 @@ const GameSettings GameSettings::default_settings {
 				{ Action_Type::Heal, Action_Settings{{2}, {3}, {1.5}, {1.0 / 6.0}} },
 				// todo: heal action target modifier so healing a healer is 1-1
 			},
-			4.8,
+			4.6,
 			{ // targeted_modifiers
 				{ Action_Type::Heal, { {-1} } }
 			}
@@ -61,7 +61,7 @@ const GameSettings GameSettings::default_settings {
 				{ Action_Type::Move, Action_Settings{{0}, {0}, {1.0 / 3.0}, {1.0 / 6.0}} },
 				{ Action_Type::Attack, Action_Settings{{0}, {3}, {1.0}, {1.0 / 6.0}} },
 			},
-			4.8,
+			4.6,
 			{} // targeted_modifiers
 		}},
 	},
@@ -146,13 +146,10 @@ void Game::Initialize()
 	{
 		packed_colors.push_back(Pack(color));
 	}
-	for (auto & unit_pair : settings.unit_types)
+	for (auto & [unit_type, unit_settings] : settings.unit_types)
 	{
-		auto & unit_settings = unit_pair.second;
-		Unit_Type unit_type = unit_pair.first;
-		for (auto & graphics_pair : world.player_graphics)
+		for (auto & [player_id, graphics] : world.player_graphics)
 		{
-			auto & graphics = graphics_pair.second;
 			if (graphics.palette.color_count < color_count)
 			{
 				Error("Player Palette doesn't have enough colors").Log();
@@ -192,7 +189,7 @@ void Game::Tick()
 	ProcessPlayerInput();
 	RunPlayerCoroutines();
 	AllUnitsTakeAction();
-	//EnergyTick();
+	EnergyTick();
 }
 
 void Game::ProcessPlayerInput()
@@ -500,12 +497,27 @@ Action_Result Game::UnitTakeAction(Unit & unit)
 
 void Game::EnergyTick()
 {
-	Ticks crowded_decay_time {tick.value - SecondsToTicks(settings.crowded_decay.second).value};
+	Ticks crowded_decay_time {SecondsToTicks(settings.crowded_decay.second).value};
 	Energy crowded_decay_amount = settings.crowded_decay.first;
 	Set<UnitID> exhausted;
 	for (auto & pair : world.units)
 	{
 		Unit & unit = pair.second;
+		// Energy recharge
+		Ticks recharge_frequency = SecondsToTicks(unit.type->recharge_rate.second);
+		Energy recharge_amount = unit.type->recharge_rate.first;
+		// @Feature SpawnTime in order to offset/stagger recharges?
+		if (tick.value % recharge_frequency.value == 0)
+		{
+			unit.energy.value += recharge_amount.value;
+		}
+
+		// Energy cap
+		if (unit.energy.value > unit.type->max_energy.value)
+		{
+			unit.energy = unit.type->max_energy;
+		}
+
 		// Crowding
 		int neighbor_count = 0;
 		for (auto & pos : unit.position.GetNeighbors())
@@ -515,29 +527,28 @@ void Game::EnergyTick()
 				neighbor_count += 1;
 			}
 		}
-		unit.crowded_duration.value += (neighbor_count >= settings.crowded_threshold.value
-			? 1
-			: -1);
-		if (unit.crowded_duration.value >= crowded_decay_time.value)
+		if (neighbor_count >= settings.crowded_threshold.value)
 		{
-			unit.energy.value -= crowded_decay_amount.value;
-			unit.crowded_duration.value -= settings.crowded_threshold.value;
+			unit.crowded_duration.value++;
+			if (unit.crowded_duration.value >= crowded_decay_time.value)
+			{
+				unit.energy.value -= crowded_decay_amount.value;
+				unit.crowded_duration.value -= crowded_decay_time.value;
+			}
 		}
-		if (unit.crowded_duration.value < 0)
+		else
 		{
-			unit.crowded_duration.value = 0;
+			unit.crowded_duration.value--;
+			if (unit.crowded_duration.value < 0)
+			{
+				unit.crowded_duration.value = 0;
+			}
 		}
 
 		// Exhaustion
 		if (unit.energy.value < 0)
 		{
 			exhausted.insert(unit.id);
-		}
-
-		// Energy cap
-		if (unit.energy.value > unit.type->max_energy.value)
-		{
-			unit.energy = unit.type->max_energy;
 		}
 	}
 	RemoveUnits(exhausted);
