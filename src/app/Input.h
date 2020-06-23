@@ -5,6 +5,14 @@
 namespace Brushlink
 {
 
+
+enum class Input_State
+{
+	CommandCard,
+	Mouse,
+	NameLiteral,
+};
+
 struct Input
 {
 	// modifiers combined with mouse movement for different locations
