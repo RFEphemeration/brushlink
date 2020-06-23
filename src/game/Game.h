@@ -18,6 +18,13 @@ struct GameSettings
 {
 	Map<PlayerID, Player_Settings> player_settings;
 	Map<Unit_Type, Unit_Settings> unit_types;
+	// offset from starting_position
+	Map<Point, Unit_Type> starting_units;
+	std::string energy_image_file;
+	std::string units_image_file;
+	std::string palettes_image_file;
+	std::vector<TPixel> palette_replace_colors;
+	int palette_diff_squared_requirement;
 	Ticks speed {12}; // per second
 	Number crowded_threshold {6}; // number of neighbors at which we start decaying
 	std::pair<Energy, Seconds> crowded_decay{{1}, {1.0}};
@@ -37,6 +44,10 @@ struct Game
 	UnitID next_unit_id;
 	Ticks tick;
 
+	Game(const GameSettings & settings = GameSettings::default_settings)
+		: settings(settings)
+	{ }
+
 	void Initialize();
 
 	void Tick();
@@ -45,7 +56,7 @@ struct Game
 	void RunPlayerCoroutines();
 	void AllUnitsTakeAction();
 	Action_Result UnitTakeAction(Unit & unit);
-	void ApplyCrowdingDecayAndPruneExhaustedUnits();
+	void EnergyTick();
 
 	void Render(Tigr * screen, const Dimensions & world_portion);
 	bool IsOver();

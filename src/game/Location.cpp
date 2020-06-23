@@ -3,16 +3,17 @@
 namespace Brushlink
 {
 
-Area Area::Circle(Point center, Number radius)
+Area Area::Circle(Point center, float radius)
 {
 	Area a;
 	a.points.insert(center);
-	int radius_squared = radius.value * radius.value;
-	for(int x = -radius.value; x <= radius.value; x++)
+	float radius_squared = radius * radius;
+	int bounds = static_cast<int>(radius + 1.0);
+	for(int x = -bounds; x <= bounds; x++)
 	{
-		for (int y = -radius.value; y <= radius.value; y++)
+		for (int y = -bounds; y <= bounds; y++)
 		{
-			if (x * x + y * y > radius_squared)
+			if (static_cast<float>(x * x + y * y) > radius_squared)
 			{
 				continue;
 			}

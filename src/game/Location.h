@@ -63,6 +63,11 @@ struct Point
 	{
 		return Point{x - other.x, y - other.y};
 	}
+
+	Point operator+(const Point & other) const
+	{
+		return Point{x + other.x, y + other.y};
+	}
 };
 
 } // namespace Brushlink
@@ -95,7 +100,7 @@ struct Area
 	// discrete world space
 	Set<Point> points;
 
-	static Area Circle(Point center, Number radius);
+	static Area Circle(Point center, float radius);
 
 	void UnionWith(const Area & other);
 };

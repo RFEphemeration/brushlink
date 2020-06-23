@@ -26,7 +26,7 @@ struct Unit_Settings
 	std::pair<Energy, Seconds> recharge_rate {{1}, {1.0}};
 	Map<Player_Graphics, std::shared_ptr<Tigr>> drawn_body;
 	Map<Action_Type, Action_Settings> actions;
-	int vision_radius = 4;
+	float vision_radius = 4.5;
 	Map<Action_Type, Action_Magnitude_Modifier> targeted_modifiers;
 };
 

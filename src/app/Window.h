@@ -22,11 +22,11 @@ struct Key_Changes
 
 struct Window_Settings
 {
-	int width{580};
+	int width{520};
 	int height{320};
 	std::string title{"BrushLink"};
 	TPixel clear_color{0xa0, 0x90, 0x80, 0xFF};
-	Dimensions world_portion{260, 0, 320, 320};
+	Dimensions world_portion{200, 0, 320, 320};
 };
 
 struct Window
@@ -38,15 +38,14 @@ struct Window
 
 	Window(Window_Settings settings = Window_Settings{})
 		: settings{settings}
-		, screen{nullptr, TigrDeleter{}}
-	{
-		screen.reset(tigrWindow(
+		, screen{tigrWindow(
 			settings.width,
 			settings.height,
 			settings.title.c_str(),
-			0
-		));
-	}
+			0)
+			, TigrDeleter{}
+		}
+	{ }
 
 	inline bool Closed()
 	{

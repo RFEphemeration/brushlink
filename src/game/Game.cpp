@@ -1,6 +1,11 @@
 
 #include "Game.h"
 
+#include <bitset>
+#include <cstdio>
+
+#include "tigr.h"
+
 #include "IntExtensions.hpp"
 
 namespace Brushlink
@@ -26,7 +31,7 @@ const GameSettings GameSettings::default_settings {
 				{ Action_Type::Move, Action_Settings{{0}, {0}, {0.5}, {0.25}} },
 				{ Action_Type::Reproduce, Action_Settings{{15}, {0}, {4.0}, {1.0}} },
 			},
-			6,
+			6.8,
 			{} // targeted_modifiers
 		}},
 		{ Unit_Type::Healer, {
@@ -40,7 +45,7 @@ const GameSettings GameSettings::default_settings {
 				{ Action_Type::Heal, Action_Settings{{2}, {3}, {1.5}, {1.0 / 6.0}} },
 				// todo: heal action target modifier so healing a healer is 1-1
 			},
-			4,
+			4.8,
 			{ // targeted_modifiers
 				{ Action_Type::Heal, { {-1} } }
 			}
@@ -56,21 +61,127 @@ const GameSettings GameSettings::default_settings {
 				{ Action_Type::Move, Action_Settings{{0}, {0}, {1.0 / 3.0}, {1.0 / 6.0}} },
 				{ Action_Type::Attack, Action_Settings{{0}, {3}, {1.0}, {1.0 / 6.0}} },
 			},
-			4,
+			4.8,
 			{} // targeted_modifiers
 		}},
 	},
+	Map<Point, Unit_Type>{ // starting units
+		{ {-1, -1}, Unit_Type::Spawner },
+		{ {1, -1}, Unit_Type::Spawner },
+		{ {-1, 1}, Unit_Type::Attacker },
+		{ {1, 1}, Unit_Type::Healer },
+	},
+	"res/images/energy_bars.png",
+	"res/images/units.png",
+	"res/images/palettes.png",
+	{ // palette_replace_colors
+		{192, 192, 192, 255},
+		{128, 128, 128, 255},
+		{64, 64, 64, 64},
+	},
+	255 * 255 / 2, // palette_diff_squared_requirement 1/8 of max
 	Ticks {12},
+	Number {6},
+	std::pair<Energy, Seconds>{{1}, {1.0}}
 };
 
 void Game::Initialize()
 {
-
-	for (auto & pair : players)
+	if (world.settings.starting_locations.size() < settings.player_settings.size())
 	{
-		PlayerID id = pair.first;
-		Player & player = pair.second;
-		world.player_graphics[id] = player.graphics;
+		Error("Not enough starting locations").Log();
+		// early quit, prevent starting the game, etc?
+		return;
+	}
+	std::shared_ptr<Tigr> palettes_image{
+		tigrLoadImage(settings.palettes_image_file.c_str()),
+		TigrDeleter{}};
+	for (auto & player_pair : settings.player_settings)
+	{
+		PlayerID id = player_pair.first;
+		players[id] = Player::FromSettings(player_pair.second, id, world.settings.starting_locations[id.value]);
+		for (auto & graphics : players[id].data->graphical_preferences)
+		{
+			if (graphics.palette.type == Palette_Type::SingleColor
+				|| graphics.palette.type == Palette_Type::Custom)
+			{
+				continue;
+			}
+			for (int i = 0; i < palettes_image->w; i++)
+			{
+				graphics.palette.colors[i] = tigrGet(
+					palettes_image.get(),
+					i,
+					static_cast<int>(graphics.palette.type)
+				);
+				printf("%08x\n", Pack(graphics.palette.colors[i]));
+				//std::cout << std::bitset<32>{Pack(graphics.palette.colors[i])} << std::endl;
+			}
+		}
+		players[id].graphics = players[id].data->graphical_preferences.front();
+	}
+	world.energy_bars.reset(tigrLoadImage(settings.energy_image_file.c_str()));
+	for (auto & [player_id, player] : players)
+	{
+		world.player_graphics[player_id] = player.graphics;
+
+		for (auto & [offset, unit_type] : settings.starting_units)
+		{
+			auto result = SpawnUnit(
+				player_id,
+				unit_type,
+				player.starting_location + offset);
+			if (result.IsError())
+			{
+				// what now?
+				result.GetError().Log();
+			}
+		}
+	}
+	std::shared_ptr<Tigr> units_image{tigrLoadImage(settings.units_image_file.c_str()), TigrDeleter{}};
+	int px = world.settings.tile_px;
+	int color_count = settings.palette_replace_colors.size();
+	std::vector<uint> packed_colors;
+	for(auto & color : settings.palette_replace_colors)
+	{
+		packed_colors.push_back(Pack(color));
+	}
+	for (auto & unit_pair : settings.unit_types)
+	{
+		auto & unit_settings = unit_pair.second;
+		Unit_Type unit_type = unit_pair.first;
+		for (auto & graphics_pair : world.player_graphics)
+		{
+			auto & graphics = graphics_pair.second;
+			if (graphics.palette.color_count < color_count)
+			{
+				Error("Player Palette doesn't have enough colors").Log();
+				continue;
+			}
+			std::shared_ptr<Tigr> body {tigrBitmap(px, px), TigrDeleter{}};
+			tigrBlit(body.get(),
+				units_image.get(),
+				0, 0, // dest x,y
+				px * static_cast<int>(unit_type),
+				px * static_cast<int>(graphics.pattern),
+				px, px // size
+			);
+			for (int x = 0; x < px; x++)
+			{
+				for (int y = 0; y < px; y++)
+				{
+					uint packed_color = Pack(body->pix[y*px+x]);
+					for (int color_index = 0; color_index < color_count; color_index++)
+					{
+						if (packed_color == packed_colors[color_index])
+						{
+							body->pix[y*px+x] = graphics.palette.colors[color_index];
+						}
+					}
+				}
+			}
+			unit_settings.drawn_body.insert_or_assign(graphics, body);
+		}
 	}
 }
 
@@ -81,7 +192,7 @@ void Game::Tick()
 	ProcessPlayerInput();
 	RunPlayerCoroutines();
 	AllUnitsTakeAction();
-	ApplyCrowdingDecayAndPruneExhaustedUnits();
+	//EnergyTick();
 }
 
 void Game::ProcessPlayerInput()
@@ -387,7 +498,7 @@ Action_Result Game::UnitTakeAction(Unit & unit)
 }
 
 
-void Game::ApplyCrowdingDecayAndPruneExhaustedUnits()
+void Game::EnergyTick()
 {
 	Ticks crowded_decay_time {tick.value - SecondsToTicks(settings.crowded_decay.second).value};
 	Energy crowded_decay_amount = settings.crowded_decay.first;
@@ -404,13 +515,13 @@ void Game::ApplyCrowdingDecayAndPruneExhaustedUnits()
 				neighbor_count += 1;
 			}
 		}
-		unit.crowded_duration.value += neighbor_count >= settings.crowded_threshold.value
+		unit.crowded_duration.value += (neighbor_count >= settings.crowded_threshold.value
 			? 1
-			: -1;
+			: -1);
 		if (unit.crowded_duration.value >= crowded_decay_time.value)
 		{
 			unit.energy.value -= crowded_decay_amount.value;
-			unit.crowded_duration.value -= crowded_decay_time.value;
+			unit.crowded_duration.value -= settings.crowded_threshold.value;
 		}
 		if (unit.crowded_duration.value < 0)
 		{
@@ -472,6 +583,7 @@ ErrorOr<UnitID> Game::SpawnUnit(PlayerID player, Unit_Type type, Point position)
 	u.player = player;
 	u.position = position;
 	u.energy = u.type->starting_energy;
+	// todo: idle command, pending action
 
 	bool success = world.AddUnit(std::move(u), position);
 	if (!success)

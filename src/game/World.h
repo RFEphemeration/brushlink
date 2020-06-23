@@ -24,9 +24,13 @@ struct World_Settings
 		TPixel{192, 192, 192, 255},
 		TPixel{96, 96, 96, 255}
 	};
-	TPixel fog_color{0,0,0,64};
+	TPixel fog_color{0,0,0,160};
 	int width = 20;
 	int height = 20;
+	std::vector<Point> starting_locations{
+		{3,3},
+		{17,17}
+	};
 };
 
 enum class Space_Occupation
@@ -44,9 +48,10 @@ struct World
 	std::shared_ptr<Tigr> drawn_terrain;
 	Map<UnitID, Unit> units; // intentionally an ordered map for traversal
 	Map<Point, UnitID> positions;
+	// should world just have observer_ptr to the full Player?
 	Map<PlayerID, Player_Graphics > player_graphics;
 
-	std::shared_ptr<Tigr> energy_bars;
+	std::shared_ptr<Tigr> energy_bars{nullptr, TigrDeleter{}};
 
 	World(const World_Settings & settings = World_Settings{});
 

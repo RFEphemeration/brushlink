@@ -12,13 +12,16 @@ FARB_MODULES = core interface reflection serialization utils
 FARB_LIBS = tigr json
 FARB_INCLUDES = $(addprefix -I ../farb/src/, $(FARB_MODULES)) $(addprefix -I ../farb/lib/, $(FARB_LIBS))
 
+debug: CXXFLAGS += -DDebug -g
+debug: build/bin/runtests build/bin/brushlink
+
 all: build/bin/runtests build/bin/brushlink
 
 build/bin/runtests: tests/RunTests.cpp src/command/* tests/command/* ../farb/build/link/farb.a
-	g++ -std=c++17 -Wfatal-errors -ferror-limit=1 $(FARB_INCLUDES) tests/RunTests.cpp $(COMMAND_SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/runtests
+	g++ ${CXXFLAGS}  $(FARB_INCLUDES) tests/RunTests.cpp $(COMMAND_SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/runtests
 
 build/bin/brushlink: src/game/* src/app/* ../farb/build/link/farb.a
-	$(CXX) $(CXXFLAGS) $(FARB_INCLUDES) $(GAME_INCLUDES) $(GAME_SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/brushlink $(TARGET_LINKS)
+	$(CXX) $(CXXFLAGS) $(FARB_INCLUDES) $(GAME_INCLUDES) $(GAME_SOURCE_FILES) ../farb/build/link/farb.a -o ./build/bin/brushlink $(TARGET_LINKS)
 
 stats:
 	for module in $(GAME_MODULES) ; do \

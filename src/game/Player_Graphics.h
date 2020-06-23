@@ -20,13 +20,30 @@ enum class Pattern
 	Grid,
 };
 
+enum class Palette_Type
+{
+	SingleColor = -1,
+	Green,
+	Blue,
+	Purple,
+	Orange,
+	Brown,
+	Grey,
+	Custom
+};
+
 struct Palette
 {
+	TPixel colors[3]; // @Feature expandable color palettes, or at least larger max
+	int color_count{3};
+	Palette_Type type{Palette_Type::Purple};
+	/*
 	TPixel light;
 	TPixel mid;
 	TPixel dark;
+	*/
 
-	static Palette SingleColor(TPixel mid);
+	static constexpr Palette SingleColor(TPixel mid);
 };
 
 enum class Builtin_Palette_Colors
@@ -39,8 +56,6 @@ enum class Builtin_Palette_Colors
 	Grey
 };
 
-
-
 struct Player_Graphics
 {
 	Pattern pattern;
@@ -50,13 +65,7 @@ struct Player_Graphics
 		const Player_Graphics & other,
 		int palette_diff_requirement) const;
 
-	bool operator==(const Player_Graphics & other) const
-	{
-		return pattern == other.pattern
-			&& Pack(palette.light) == Pack(other.palette.light)
-			&& Pack(palette.mid) == Pack(other.palette.mid)
-			&& Pack(palette.dark) == Pack(other.palette.dark);
-	}
+	bool operator==(const Player_Graphics & other) const;
 };
 
 
@@ -70,12 +79,13 @@ struct hash<Brushlink::Player_Graphics>
 {
 	std::size_t operator()(Brushlink::Player_Graphics const& pg) const noexcept
 	{
-		return std::hash<std::tuple<int,int,int,int> >{}(std::tuple{
-			static_cast<int>(pg.pattern),
-			Farb::UI::Pack(pg.palette.light),
-			Farb::UI::Pack(pg.palette.mid),
-			Farb::UI::Pack(pg.palette.dark),
-		});
+		size_t hash = pg.palette.color_count;
+		Farb::HashCombine(hash, static_cast<int>(pg.pattern));
+		for(int i = 0; i < pg.palette.color_count; i++)
+		{
+			Farb::HashCombine(hash, Farb::UI::Pack(pg.palette.colors[i]));
+		}
+		return hash;
 	}
 };
 

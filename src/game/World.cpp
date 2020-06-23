@@ -110,7 +110,7 @@ void World::Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_le
 		// energy bar
 		float energy_ratio = static_cast<float>(unit.energy.value)
 			/ static_cast<float>(unit.type->max_energy.value);
-		int energy_index = energy_ratio * energy_granularity;
+		int energy_index = energy_ratio * (energy_granularity - 1);
 		if (energy_ratio < 0.001)
 		{
 			energy_index = 0;
@@ -123,7 +123,7 @@ void World::Render(Tigr* screen, Dimensions screen_space, Point camera_bottom_le
 		}
 		else if (energy_ratio > 0.999)
 		{
-			energy_index = energy_granularity;
+			energy_index = energy_granularity - 1;
 		}
 		Dimensions energy_source = Trim_Source_Dimensions(
 			Dimensions{

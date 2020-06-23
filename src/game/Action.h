@@ -31,7 +31,7 @@ struct Action_Settings
 
 struct Action_Event
 {
-	Action_Type type;
+	Action_Type type {Action_Type::Idle};
 	std::optional<Point> location;
 	std::optional<UnitID> target;
 	//Tick time;
