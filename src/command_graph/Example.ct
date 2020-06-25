@@ -96,4 +96,6 @@ void BlinkAway(
 Node "Fibonacci" Int ` ` Int
 	If Equal @1 1
 		1
-		Recurse @1 * @1 - 1
+		Recurse @1 * @1 - 1 # do we want to support association priority for math operators? or are they all just left associative?
+
+# @Feature should we also allow () for disambiguation in addition to ` and indentation?

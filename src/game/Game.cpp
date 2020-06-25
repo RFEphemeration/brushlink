@@ -119,6 +119,11 @@ void Game::Initialize()
 			}
 		}
 		players[id].graphics = players[id].data->graphical_preferences.front();
+		if (players[id].settings.type == Player_Type::Local_Player
+			|| local_player.value == -1)
+		{
+			local_player = id;
+		}
 	}
 	world.energy_bars.reset(tigrLoadImage(settings.energy_image_file.c_str()));
 	for (auto & [player_id, player] : players)
@@ -180,6 +185,15 @@ void Game::Initialize()
 			unit_settings.drawn_body.insert_or_assign(graphics, body);
 		}
 	}
+}
+
+Input_Result Game::ReceiveInput(
+	const Key_Changes &,
+	const Modifiers_State &,
+	const Mouse_State &,
+	const std::vector<Point> &)
+{
+	return Input_Result::NoUpdateNeeded;
 }
 
 void Game::Tick()
@@ -556,18 +570,7 @@ void Game::EnergyTick()
 
 void Game::Render(Tigr * screen, const Dimensions & world_portion)
 {
-	PlayerID player = [&]()
-	{
-		for (auto & pair : players)
-		{
-			if (pair.second.settings.type == Player_Type::Local_Player)
-			{
-				return pair.first;
-			}
-		}
-		return players.begin()->first;
-	}();
-	world.Render(screen, world_portion, players[player].camera_location, player);
+	world.Render(screen, world_portion, players[local_player].camera_location, local_player);
 	// todo: render command card, buffer
 }
 

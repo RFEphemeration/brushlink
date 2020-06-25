@@ -23,6 +23,9 @@ struct Player_Data
 		{Pattern::Spots, Palette{{}, 3, Palette_Type::Blue}},
 		{Pattern::Grid, Palette{{}, 3, Palette_Type::Orange}},
 	};
+
+	Map<Unit_Type, value_ptr<Command>> starting_unit_idle_commands;
+	Map<ValueName, value_ptr<Command>> starting_commands;
 };
 
 enum class Player_Type

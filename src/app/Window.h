@@ -8,17 +8,14 @@
 
 #include "TigrExtensions.h"
 
+#include "Input.h"
+
 namespace Brushlink
 {
 
 using Farb::UI::Dimensions;
 using Farb::UI::TigrDeleter;
 
-struct Key_Changes
-{
-	std::string_view up_values;
-	std::string_view down_values;
-};
 
 struct Window_Settings
 {
@@ -35,6 +32,7 @@ struct Window
 	std::shared_ptr<Tigr> screen;
 	char key_down_buffer[256];
 	char key_up_buffer[256];
+	int previous_mouse_buttons{0};
 
 	Window(Window_Settings settings = Window_Settings{})
 		: settings{settings}
@@ -73,6 +71,36 @@ struct Window
 			{ key_down_buffer, down_count },
 			{ key_up_buffer, up_count }
 		};
+	}
+
+	inline Modifiers_State GetModifiers()
+	{
+		Tigr * bmp = screen.get();
+		return Modifiers_State{
+			tigrKeyHeld(bmp, TK_LSHIFT)   || tigrKeyHeld(bmp, TK_RSHIFT),
+			tigrKeyHeld(bmp, TK_LCONTROL) || tigrKeyHeld(bmp, TK_RCONTROL),
+			tigrKeyHeld(bmp, TK_LWIN)     || tigrKeyHeld(bmp, TK_RWIN),
+			tigrKeyHeld(bmp, TK_LALT)     || tigrKeyHeld(bmp, TK_RALT),
+		};
+	}
+
+	inline Mouse_State GetMouseState()
+	{
+		int mouse_buttons;
+		Point mouse_location;
+		tigrMouse(
+			screen.get(),
+			&mouse_location.x,
+			&mouse_location.y,
+			&mouse_buttons
+		);
+		Mouse_State state{
+			FromDownHistory(previous_mouse_buttons & 1, mouse_buttons & 1),
+			FromDownHistory(previous_mouse_buttons & 2, mouse_buttons & 2),
+			mouse_location
+		};
+		previous_mouse_buttons = mouse_buttons;
+		return state;
 	}
 };
 

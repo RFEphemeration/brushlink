@@ -10,6 +10,7 @@
 #include "Game_Basic_Types.h"
 #include "Player.h"
 #include "World.h"
+#include "Input.h"
 
 namespace Brushlink
 {
@@ -38,6 +39,8 @@ struct Game
 	World world;
 	Map<PlayerID, Player> players;
 
+	PlayerID local_player{-1};
+
 	std::random_device random_seed; // seed
 	std::mt19937 random_generator; // mersene twister from seed
 
@@ -49,6 +52,12 @@ struct Game
 	{ }
 
 	void Initialize();
+
+	Input_Result ReceiveInput(
+		const Key_Changes &,
+		const Modifiers_State &,
+		const Mouse_State &,
+		const std::vector<Point> &);
 
 	void Tick();
 	// helper functions for Tick

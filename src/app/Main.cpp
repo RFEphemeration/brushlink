@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 {
 	std::cout << "startup" << std:: endl;
 	Window window;
-	// Input input;
+	Input input;
 	while (!window.Closed())
 	{
 		/* todo: input processing,
@@ -25,6 +25,9 @@ int main(int argc, char *argv[])
 		std::cout << "new game" << std::endl;
 		Game game;
 		game.Initialize();
+		input.listeners.emplace_back(
+			MakeCurriedMember(&Game::ReceiveInput, game)
+		);
 		const auto game_start = std::chrono::steady_clock::now();
 		auto game_current = game_start;
 		auto tick_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -37,20 +40,34 @@ int main(int argc, char *argv[])
 			&& !game.IsOver())
 		{
 			game_current = std::chrono::steady_clock::now();
+			// could make this a while loop in order to jump multiple frames
+			// but as is this will just render them all as quickly as possible
+			// however we could end up rendering slower than the target framerate
 			if (game_current > next_tick)
 			{
 				game.Tick();
 				// will this cause drift? is that a problem?
 				next_tick = next_tick + tick_duration;
 			}
+			// @Feature RenderRate faster than tick rate
+			// especially for things like mouse input
+			// which we could render on top of the world
 			window.Clear();
 			game.Render(window.screen.get(), window.settings.world_portion);
 			window.PresentAndUpdate();
-			//input.Process(window.screen, window.GetKeyChanges());
-			// where should sleep go wrt to event processing and rendering?
-			// present and update pumps the event queue...
-			std::this_thread::sleep_until(next_tick);
-			
+
+			auto input_result = input.ProcessInput(
+				window.GetKeyChanges(),
+				window.GetModifiers(),
+				window.GetMouseState());
+			if (input_result == Input_Result::NoUpdateNeeded)
+			{
+				// where should sleep go wrt to event processing and rendering?
+				// present and update pumps the event queue...
+				// could also consider undershooting by a bit and spin locking
+				// in order to avoid missing frames
+				std::this_thread::sleep_until(next_tick);
+			}
 		}
 		std::cout << "game over" << std::endl;
 	
