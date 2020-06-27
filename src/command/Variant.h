@@ -97,7 +97,7 @@ Variant_Type GetVariantType()
 }
 
 
-Variant_Type GetVariantType(Variant v)
+inline Variant_Type GetVariantType(Variant v)
 {
 	if std::holds_alternative<Success>(v)
 		return Variant_Type::Success
