@@ -11,25 +11,23 @@ namespace Brushlink
 struct Unit;
 
 // temporary
-struct CommandEvaluation
-{
-	Action_Event action_event;
-	bool finished;
-
-};
-
-// temporary
 struct CommandContext
 {
+	Game & game;
+	PlayerID player_id;
+
+	shared_ptr<CommandContext> parent;
+
 
 };
 
 // temporary
-struct Command
+struct Action_Command
 {
-	CommandEvaluation Evaluate(CommandContext & context, Unit & unit) { return {}; }
+	Action_Step Evaluate(CommandContext & context, Unit & unit) { return {}; }
 	bool EvaluateEveryTick() { return false; }
 };
+
 
 
 } // namespace Brushlink

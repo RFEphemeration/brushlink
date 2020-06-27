@@ -12,10 +12,11 @@
 
 #include "ElementType.h"
 
-using namespace Farb;
-
 namespace Command
 {
+
+using namespace Farb;
+using namespace Brushlink;
 
 using Command = Success;
 

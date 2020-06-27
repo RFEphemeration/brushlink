@@ -269,11 +269,10 @@ void Game::AllUnitsTakeAction()
 		Command * command = unit.command_queue.empty()
 				? unit.idle_command.get()
 				: unit.command_queue.front().get();
-		CommandEvaluation result = command->Evaluate(
+		unit.pending = command->Evaluate(
 			players[unit.player].root_command_context,
 			unit);
-		unit.pending = result.action_event;
-		if (result.finished && !unit.command_queue.empty())
+		if (unit.pending.type == Action_Type::Idle && !unit.command_queue.empty())
 		{
 			unit.command_queue.pop();
 		}

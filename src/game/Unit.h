@@ -39,7 +39,7 @@ struct Unit
 	Energy energy;
 	Ticks crowded_duration;
 
-	Action_Event pending; // if pending.type == Idle there is no pending
+	Action_Step pending; // if pending.type == Idle there is no pending
 	Map<Action_Type, Ticks> history;
 	// Command type in unit context?
 	// need an already executed type stored by value

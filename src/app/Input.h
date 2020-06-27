@@ -102,7 +102,7 @@ struct Input
 	// click drag no modifiers for box area
 	// alt/option drag for line - if line is closed turn into perimeter area
 
-	std::vector<value_ptr<Input_Listener>> listeners;
+	Map<std::string, value_ptr<Input_Listener>> listeners;
 
 	// are these window positions? what about scrolling while drawing?
 	std::vector<Point> mouse_line;

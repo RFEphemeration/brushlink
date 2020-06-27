@@ -46,7 +46,9 @@ struct AllowedTypes
 	}
 };
 
-
+// should consider splitting command context into two different children
+// one for the player context with append operations
+// one per unit with just some stored variables
 struct CommandContext
 {
 	// these should probably be moved to an in-game player

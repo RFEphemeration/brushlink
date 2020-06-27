@@ -6,10 +6,14 @@ features
 		Command
 			(Select/SelectorFriendly)
 			->Union
-	 convert between variant subtypes (Location, Value, Target?)
+	convert between variant subtypes (Location, Value, Target?)
 		I assume this means OneOf should be handled as a Value
 		Location/Point -> Location/Line on repeat of point...
 		right now we're just handling this as an implied node
+	variable type return value based on inputs
+		GetUnitAttribute
+		could just use a cast element, CastValueToPoint
+	named values - return type of get named value?
 	# Undo / Back
 	# GetPrintString for Numbers
 	# default_value_ptr list, allowing parameters to all of them in order

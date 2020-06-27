@@ -18,7 +18,7 @@ Input_Result Input::ProcessInput(
 		}
 	}
 	Input_Result result { Input_Result::NoUpdateNeeded };
-	for (auto & listener : listeners)
+	for (auto & [name, listener] : listeners)
 	{
 		auto listener_result = listener->operator()(
 			keys,

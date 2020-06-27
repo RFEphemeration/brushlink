@@ -25,9 +25,7 @@ int main(int argc, char *argv[])
 		std::cout << "new game" << std::endl;
 		Game game;
 		game.Initialize();
-		input.listeners.emplace_back(
-			MakeCurriedMember(&Game::ReceiveInput, game)
-		);
+		input.listeners["game"].reset(MakeCurriedMember(&Game::ReceiveInput, game));
 		const auto game_start = std::chrono::steady_clock::now();
 		auto game_current = game_start;
 		auto tick_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -69,6 +67,7 @@ int main(int argc, char *argv[])
 				std::this_thread::sleep_until(next_tick);
 			}
 		}
+		input.listeners.erase("game");
 		std::cout << "game over" << std::endl;
 	
 	}

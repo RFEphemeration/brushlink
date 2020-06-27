@@ -29,7 +29,7 @@ struct Action_Settings
 	Seconds duration {0.0};
 };
 
-struct Action_Event
+struct Action_Step
 {
 	Action_Type type {Action_Type::Idle};
 	std::optional<Point> location;

@@ -1,0 +1,20 @@
+GetUnitAttribute Attribute_Type Unit -> Value
+CastValueToPoint Value -> Point
+CastValueTo___ Value -> ___
+
+
+Word
+	name PositionOf
+	type Point
+	parameters
+		UnitGroup units
+	implementation
+		Set sum Point 0 ` 0
+		ForEachUnit units unit
+			CastValueToPoint GetUnitAttribute Position unit
+		DividePoint
+			sum
+			SizeOf units
+
+# ValueName as either ValueName or GetValue ValueName
+# GetValue return type
