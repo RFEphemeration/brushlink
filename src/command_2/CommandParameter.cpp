@@ -414,8 +414,6 @@ std::string ParamRepeatableOptional::GetPrintString(std::string line_prefix) con
 	{
 		print_string += arg->GetPrintString(line_prefix);
 	}
-	return print_string;
-	
 	if (arguments.empty() && !default_value.value.empty())
 	{
 		print_string += line_prefix + "(" + default_value.value + ")\n";

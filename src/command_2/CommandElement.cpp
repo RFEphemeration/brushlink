@@ -36,35 +36,6 @@ std::pair<std::vector<CommandParameter*>, bool> GetActiveParameters(CommandEleme
 	return {active, true};
 }
 
-Set<ElementType::Enum> GetAllowedWithImplied(Set<ElementType::Enum> allowed)
-{
-	static Table<Set<ElementType::Enum>, Set<ElementType::Enum> > cache;
-	if (Contains(cache, allowed))
-	{
-		return cache[allowed];
-	}
-	Set<ElementType::Enum> allowed_with_implied;
-	for (auto&& pair : CommandContext::allowed_with_implied)
-	{
-		if (!Contains(allowed, pair.first))
-		{
-			continue;
-		}
-		allowed_with_implied.merge(Set<ElementType::Enum>{pair.second});
-	}
-	for (auto&& type : allowed_with_implied)
-	{
-		// don't double add something that is allowed as implied and not implied
-		// @Cleanup do we need this?
-		if (Contains(allowed, type))
-		{
-			allowed_with_implied.erase(type);
-		}
-	}
-	cache[allowed] = allowed_with_implied;
-	return allowed_with_implied;
-}
-
 void CommandElement::GetAllowedArgumentTypes(AllowedTypes & allowed)
 {
 	auto [ active, satisfied ] = GetActiveParameters(*this);
