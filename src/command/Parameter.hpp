@@ -16,6 +16,11 @@ enum class Parameter_Flags
 
 struct Parameter : public IEvaluable
 {
+	virtual ~Parameter() = default;
+
+	// for use by value_ptr
+	virtual Parameter * clone() const = 0;
+
 	virtual Element * GetLastArgument() = 0;
 };
 
@@ -27,6 +32,12 @@ struct Parameter_Basic : public Parameter
 
 	const Variant_Type type;
 	std::vector<value_ptr<Element> > arguments;
+
+	// for use by value_ptr
+	Parameter * clone() const override
+	{
+		return new Parameter(*this);
+	}
 
 	std::string GetPrintString(std::string line_prefix) const override;
 

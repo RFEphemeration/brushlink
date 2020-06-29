@@ -4,6 +4,7 @@
 namespace Command
 {
 
+// helper for GetAllowedTypes, AppendArgument
 // bool is whether parameters are satisfied
 std::pair<std::vector<Parameter*>, bool> GetActiveParameters(Element & element)
 {
@@ -35,6 +36,40 @@ std::pair<std::vector<Parameter*>, bool> GetActiveParameters(Element & element)
 	}
 
 	return {active, true};
+}
+
+
+std::string Element::GetPrintString(std::string line_prefix) const
+{
+	std::string print_string = line_prefix + name.value + "\n";
+	line_prefix += "    ";
+	if (left_parameter)
+	{
+		// @Cleanup left parameter should probably only be prefixed on first line
+		// with the direct name
+		print_string += left_parameter->GetPrintString(line_prefix + "<");
+	}
+	for (auto & parameter : parameters)
+	{
+		print_string += parameter->GetPrintString(line_prefix);
+	}
+	return print_string;
+}
+
+ErrorOr<Variant> Element::Evaluate(Context & context) const
+{
+	// default just passes through last parameter value
+	// or Success if there are no parameter values
+	Variant value{Success{}};
+	if (left_parameter)
+	{
+		value = CHECK_RETURN(left_parameter->Evaluate(context));
+	}
+	for (auto && param : parameters)
+	{
+		value = CHECK_RETURN(param->Evaluate(context));
+	}
+	return value;
 }
 
 bool Element::IsSatisfied() const

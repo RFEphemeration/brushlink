@@ -1,6 +1,9 @@
 
 #include "Context.h"
 
+namespace Command
+{
+
 Set<ElementType::Enum> Context::GetAllowedWithImplied(Set<ElementType::Enum> allowed) const
 {
 	static Table<Set<ElementType::Enum>, Set<ElementType::Enum> > cache;
@@ -31,3 +34,5 @@ Set<ElementType::Enum> Context::GetAllowedWithImplied(Set<ElementType::Enum> all
 	cache[allowed] = merged_type_set_with_implied;
 	return merged_type_set_with_implied;
 }
+
+} // namespace Command

@@ -21,6 +21,8 @@ enum class Removal
 
 struct IEvaluable
 {
+	virtual ~IEvaluable() = default;
+
 	virtual std::string GetPrintString(std::string line_prefix) const = 0;
 
 	virtual bool IsSatisfied() const = 0;
@@ -42,7 +44,13 @@ struct IEvaluable
 	template<typename T>
 	ErrorOr<T> EvaluateAs(Context & context) const
 	{
-		if constexpr(std::is_same<T, Variant>::value)
+		// @Cleanup should this be here? or should it be lifted out to call sites?
+		// evaluate as is used by builtin function elements
+		if constexpr (IsSpecialization<T, std::vector>::value)
+		{
+			return EvaluateAsRepeatable<T::value_type>(context);
+		}
+		else if constexpr(std::is_same<T, Variant>::value)
 		{
 			return Evaluate(context);
 		}
@@ -59,16 +67,23 @@ struct IEvaluable
 	ErrorOr<std::vector<T> > EvaluateAsRepeatable(CommandContext & context) const
 	{
 		std::vector<Variant> values = CHECK_RETURN(EvaluateRepeatable(context));
-		std::vector<T> ret;
-		for (auto& value : values)
+		if constexpr(std::is_same<T, Variant>::value)
 		{
-			if (!std::holds_alternative<T>(value))
-			{
-				return Error("Type mismatch during evaluation");
-			}
-			ret.push_back(std::get<T>(value));
+			return values;
 		}
-		return ret;
+		else
+		{
+			std::vector<T> ret;
+			for (auto& value : values)
+			{
+				if (!std::holds_alternative<T>(value))
+				{
+					return Error("Type mismatch during evaluation");
+				}
+				ret.push_back(std::get<T>(value));
+			}
+			return ret;
+		}
 	}
 }
 

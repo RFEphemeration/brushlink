@@ -28,6 +28,13 @@ struct Element : public IEvaluable
 	Implicit implicit;
 	value_ptr<Element> * location_in_parent;
 
+	virtual ~Element() = default;
+
+	virtual Element * clone() const
+	{
+		return new Element(*this);
+	}
+
 	virtual std::string GetPrintString(std::string line_prefix) const override;
 	virtual ErrorOr<Variant> Evaluate(Context & context) const override;
 
@@ -38,6 +45,130 @@ struct Element : public IEvaluable
 	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
 
 	ErrorOr<Removal> RemoveLastExplicitElement() override;
+};
+
+template<typename TVal>
+struct Literal : Element
+{
+	TVal value;
+
+	Element * clone() const override
+	{
+		return new Literal(*this);
+	}
+
+	std::string GetPrintString(std::string line_prefix) const
+	{
+		return ToString(TVal);
+	}
+
+	ErrorOr<Variant> Evaluate(context & context) const override
+	{
+		return Variant{value};
+	}
+};
+
+template<typename T, typename ... TArgs>
+ErrorOr<std::tuple<T, TArgs...>> EvaluateParameters(
+	std::priority_queue<Parameter *> & params, Context & context)
+{
+	if (params.empty())
+	{
+		return Error("Not enough parameters during evaluation");
+	}
+	ErrorOr<T> next = params.pop()->template EvaluateAs<T>(context);
+	if constexpr (sizeof...(TArgs) == 0)
+	{
+		if (!params.empty())
+		{
+			return Error("Too many parameters during evaluation");
+		}
+		return std::tuple<T>{
+			CHECK_RETURN(next.GetValue())
+		};
+	}
+	else
+	{
+		// evaluate the rest even if the first was an error
+		auto rest = EvaluateParameters<TArgs...>(params, context);
+		return std::tuple_cat(
+			std::tuple<T>{
+				CHECK_RETURN(result.GetValue())
+			},
+			CHECK_RETURN(rest.GetValue())
+		);
+	}
+}
+
+template<typename TRet, typename ... TArgs>
+struct ContextFunction : Element
+{
+	ErrorOr<TRet> (Context::*func)(TArgs...);
+
+	virtual Element * clone() const override
+	{
+		return new ContextFunction(*this);
+	}
+
+	ErrorOr<Variant> Evaluate(Context & context) const override
+	{
+		if constexpr(sizeof...(TArgs) == 0)
+		{
+			return Value{CHECK_RETURN((context.*func)())};
+		}
+		else
+		{
+			std::priority_queue<Parameter *> params;
+			if (left_parameter)
+			{
+				params.push(left_parameter.get())
+			}
+			for (auto & param : parameters)
+			{
+				params.push(param.get());
+			}
+			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, context));
+			auto all_args = std::tuple_cat(std::tuple<Context &>{context}, args);
+			return Variant{
+				CHECK_RETURN(std::apply(*func, all_args))
+			};
+		}
+	}
+};
+
+template<typename TRet, typename ... TArgs>
+struct GlobalFunction : Element
+{
+	ErrorOr<TRet> (*func)(TArgs...);
+
+	virtual Element * clone() const override
+	{
+		return new ContextFunction(*this);
+	}
+
+	ErrorOr<Variant> Evaluate(Context & context) const override
+	{
+		if constexpr(sizeof...(TArgs) == 0)
+		{
+			return Value{CHECK_RETURN((*func)())};
+		}
+		else
+		{
+			std::priority_queue<Parameter *> params;
+			if (left_parameter)
+			{
+				params.push(left_parameter.get())
+			}
+			for (auto & param : parameters)
+			{
+				params.push(param.get());
+			}
+			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, context));
+			return Variant{
+				CHECK_RETURN(std::apply(*func, args))
+			};
+		}
+	}
 };
 
 } // namespace Command
