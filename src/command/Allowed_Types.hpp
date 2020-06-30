@@ -25,7 +25,7 @@ struct AllowedTypes
 
 	Table<Variant_Type, int> total_right;
 	Table<Variant_Type, int> total_left;
-	Table<Variant_Type, int> total_instruction;
+	Table<Instruction_Type, int> total_instruction;
 
 	inline void Append(AllowedType type)
 	{

@@ -7,7 +7,7 @@ namespace Command
 struct Context
 {
 	virtual ~Context() = default;
-	Set<ElementType::Enum> GetAllowedWithImplied(Set<ElementType::Enum> allowed) const;
+	Set<Variant_Type> GetAllowedWithImplied(Set<Variant_Type> allowed) const;
 };
 
 // multiple sub types
@@ -15,6 +15,7 @@ struct Context
 // unit call context - setup some assumed variables
 // function call context - parameters, tail recursion, etc
 // scope inside function call context - for loops, etc
+// parsing definitions context
 
 
 } // namespace Command

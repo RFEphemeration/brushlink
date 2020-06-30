@@ -4,36 +4,39 @@
 namespace Command
 {
 
-template<bool repeatable, bool optional>
-std::string Parameter_Basic<repeatable, optional>::GetPrintString(std::string line_prefix) const
+Element * Parameter::GetLastArgument()
+{
+	if (arguments.empty())
+	{
+		return nullptr;
+	}
+	return arguments.back().get();
+}
+
+
+std::string Parameter::GetPrintString(std::string line_prefix) const
 {
 	std::string print_string = "";
 	for (auto arg : arguments)
 	{
 		print_string += arg->GetPrintString(line_prefix);
 	}
-	if (arguments.empty() && default_value.has_value)
-	{
-		print_string += line_prefix + "(" + default_value.value() + ")\n";
-	}
 	return print_string;
 }
 
-template<bool repeatable, bool optional>
-bool Parameter_Basic<repeatable, optional>::IsSatisfied() const
+bool Parameter::IsSatisfied() const
 {
-	for(auto arg & arguments)
+	for (auto & arg : arguments)
 	{
 		if (!arg->IsSatisfied())
 		{
 			return false;
 		}
 	}
-	return optional || !arguments.empty();
+	return !arguments.empty();
 }
 
-template<bool repeatable, bool optional>
-bool Parameter_Basic<repeatable, optional>::IsExplicitBranch() const
+bool Parameter::IsExplicitBranch() const
 {
 	for(auto arg & arguments)
 	{
@@ -43,6 +46,70 @@ bool Parameter_Basic<repeatable, optional>::IsExplicitBranch() const
 		}
 	}
 	return false;
+}
+
+ErrorOr<Variant> Parameter::Evaluate(Context & context) const
+{
+	auto count = arguments.size();
+	if (count == 1)
+	{
+		return arguments.front()->Evaluate(context);
+	}
+	else if (count == 0)
+	{
+		return Error("Parameter has multiple arguments, should only have one");
+	}
+	else
+	{
+		return Error("Parameter has no argument or default");
+	}
+}
+
+template<bool repeatable, bool optional>
+ErrorOr<std::vector<Variant> > Parameter_Basic<repeatable, optional>::EvaluateRepeatable(Context & context) const override
+{
+	std::vector<Variant> values;
+	for(auto & arg : arguments)
+	{
+		values.push_back(CHECK_RETURN(arg->Evaluate(context)));
+		if constexpr (!repeatable)
+		{
+			break;
+		}
+	}
+	if (values.empty() && default_value.has_value())
+	{
+		// could consider not copying since Evaluate is const
+		value_ptr<Element> default_element = context.GetElement(default_value.value());
+		values.push_back(default_element->Evaluate(context));
+	}
+	return values;
+}
+
+template<bool repeatable, bool optional>
+std::string Parameter_Basic<repeatable, optional>::GetPrintString(std::string line_prefix) const
+{
+	if (arguments.empty() && default_value.has_value)
+	{
+		return line_prefix + "(" + default_value.value() + ")\n";
+	}
+	else
+	{
+		return Parameter::GetPrintString(line_prefix);
+	}
+}
+
+template<bool repeatable, bool optional>
+bool Parameter_Basic<repeatable, optional>::IsSatisfied() const
+{
+	if constexpr(optional)
+	{
+		if (arguments.empty())
+		{
+			return true;
+		}
+	}
+	return Parameter::IsSatisfied();
 }
 
 template<bool repeatable, bool optional>
@@ -68,8 +135,8 @@ ErrorOr<bool> Parameter_Basic<repeatable, optional>::AppendArgument(Context & co
 {
 	if (!arguments.empty())
 	{
-		auto result = CHECK_RETURN(arguments.back()->AppendArgument(context, next, skip_count));
-		if (result)
+		auto appended = CHECK_RETURN(arguments.back()->AppendArgument(context, next, skip_count));
+		if (appended)
 		{
 			return true;
 		}
@@ -93,8 +160,9 @@ ErrorOr<bool> Parameter_Basic<repeatable, optional>::AppendArgument(Context & co
 				return Error("Type mismatch on required argument");
 			}
 		}
-		
 	}
+	// should we be type checking here?
+
 	if (skip_count > 0)
 	{
 		skip_count--;
@@ -131,16 +199,6 @@ ErrorOr<bool> Parameter_Basic<repeatable, optional>::AppendArgument(Context & co
 		}
 	}
 	return true;
-}
-
-template<bool repeatable, bool optional>
-Element * Parameter_Basic<repeatable, optional>::GetLastArgument()
-{
-	if (arguments.empty())
-	{
-		return nullptr;
-	}
-	return arguments.back().get();
 }
 
 template<bool repeatable, bool optional>
@@ -209,45 +267,31 @@ ErrorOr<Removal> Parameter_Basic<repeatable, optional>::RemoveLastExplicitElemen
 template<bool repeatable, bool optional>
 ErrorOr<Variant> Parameter_Basic<repeatable, optional>::Evaluate(Context & context) const override
 {
-	auto count = arguments.size();
-	if (count > 1)
+	if constexpr (optional)
 	{
-		return Error("Parameter has multiple arguments, should only have one");
+		if (arguments.empty() && default_value.has_value())
+		{
+			value_ptr<Element> default_element = context.GetElement(default_value.value());
+			return default_element->Evaluate(context);
+		}
 	}
-	else if (count == 1)
-	{
-		return arguments.front()->Evaluate(context);
-	}
-	else if (default_value.has_value())
-	{
-		value_ptr<Element> default_element = context.GetElement(default_value.value());
-		return default_element->Evaluate(context);
-	}
-	else
-	{
-		return Error("Parameter has no argument or default");
-	}
+	return Parameter::Evaluate(context);
 }
 
 template<bool repeatable, bool optional>
 ErrorOr<std::vector<Variant> > Parameter_Basic<repeatable, optional>::EvaluateRepeatable(Context & context) const override
 {
-	std::vector<Variant> values;
-	for(auto & arg : arguments)
+	if constexpr (optional)
 	{
-		values.push_back(CHECK_RETURN(arg->Evaluate(context)));
-		if constexpr (!repeatable)
+		if (arguments.empty() && default_value.has_value())
 		{
-			break;
+			value_ptr<Element> default_element = CHECK_RETURN(context.GetElement(default_value.value()));
+			return std::vector<Variant>{
+				CHECK_RETURN(default_element->Evaluate(context))
+			};
 		}
 	}
-	if (values.empty() && default_value.has_value())
-	{
-		// could consider not copying since Evaluate is const
-		value_ptr<Element> default_element = context.GetElement(default_value.value());
-		values.push_back(default_element->Evaluate(context));
-	}
-	return values;
+	return Parameter::EvaluateRepeatable(context);
 }
 
 

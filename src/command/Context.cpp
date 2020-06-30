@@ -4,14 +4,14 @@
 namespace Command
 {
 
-Set<ElementType::Enum> Context::GetAllowedWithImplied(Set<ElementType::Enum> allowed) const
+Set<Variant_Type> Context::GetAllowedWithImplied(Set<Variant_Type> allowed) const
 {
-	static Table<Set<ElementType::Enum>, Set<ElementType::Enum> > cache;
+	static Table<Set<Variant_Type>, Set<Variant_Type> > cache;
 	if (Contains(cache, allowed))
 	{
 		return cache[allowed];
 	}
-	Set<ElementType::Enum> merged_type_set_with_implied;
+	Set<Variant_Type> merged_type_set_with_implied;
 	// allowed_with_implied might vary by player
 	for (auto&& [allowed_type, type_set_with_implied] : allowed_with_implied)
 	{

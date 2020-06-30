@@ -16,22 +16,45 @@ enum class Parameter_Flags
 
 struct Parameter : public IEvaluable
 {
+	const std::optional<ValueName> name;
+	// often only allow one argument but the second indirection in that case
+	// is worth it for the common interface
+	std::vector<value_ptr<Element> > arguments;
+
 	virtual ~Parameter() = default;
 
 	// for use by value_ptr
 	virtual Parameter * clone() const = 0;
 
-	virtual Element * GetLastArgument() = 0;
+	// Perimeter interface
+	virtual Element * GetLastArgument();
+	virtual bool IsRequired() const = 0;
+
+	// IEvaluable interface common implementations
+	virtual std::string GetPrintString(std::string line_prefix) const override;
+
+	virtual bool IsSatisfied() const override;
+	virtual void GetAllowedTypes(AllowedTypes & allowed) const override = 0;
+	virtual bool IsExplicitBranch() const override;
+
+	virtual void GetAllowedTypes(AllowedTypes & allowed) const override = 0;
+
+	virtual ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
+
+	virtual ErrorOr<Removal> RemoveLastExplicitElement() override;
+
+	virtual ErrorOr<Variant> Evaluate(Context & context) const override;
+
+	virtual ErrorOr<std::vector<Variant> > EvaluateRepeatable(Context & context) const override;
 };
 
 template<bool repeatable, bool optional>
 struct Parameter_Basic : public Parameter
 {
 	// only used if optional is true. Todo: move this elsewhere?
-	std::optional<ElementName> default_value;
+	const std::optional<ElementName> default_value;
 
 	const Variant_Type type;
-	std::vector<value_ptr<Element> > arguments;
 
 	// for use by value_ptr
 	Parameter * clone() const override
@@ -39,14 +62,17 @@ struct Parameter_Basic : public Parameter
 		return new Parameter(*this);
 	}
 
+	// Parameter interface
+	bool IsRequired() const override { return !optional; }
+
+	// IEvaluable interface
 	std::string GetPrintString(std::string line_prefix) const override;
 
 	bool IsSatisfied() const override;
-	bool IsExplicitBranch() const override;
+	
 	void GetAllowedTypes(AllowedTypes & allowed) const override;
 
 	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
-	Element * GetLastArgument() override;
 	// return value is whether to remove this element, also
 	ErrorOr<Removal> RemoveLastExplicitElement() override;
 

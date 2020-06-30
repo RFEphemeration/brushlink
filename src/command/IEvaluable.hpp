@@ -44,12 +44,6 @@ struct IEvaluable
 	template<typename T>
 	ErrorOr<T> EvaluateAs(Context & context) const
 	{
-		// @Cleanup should this be here? or should it be lifted out to call sites?
-		// evaluate as is used by builtin function elements
-		if constexpr (IsSpecialization<T, std::vector>::value)
-		{
-			return EvaluateAsRepeatable<T::value_type>(context);
-		}
 		else if constexpr(std::is_same<T, Variant>::value)
 		{
 			return Evaluate(context);

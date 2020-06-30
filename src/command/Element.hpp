@@ -76,7 +76,22 @@ ErrorOr<std::tuple<T, TArgs...>> EvaluateParameters(
 	{
 		return Error("Not enough parameters during evaluation");
 	}
-	ErrorOr<T> next = params.pop()->template EvaluateAs<T>(context);
+	ErrorOr<T> next = [&]
+	{
+		if constexpr (std::is_same<T, value_ptr<Element> >::value)
+		{
+			return value_ptr<Element>{clone()};
+		}
+		else if constexpr (IsSpecialization<T, std::vector>::value)
+		{
+			return params.pop->template EvaluateAsRepeatable<T::value_type>(context);
+		}
+		else
+		{
+			return params.pop()->template EvaluateAs<T>(context);
+		}
+	}();
+	
 	if constexpr (sizeof...(TArgs) == 0)
 	{
 		if (!params.empty())
@@ -104,10 +119,20 @@ template<typename TRet, typename ... TArgs>
 struct ContextFunction : Element
 {
 	ErrorOr<TRet> (Context::*func)(TArgs...);
+	std::string (*print_func)(const ContextFunction & element, std::string);
 
 	virtual Element * clone() const override
 	{
 		return new ContextFunction(*this);
+	}
+
+	std::string GetPrintString(std::string line_prefix) const override
+	{
+		if (print_func != nullptr)
+		{
+			return (*print_func)(*this, line_prefix);
+		}
+		return Element::GetPrintString(line_prefix);
 	}
 
 	ErrorOr<Variant> Evaluate(Context & context) const override
@@ -128,9 +153,9 @@ struct ContextFunction : Element
 				params.push(param.get());
 			}
 			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, context));
-			auto all_args = std::tuple_cat(std::tuple<Context &>{context}, args);
+			auto context_and_args = std::tuple_cat(std::tuple<Context &>{context}, args);
 			return Variant{
-				CHECK_RETURN(std::apply(*func, all_args))
+				CHECK_RETURN(std::apply(*func, context_and_args))
 			};
 		}
 	}
@@ -140,10 +165,20 @@ template<typename TRet, typename ... TArgs>
 struct GlobalFunction : Element
 {
 	ErrorOr<TRet> (*func)(TArgs...);
+	std::string (*print_func)(const GlobalFunction & element, std::string);
 
 	virtual Element * clone() const override
 	{
-		return new ContextFunction(*this);
+		return new GlobalFunction(*this);
+	}
+
+	std::string GetPrintString(std::string line_prefix) const override
+	{
+		if (print_func != nullptr)
+		{
+			return (*print_func)(*this, line_prefix);
+		}
+		return Element::GetPrintString(line_prefix);
 	}
 
 	ErrorOr<Variant> Evaluate(Context & context) const override

@@ -135,6 +135,48 @@ inline Variant_Type GetVariantType(Variant v)
 		return Variant_Type::Area
 }
 
+inline std::string ToString(Variant_Type v)
+{
+	switch(v)
+	{
+	case Variant_Type::Success:
+		return "Success";
+	case Variant_Type::Number:
+		return "Number";
+	case Variant_Type::Digit:
+		return "Digit";
+	case Variant_Type::ValueName:
+		return "ValueName";
+	case Variant_Type::Letter:
+		return "Letter";
+	case Variant_Type::Seconds:
+		return "Seconds";
+	case Variant_Type::Action_Type:
+		return "Action_Type";
+	case Variant_Type::Action_Step:
+		return "Action_Step";
+	case Variant_Type::Unit_Type:
+		return "Unit_Type";
+	case Variant_Type::Unit_Attribute:
+		return "Unit_Attribute";
+	case Variant_Type::UnitID:
+		return "UnitID";
+	case Variant_Type::Unit_Group:
+		return "Unit_Group";
+	case Variant_Type::Energy:
+		return "Energy";
+	case Variant_Type::Point:
+		return "Point";
+	case Variant_Type::Direction:
+		return "Direction";
+	case Variant_Type::Line:
+		return "Line";
+	case Variant_Type::Area:
+		return "Area";
+	}
+	return "Variant_Type::Unknown";
+}
+
 } // namespace Brushlink
 
 #endif // BRUSHLINK_VARIANT_H
