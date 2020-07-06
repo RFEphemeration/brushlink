@@ -2,6 +2,8 @@
 
 So far this is just a wip command language for an rts game. The rest of the game might spring up around it at some future date.
 
+Makes use of an in progress game engine and tool set of mine: [farb](https://github.com/RFDaemoniac/farb).
+
 The command language is function driven, with a fair number of builtins and user definable functions available. The AST is built directly in game using a gui / hotkeys. User definable functions will probably be able to be loaded from text, but this is not yet implemented.
 
 The AST is made up of CommandElement nodes, which can have some number of CommandParameter edges. These edge objects define the restrictions for which CommandElement children are allowed.
