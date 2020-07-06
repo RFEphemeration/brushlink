@@ -48,6 +48,104 @@ bool Parameter::IsExplicitBranch() const
 	return false;
 }
 
+void Parameter::GetAllowedTypes(AllowedTypes & allowed) const
+{
+	if (!arguments.empty())
+	{
+		arguments.back()->GetAllowedTypes(allowed);
+	}
+	if (repeatable || arguments.empty())
+	{
+		auto types = Types();
+		for (auto && type : types)
+		{
+			allowed.Append({type});
+		}
+		auto allowed_types = context.GetAllowedWithImplied({types});
+		for (auto && type : allowed_types)
+		{
+			allowed.append({type});
+		}
+	}
+}
+
+ErrorOr<Removal> Parameter::RemoveLastExplicitElement()
+{
+	if (arguments.empty())
+	{
+		return Removal::None;
+	}
+	auto & arg = arguments.back();
+	Removal removal = CHECK_RETURN(arg->RemoveLastExplicitElement());
+	if (removal == Removal::Finished)
+	{
+		return Removal::Finished;
+	}
+
+	// if there are still explicit right children, we are finished or in error
+	for (auto & param : arg->parameters)
+	{
+		if (param->IsExplicitBranch())
+		{
+			if (removal == Removal::None)
+			{
+				return Error("Couldn't remove explicit argument from element");
+			}
+			return Removal::Finished;
+		}
+	}
+
+	if (removal == Removal::ContinueRemovingImplicit)
+	{
+		if (arg->implicit == Implicit::None)
+		{
+			return Removal::Finished;
+		}
+		else if (arg->implicit == Implicit::Child)
+		{
+			if (arg->left_parameter
+				&& arg->left_parameter->GetLastArgument())
+			{
+				return Error("An implicit child element has a left parameter");
+			}
+			// an implied child is paired with an explicit parent
+			// if we've already removed an explicit descendent, we're done
+			return Removal::Finished;
+		}
+		// if implicit parent, continue to removal code below
+	}
+
+	// removing this element, first by trying to swap with left
+	if (arg->left_parameter
+		&& arg->left_parameter->GetLastArgument())
+	{
+		value_ptr<Element> boxed;
+		arg.swap(boxed);
+		Element * left_element = arg->left_parameter->GetLastArgument();
+		arg.swap(*left_element->location_in_parent);
+	}
+	// if no left swap, just remove it entirely
+	else
+	{
+		if (arg->implicit == Implicit::Child)
+		{
+			for(auto & argument : arguments)
+			{
+				if (argument->implicit != Implicit::Child)
+				{
+					return Error("Implicit child argument comes after explicit");
+				}
+			}
+			return Removal::None;
+		}
+		
+		arguments.pop_back();
+		// because we just removed an element, parents should re-check their implicity
+		return Removal::ContinueRemovingImplicit;
+	}
+	
+}
+
 ErrorOr<Variant> Parameter::Evaluate(Context & context) const
 {
 	auto count = arguments.size();
@@ -65,23 +163,12 @@ ErrorOr<Variant> Parameter::Evaluate(Context & context) const
 	}
 }
 
-template<bool repeatable, bool optional>
-ErrorOr<std::vector<Variant> > Parameter_Basic<repeatable, optional>::EvaluateRepeatable(Context & context) const override
+ErrorOr<std::vector<Variant> > Parameter::EvaluateRepeatable(Context & context) const override
 {
 	std::vector<Variant> values;
 	for(auto & arg : arguments)
 	{
 		values.push_back(CHECK_RETURN(arg->Evaluate(context)));
-		if constexpr (!repeatable)
-		{
-			break;
-		}
-	}
-	if (values.empty() && default_value.has_value())
-	{
-		// could consider not copying since Evaluate is const
-		value_ptr<Element> default_element = context.GetElement(default_value.value());
-		values.push_back(default_element->Evaluate(context));
 	}
 	return values;
 }
@@ -89,9 +176,12 @@ ErrorOr<std::vector<Variant> > Parameter_Basic<repeatable, optional>::EvaluateRe
 template<bool repeatable, bool optional>
 std::string Parameter_Basic<repeatable, optional>::GetPrintString(std::string line_prefix) const
 {
-	if (arguments.empty() && default_value.has_value)
+	if constexpr(optional)
 	{
-		return line_prefix + "(" + default_value.value() + ")\n";
+		if (arguments.empty() && default_value.has_value)
+		{
+			return line_prefix + "(" + default_value.value() + ")\n";
+		}
 	}
 	else
 	{
@@ -110,24 +200,6 @@ bool Parameter_Basic<repeatable, optional>::IsSatisfied() const
 		}
 	}
 	return Parameter::IsSatisfied();
-}
-
-template<bool repeatable, bool optional>
-void Parameter_Basic<repeatable, optional>::GetAllowedTypes(AllowedTypes & allowed) const
-{
-	if (!arguments.empty())
-	{
-		arguments.back()->GetAllowedTypes(allowed);
-	}
-	if (repeatable || arguments.empty())
-	{
-		allowed.Append({type});
-		auto allowed_types = context.GetAllowedWithImplied({type});
-		for (auto && type : allowed_types)
-		{
-			allowed.append({type});
-		}
-	}
 }
 
 template<bool repeatable, bool optional>
@@ -202,76 +274,13 @@ ErrorOr<bool> Parameter_Basic<repeatable, optional>::AppendArgument(Context & co
 }
 
 template<bool repeatable, bool optional>
-ErrorOr<Removal> Parameter_Basic<repeatable, optional>::RemoveLastExplicitElement()
-{
-	if (arguments.empty())
-	{
-		return Removal::None;
-	}
-	auto & arg = arguments.back();
-	Removal removal = CHECK_RETURN(arg->RemoveLastExplicitElement());
-	if (removal == Removal::Finished)
-	{
-		return Removal::Finished;
-	}
-
-	// if there are still explicit right children, we are finished or in error
-	for (auto & param : arg->parameters)
-	{
-		if (param->IsExplicitBranch())
-		{
-			if (removal == Removal::None)
-			{
-				return Error("Couldn't remove explicit argument from element");
-			}
-			return Removal::Finished;
-		}
-	}
-
-	if (removal == Removal::ContinueRemovingImplicit)
-	{
-		if (arg->implicit == Implicit::None)
-		{
-			return Removal::Finished;
-		}
-		else if (arg->implicit == Implicit::Child)
-		{
-			if (arg->left_parameter
-				&& arg->left_parameter->GetLastArgument())
-			{
-				return Error("An implicit child element has a left parameter");
-			}
-			return Removal::ContinueRemovingImplicit;
-		}
-		// if implicit parent, continue to removal code below
-	}
-
-	// removing this element, first by trying to swap with left
-	if (arg->left_parameter
-		&& arg->left_parameter->GetLastArgument())
-	{
-		value_ptr<Element> boxed;
-		arg.swap(boxed);
-		Element * left_element = arg->left_parameter->GetLastArgument();
-		arg.swap(*left_element->location_in_parent);
-	}
-	// if no left swap, just remove it entirely
-	else
-	{
-		arguments.pop_back();
-	}
-	// because we just removed an element, parents should re-check their implicity
-	return Removal::ContinueRemovingImplicit;
-}
-
-template<bool repeatable, bool optional>
 ErrorOr<Variant> Parameter_Basic<repeatable, optional>::Evaluate(Context & context) const override
 {
 	if constexpr (optional)
 	{
 		if (arguments.empty() && default_value.has_value())
 		{
-			value_ptr<Element> default_element = context.GetElement(default_value.value());
+			value_ptr<Element> default_element = CHECK_RETURN(context.GetElement(default_value.value()));
 			return default_element->Evaluate(context);
 		}
 	}
@@ -294,9 +303,48 @@ ErrorOr<std::vector<Variant> > Parameter_Basic<repeatable, optional>::EvaluateRe
 	return Parameter::EvaluateRepeatable(context);
 }
 
-
 template struct Parameter_Basic<false, false>;
 template struct Parameter_Basic<true, false>;
 template struct Parameter_Basic<false, true>;
 template struct Parameter_Basic<true, true>;
+
+Set<Variant_Type> Parameter_OneOf::Types() const
+{
+	if (chosen_index.has_value())
+	{
+		return options[chosen_index.value()]->Types();
+	}
+}
+
+std::string Parameter_OneOf::GetPrintString(std::string line_prefix) const
+{
+
+}
+
+bool Parameter_OneOf::IsSatisfied() const
+{
+
+}
+
+void Parameter_OneOf::GetAllowedTypes(AllowedTypes & allowed) const
+{
+
+}
+
+ErrorOr<bool> Parameter_OneOf::AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count)
+{
+
+}
+
+ErrorOr<Variant> Parameter_OneOf::Evaluate(Context & context) const
+{
+
+}
+
+ErrorOr<std::vector<Variant> > Parameter_OneOf::EvaluateRepeatable(Context & context) const
+{
+
+}
+
+
 } // namespace Command

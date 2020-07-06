@@ -28,7 +28,8 @@ struct Parameter : public IEvaluable
 
 	// Perimeter interface
 	virtual Element * GetLastArgument();
-	virtual bool IsRequired() const = 0;
+	// virtual bool IsRequired() const = 0;
+	virtual Set<Variant_Type> Types() const = 0;
 
 	// IEvaluable interface common implementations
 	virtual std::string GetPrintString(std::string line_prefix) const override;
@@ -37,9 +38,7 @@ struct Parameter : public IEvaluable
 	virtual void GetAllowedTypes(AllowedTypes & allowed) const override = 0;
 	virtual bool IsExplicitBranch() const override;
 
-	virtual void GetAllowedTypes(AllowedTypes & allowed) const override = 0;
-
-	virtual ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
+	virtual ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override = 0;
 
 	virtual ErrorOr<Removal> RemoveLastExplicitElement() override;
 
@@ -63,7 +62,9 @@ struct Parameter_Basic : public Parameter
 	}
 
 	// Parameter interface
-	bool IsRequired() const override { return !optional; }
+	// bool IsRequired() const override { return !optional; }
+
+	Set<Variant_Type> Types() const override { return {type}; }
 
 	// IEvaluable interface
 	std::string GetPrintString(std::string line_prefix) const override;
@@ -73,8 +74,6 @@ struct Parameter_Basic : public Parameter
 	void GetAllowedTypes(AllowedTypes & allowed) const override;
 
 	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
-	// return value is whether to remove this element, also
-	ErrorOr<Removal> RemoveLastExplicitElement() override;
 
 	ErrorOr<Variant> Evaluate(Context & context) const override;
 
@@ -87,18 +86,58 @@ using Parameter_SingleOptional = Parameter_Basic<false, true>;
 using Parameter_RepeatableOptional = Parameter_Basic<true, true>;
 
 
-// @Feature OneOf, ImpliedOptions
-
-
 struct Parameter_OneOf : public Parameter
 {
 	std::vector<value_ptr<Parameter>> options;
-	int chosen_index{-1};
+	std::optional<int> chosen_index;
+
+	// for use by value_ptr
+	Parameter * clone() const override
+	{
+		return new Parameter_OneOf(*this);
+	}
+
+	// Parameter interface
+	Set<Variant_Type> Types() const override;
+
+	// IEvaluable interface
+	std::string GetPrintString(std::string line_prefix) const override;
+
+	bool IsSatisfied() const override;
+
+	void GetAllowedTypes(AllowedTypes & allowed) const override;
+
+	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
+
+	ErrorOr<Variant> Evaluate(Context & context) const override;
+
+	ErrorOr<std::vector<Variant> > EvaluateRepeatable(Context & context) const override;
 };
 
 struct Parameter_ImpliedOptions : public Parameter
 {
 	std::vector<value_ptr<CommandElement>> implied_options;
+	std::optional<int> chosen_index;
+
+	// for use by value_ptr
+	Parameter * clone() const override
+	{
+		return new Parameter_ImpliedOptions(*this);
+	}
+
+	// Parameter interface
+	Set<Variant_Type> Types() const override;
+
+	// IEvaluable interface
+	std::string GetPrintString(std::string line_prefix) const override;
+
+	void GetAllowedTypes(AllowedTypes & allowed) const override;
+
+	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
+
+	ErrorOr<Variant> Evaluate(Context & context) const override;
+
+	ErrorOr<std::vector<Variant> > EvaluateRepeatable(Context & context) const override;
 };
 
 
