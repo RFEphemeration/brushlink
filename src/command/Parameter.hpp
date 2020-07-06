@@ -17,9 +17,6 @@ enum class Parameter_Flags
 struct Parameter : public IEvaluable
 {
 	const std::optional<ValueName> name;
-	// often only allow one argument but the second indirection in that case
-	// is worth it for the common interface
-	std::vector<value_ptr<Element> > arguments;
 
 	virtual ~Parameter() = default;
 
@@ -27,33 +24,36 @@ struct Parameter : public IEvaluable
 	virtual Parameter * clone() const = 0;
 
 	// Perimeter interface
-	virtual Element * GetLastArgument();
+	virtual Element * GetLastArgument() = 0;
 	// virtual bool IsRequired() const = 0;
 	virtual Set<Variant_Type> Types() const = 0;
 
 	// IEvaluable interface common implementations
-	virtual std::string GetPrintString(std::string line_prefix) const override;
+	virtual std::string GetPrintString(std::string line_prefix) const override = 0;
 
-	virtual bool IsSatisfied() const override;
+	virtual bool IsSatisfied() const override = 0;
 	virtual void GetAllowedTypes(AllowedTypes & allowed) const override = 0;
-	virtual bool IsExplicitBranch() const override;
+	virtual bool IsExplicitBranch() const override = 0;
 
 	virtual ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override = 0;
 
-	virtual ErrorOr<Removal> RemoveLastExplicitElement() override;
+	virtual ErrorOr<Removal> RemoveLastExplicitElement() override = 0;
 
-	virtual ErrorOr<Variant> Evaluate(Context & context) const override;
+	virtual ErrorOr<Variant> Evaluate(Context & context) const override = 0;
 
-	virtual ErrorOr<std::vector<Variant> > EvaluateRepeatable(Context & context) const override;
+	virtual ErrorOr<std::vector<Variant> > EvaluateRepeatable(Context & context) const override = 0;
 };
 
 template<bool repeatable, bool optional>
 struct Parameter_Basic : public Parameter
 {
+	const Variant_Type type;
 	// only used if optional is true. Todo: move this elsewhere?
 	const std::optional<ElementName> default_value;
 
-	const Variant_Type type;
+	// often only allow one argument but the second indirection in that case
+	// is worth it for the common interface
+	std::vector<value_ptr<Element> > arguments;
 
 	// for use by value_ptr
 	Parameter * clone() const override
@@ -62,6 +62,7 @@ struct Parameter_Basic : public Parameter
 	}
 
 	// Parameter interface
+	Element * GetLastArgument() override;
 	// bool IsRequired() const override { return !optional; }
 
 	Set<Variant_Type> Types() const override { return {type}; }
@@ -73,7 +74,11 @@ struct Parameter_Basic : public Parameter
 	
 	void GetAllowedTypes(AllowedTypes & allowed) const override;
 
+	bool IsExplicitBranch() const override;
+
 	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
+
+	ErrorOr<Removal> RemoveLastExplicitElement() override;
 
 	ErrorOr<Variant> Evaluate(Context & context) const override;
 

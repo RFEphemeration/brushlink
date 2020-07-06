@@ -4,7 +4,8 @@
 namespace Command
 {
 
-Element * Parameter::GetLastArgument()
+template<bool repeatable, bool optional>
+Element * Parameter_Basic<repeatable, optional>::GetLastArgument()
 {
 	if (arguments.empty())
 	{
@@ -13,18 +14,30 @@ Element * Parameter::GetLastArgument()
 	return arguments.back().get();
 }
 
-
-std::string Parameter::GetPrintString(std::string line_prefix) const
+template<bool repeatable, bool optional>
+std::string Parameter_Basic<repeatable, optional>::GetPrintString(std::string line_prefix) const
 {
+	if constexpr(optional)
+	{
+		if (arguments.empty() && default_value.has_value)
+		{
+			return line_prefix + "(" + default_value.value() + ")\n";
+		}
+	}
 	std::string print_string = "";
 	for (auto arg : arguments)
 	{
 		print_string += arg->GetPrintString(line_prefix);
+		if constexpr(!repeatable)
+		{
+			break;
+		}
 	}
 	return print_string;
 }
 
-bool Parameter::IsSatisfied() const
+template<bool repeatable, bool optional>
+bool Parameter_Basic<repeatable, optional>::IsSatisfied() const
 {
 	for (auto & arg : arguments)
 	{
@@ -33,22 +46,18 @@ bool Parameter::IsSatisfied() const
 			return false;
 		}
 	}
-	return !arguments.empty();
-}
-
-bool Parameter::IsExplicitBranch() const
-{
-	for(auto arg & arguments)
+	if constexpr(optional)
 	{
-		if (arg->IsExplicitBranch())
-		{
-			return true;
-		}
+		return true;
 	}
-	return false;
+	else
+	{
+		return !arguments.empty();
+	}
 }
 
-void Parameter::GetAllowedTypes(AllowedTypes & allowed) const
+template<bool repeatable, bool optional>
+void Parameter_Basic<repeatable, optional>::GetAllowedTypes(AllowedTypes & allowed) const
 {
 	if (!arguments.empty())
 	{
@@ -69,7 +78,92 @@ void Parameter::GetAllowedTypes(AllowedTypes & allowed) const
 	}
 }
 
-ErrorOr<Removal> Parameter::RemoveLastExplicitElement()
+template<bool repeatable, bool optional>
+bool Parameter_Basic<repeatable, optional>::IsExplicitBranch() const
+{
+	for(auto arg & arguments)
+	{
+		if (arg->IsExplicitBranch())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+template<bool repeatable, bool optional>
+ErrorOr<bool> Parameter_Basic<repeatable, optional>::AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count)
+{
+	if (!arguments.empty())
+	{
+		auto appended = CHECK_RETURN(arguments.back()->AppendArgument(context, next, skip_count));
+		if (appended)
+		{
+			return true;
+		}
+		if constexpr (!repeatable)
+		{
+			return false;
+		}
+	}
+
+	if (!optional && arguments.empty())
+	{
+		if (skip_count > 0)
+		{
+			return Error("Skipping required argument");
+		}
+		if (type != next->type)
+		{
+			auto allowed_implied_set = context.GetAllowedWithImplied({type});
+			if (!Contains(allowed_implied_set, next->type))
+			{
+				return Error("Type mismatch on required argument");
+			}
+		}
+	}
+	// should we be type checking here?
+
+	if (skip_count > 0)
+	{
+		skip_count--;
+		return false;
+	}
+
+	auto args_capacity = arguments.capacity();
+	if (type == next->type)
+	{
+		arguments.push_back(std::move(next));
+		arguments.back()->location_in_parent = &arguments.back();
+	}
+	else
+	{
+		ElementName implied_name = context.GetImpliedElement(next->type, type);
+		auto implied_element = CHECK_RETURN(context.GetNewCommandElement(implied_name));
+		implied_element->implicit = Implicit::Parent;
+		int no_skips = 0;
+		bool result = CHECK_RETURN(implied_element->AppendArgument(context, std::move(next), no_skips));
+		if (!result)
+		{
+			return Error("Could not append new element to implied element");
+		}
+		arguments.push_back(std::move(implied_element));
+		arguments.back()->location_in_parent = &arguments.back();
+	}
+
+	if (arguments.capacity() != args_capacity)
+	{
+		// we have moved the location of the other arguments by reallocating
+		for (auto arg & : arguments)
+		{
+			arg->location_in_parent = &arg;
+		}
+	}
+	return true;
+}
+
+template<bool repeatable, bool optional>
+ErrorOr<Removal> Parameter_Basic<repeatable, optional>::RemoveLastExplicitElement()
 {
 	if (arguments.empty())
 	{
@@ -146,7 +240,8 @@ ErrorOr<Removal> Parameter::RemoveLastExplicitElement()
 	
 }
 
-ErrorOr<Variant> Parameter::Evaluate(Context & context) const
+template<bool repeatable, bool optional>
+ErrorOr<Variant> Parameter_Basic<repeatable, optional>::Evaluate(Context & context) const override
 {
 	auto count = arguments.size();
 	if (count == 1)
@@ -155,136 +250,20 @@ ErrorOr<Variant> Parameter::Evaluate(Context & context) const
 	}
 	else if (count == 0)
 	{
-		return Error("Parameter has multiple arguments, should only have one");
-	}
-	else
-	{
-		return Error("Parameter has no argument or default");
-	}
-}
-
-ErrorOr<std::vector<Variant> > Parameter::EvaluateRepeatable(Context & context) const override
-{
-	std::vector<Variant> values;
-	for(auto & arg : arguments)
-	{
-		values.push_back(CHECK_RETURN(arg->Evaluate(context)));
-	}
-	return values;
-}
-
-template<bool repeatable, bool optional>
-std::string Parameter_Basic<repeatable, optional>::GetPrintString(std::string line_prefix) const
-{
-	if constexpr(optional)
-	{
-		if (arguments.empty() && default_value.has_value)
+		if constexpr (optional)
 		{
-			return line_prefix + "(" + default_value.value() + ")\n";
-		}
-	}
-	else
-	{
-		return Parameter::GetPrintString(line_prefix);
-	}
-}
-
-template<bool repeatable, bool optional>
-bool Parameter_Basic<repeatable, optional>::IsSatisfied() const
-{
-	if constexpr(optional)
-	{
-		if (arguments.empty())
-		{
-			return true;
-		}
-	}
-	return Parameter::IsSatisfied();
-}
-
-template<bool repeatable, bool optional>
-ErrorOr<bool> Parameter_Basic<repeatable, optional>::AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count)
-{
-	if (!arguments.empty())
-	{
-		auto appended = CHECK_RETURN(arguments.back()->AppendArgument(context, next, skip_count));
-		if (appended)
-		{
-			return true;
-		}
-		if constexpr (!repeatable)
-		{
-			return false;
-		}
-	}
-
-	if (!optional && arguments.empty())
-	{
-		if (skip_count > 0)
-		{
-			return Error("Skipping required argument");
-		}
-		if (type != next->type)
-		{
-			auto allowed_implied_set = context.GetAllowedWithImplied({type});
-			if (!Contains(allowed_implied_set, next->type))
+			if (default_value.has_value())
 			{
-				return Error("Type mismatch on required argument");
+				value_ptr<Element> default_element = CHECK_RETURN(context.GetElement(default_value.value()));
+				return default_element->Evaluate(context);
 			}
 		}
-	}
-	// should we be type checking here?
-
-	if (skip_count > 0)
-	{
-		skip_count--;
-		return false;
-	}
-
-	auto args_capacity = arguments.capacity();
-	if (type == next->type)
-	{
-		arguments.push_back(std::move(next));
-		arguments.back()->location_in_parent = &arguments.back();
+		return Error("Parameter has no argument or default");
 	}
 	else
 	{
-		ElementName implied_name = context.GetImpliedElement(next->type, type);
-		auto implied_element = CHECK_RETURN(context.GetNewCommandElement(implied_name));
-		implied_element->implicit = Implicit::Parent;
-		int no_skips = 0;
-		bool result = CHECK_RETURN(implied_element->AppendArgument(context, std::move(next), no_skips));
-		if (!result)
-		{
-			return Error("Could not append new element to implied element");
-		}
-		arguments.push_back(std::move(implied_element));
-		arguments.back()->location_in_parent = &arguments.back();
+		return Error("Parameter has multiple arguments, should only have one");
 	}
-
-	if (arguments.capacity() != args_capacity)
-	{
-		// we have moved the location of the other arguments by reallocating
-		for (auto arg & : arguments)
-		{
-			arg->location_in_parent = &arg;
-		}
-	}
-	return true;
-}
-
-template<bool repeatable, bool optional>
-ErrorOr<Variant> Parameter_Basic<repeatable, optional>::Evaluate(Context & context) const override
-{
-	if constexpr (optional)
-	{
-		if (arguments.empty() && default_value.has_value())
-		{
-			value_ptr<Element> default_element = CHECK_RETURN(context.GetElement(default_value.value()));
-			return default_element->Evaluate(context);
-		}
-	}
-	return Parameter::Evaluate(context);
 }
 
 template<bool repeatable, bool optional>
@@ -300,7 +279,12 @@ ErrorOr<std::vector<Variant> > Parameter_Basic<repeatable, optional>::EvaluateRe
 			};
 		}
 	}
-	return Parameter::EvaluateRepeatable(context);
+	std::vector<Variant> values;
+	for(auto & arg : arguments)
+	{
+		values.push_back(CHECK_RETURN(arg->Evaluate(context)));
+	}
+	return values;
 }
 
 template struct Parameter_Basic<false, false>;
