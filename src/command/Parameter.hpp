@@ -65,7 +65,7 @@ struct Parameter_Basic : public Parameter
 	Element * GetLastArgument() override;
 	// bool IsRequired() const override { return !optional; }
 
-	Set<Variant_Type> Types() const override { return {type}; }
+	Set<Variant_Type> Types() const override;
 
 	// IEvaluable interface
 	std::string GetPrintString(std::string line_prefix) const override;
@@ -103,45 +103,48 @@ struct Parameter_OneOf : public Parameter
 	}
 
 	// Parameter interface
+	Element * GetLastArgument() override;
 	Set<Variant_Type> Types() const override;
 
 	// IEvaluable interface
 	std::string GetPrintString(std::string line_prefix) const override;
-
 	bool IsSatisfied() const override;
-
 	void GetAllowedTypes(AllowedTypes & allowed) const override;
+	bool IsExplicitBranch() const override;
 
 	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
+	ErrorOr<Removal> RemoveLastExplicitElement() override;
 
 	ErrorOr<Variant> Evaluate(Context & context) const override;
-
 	ErrorOr<std::vector<Variant> > EvaluateRepeatable(Context & context) const override;
 };
 
-struct Parameter_ImpliedOptions : public Parameter
+struct Parameter_Implied : public Parameter
 {
-	std::vector<value_ptr<CommandElement>> implied_options;
-	std::optional<int> chosen_index;
+	value_ptr<CommandElement> implied;
 
 	// for use by value_ptr
 	Parameter * clone() const override
 	{
-		return new Parameter_ImpliedOptions(*this);
+		Parameter * clone = new Parameter_Implied(*this);
+		clone->implied->implicit = Implicit::Child;
+		return clone;
 	}
 
 	// Parameter interface
+	Element * GetLastArgument() override;
 	Set<Variant_Type> Types() const override;
 
 	// IEvaluable interface
 	std::string GetPrintString(std::string line_prefix) const override;
-
+	bool IsSatisfied() const override;
 	void GetAllowedTypes(AllowedTypes & allowed) const override;
+	bool IsExplicitBranch() const override;
 
 	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
+	ErrorOr<Removal> RemoveLastExplicitElement() override;
 
 	ErrorOr<Variant> Evaluate(Context & context) const override;
-
 	ErrorOr<std::vector<Variant> > EvaluateRepeatable(Context & context) const override;
 };
 

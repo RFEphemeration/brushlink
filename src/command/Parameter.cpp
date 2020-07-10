@@ -15,6 +15,16 @@ Element * Parameter_Basic<repeatable, optional>::GetLastArgument()
 }
 
 template<bool repeatable, bool optional>
+Set<Variant_Type> Parameter_Basic<repeatable, optional>::Types() const
+{
+	if (repeatable || arguments.empty())
+	{
+		return {type};
+	}
+	return {};
+}
+
+template<bool repeatable, bool optional>
 std::string Parameter_Basic<repeatable, optional>::GetPrintString(std::string line_prefix) const
 {
 	if constexpr(optional)
@@ -292,42 +302,216 @@ template struct Parameter_Basic<true, false>;
 template struct Parameter_Basic<false, true>;
 template struct Parameter_Basic<true, true>;
 
+
+Element * Parameter_OneOf::GetLastArgument()
+{
+	if (chosen_index.has_value())
+	{
+		return options[chosen_index.value()]->GetLastArgument();
+	}
+	return nullptr;
+}
+
 Set<Variant_Type> Parameter_OneOf::Types() const
 {
 	if (chosen_index.has_value())
 	{
 		return options[chosen_index.value()]->Types();
 	}
+	Set<Variant_Type> types;
+	for (auto & option : options)
+	{
+		types.merge(option->Types());
+	}
+	return types;
 }
 
 std::string Parameter_OneOf::GetPrintString(std::string line_prefix) const
 {
-
+	if (chosen_index.has_value())
+	{
+		return options[chosen_index.value()]->GetPrintString(line_prefix);
+	}
+	return "";
 }
 
 bool Parameter_OneOf::IsSatisfied() const
 {
-
+	if (chosen_index.has_value())
+	{
+		return options[chosen_index.value()]->IsSatisfied();
+	}
+	for (auto & option : options)
+	{
+		if (option->IsSatisfied())
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void Parameter_OneOf::GetAllowedTypes(AllowedTypes & allowed) const
 {
+	if (chosen_index.has_value())
+	{
+		options[chosen_index.value()]->GetAllowedTypes(allowed);
+		return;
+	}
+	for (auto & option : options)
+	{
+		option->GetAllowedTypes(allowed);
+	}
+}
 
+bool Parameter_OneOf::IsExplicitBranch() const
+{
+	if (chosen_index.has_value())
+	{
+		return options[chosen_index.value()]->IsExplicitBranch();
+	}
+	return false;
 }
 
 ErrorOr<bool> Parameter_OneOf::AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count)
 {
+	if(chosen_index.has_value())
+	{
+		return options[chosen_index.value()]->AppendArgument(context, std::move(next), skip_count);
+	}
+	int prev_skip_count = skip_count;
+	for (int i = 0; i < options.size(); i++)
+	{
+		auto result = options[i]->AppendArgument(context, std::move(next), skip_count);
+		if (result.IsError())
+		{
+			if (skip_count != prev_skip_count)
+			{
+				return Error("Reduced skip count in oneof append accidentally");
+			}
+			continue;
+		}
+		if (result.GetValue())
+		{
+			chosen_index.emplace(i);
+			return true;
+		}
+		if (prev_skip_count != skip_count)
+		{
+			// @Bug skipping one of seems like there are some holes
+			// but I assume we only skip once total for this parameter
+			// which prevents disambiguating between options that take the same args
+			break;
+		}
+	}
+	if (!IsSatisfied())
+	{
+		return Error("Unable to append to required oneof parameter");
+	}
+	return false;
+}
 
+ErrorOr<Removal> Parameter_OneOf::RemoveLastExplicitElement()
+{
+	if(!chosen_index.has_value())
+	{
+		return Removal::None;
+	}
+	auto removal = CHECK_RETURN(options[chosen_index.value()]->RemoveLastExplicitElement());
+	if (!options[chosen_index.value()]->IsExplicitBranch())
+	{
+		chosen_index.reset();
+	}
+	return removal;
 }
 
 ErrorOr<Variant> Parameter_OneOf::Evaluate(Context & context) const
 {
-
+	if(chosen_index.has_value())
+	{
+		return options[chosen_index.value()]->Evaluate(context);
+	}
+	for (auto & option : options)
+	{
+		if (option->IsSatisfied())
+		{
+			return option->Evaluate(context);
+		}
+		return Error("No parameter in OneOf has a default value");
+	}
 }
 
 ErrorOr<std::vector<Variant> > Parameter_OneOf::EvaluateRepeatable(Context & context) const
 {
+	if(chosen_index.has_value())
+	{
+		return options[chosen_index.value()]->EvaluateRepeatable(context);
+	}
+	for (auto & option : options)
+	{
+		if (option->IsSatisfied())
+		{
+			return option->EvaluateRepeatable(context);
+		}
+		return Error("No parameter in OneOf has a default value");
+	}
+}
 
+Element * Parameter_Implied::GetLastArgument()
+{
+	return implied.get();
+}
+
+Set<Variant_Type> Parameter_Implied::Types() const
+{
+	Set<Variant_Type> types;
+	// this parameter doesn't have any accepted types
+	// we could also just return the type of the command element
+	for (auto & param : implied->parameters)
+	{
+		types.merge(param->Types());
+	}
+	return types;
+}
+
+std::string Parameter_Implied::GetPrintString(std::string line_prefix) const
+{
+	return implied->GetPrintString(line_prefix);
+}
+
+bool Parameter_Implied::IsSatisfied() const
+{
+	return implied->IsSatisfied();
+}
+
+void Parameter_Implied::GetAllowedTypes(AllowedTypes & allowed) const
+{
+	return implied->GetAllowedTypes(allowed);
+}
+
+bool Parameter_Implied::IsExplicitBranch() const
+{
+	return implied->IsExplicitBranch();
+}
+
+ErrorOr<bool> Parameter_Implied::AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count)
+{
+	return implied->AppendArgument(context, std::move(next), skip_count);
+}
+
+ErrorOr<Removal> Parameter_Implied::RemoveLastExplicitElement()
+{
+	return implied->RemoveLastExplicitElement(context);
+}
+
+ErrorOr<Variant> Parameter_Implied::Evaluate(Context & context) const
+{
+	return implied->Evaluate(context);
+}
+
+ErrorOr<std::vector<Variant> > Parameter_Implied::EvaluateRepeatable(Context & context) const
+{
+	return implied->EvaluateRepeatable(context);
 }
 
 
