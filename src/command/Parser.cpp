@@ -692,6 +692,4 @@ ErrorOr<Success> Parser::ParseDeclaration(const TokenTree & tree)
 	};
 }
 
-
-
 } // namespace Command

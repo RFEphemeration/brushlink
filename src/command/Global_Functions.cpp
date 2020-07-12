@@ -3,18 +3,109 @@
 namespace Command
 {
 
-/*
-ErrorOr<Number> ::Evaluate(Context & context, )
+ErrorOr<Variant> KeyWords::Sequence(Context & context, std::vector<Variant> args)
 {
-	
+	if (args.empty())
+	{
+		return Success();
+	}
+	return args.back();
 }
-std::string ::Print(const GlobalFunction & element, std::string line_prefix)
-{
-	
-}
-*/
 
-ErrorOr<Number> NumberFromDigits::Evaluate(Context & context, std::vector<Digit> digits)
+ErrorOr<Variant> KeyWords::Repeat(Context & context, Number count, ValueName name, const Element * operation)
+{
+	// how do we want child contexts to work?
+	// should we just polute the local namespace?
+	Context child = context.MakeChild();
+	Variant value {Success{}};
+	for (int i = 0; i < count.value; i++)
+	{
+		child.SetLocal(name, Number{i});
+		value = CHECK_RETURN(operation->Evaluate(child));
+	}
+	return value;
+}
+
+ErrorOr<Variant> KeyWords::ForEach(Context & context, std::vector<Variant> args, ValueName name, const Element * operation)
+{
+	Context child = context.MakeChild();
+	Variant value {Success{}};
+	for (int i = 0; i < args.size(); i++)
+	{
+		child.SetLocal(name, args[i]);
+		value = CHECK_RETURN(operation->Evaluate(child));
+	}
+	return value;
+}
+
+ErrorOr<Variant> KeyWords::ForEachUnit(Context & context, UnitGroup group, ValueName name, const Element * operation)
+{
+	Context child = context.MakeChild();
+	Variant value {Success{}};
+	for (int i = 0; i < group.members.size(); i++)
+	{
+		child.SetLocal(name, group.members[i]);
+		value = CHECK_RETURN(operation->Evaluate(child));
+	}
+	return value;
+}
+
+ErrorOr<Variant> KeyWords::ForEachPoint(Context & context, Variant set, ValueName name, const Element * operation)
+{
+	Context child = context.MakeChild();
+	Variant value {Success{}};
+	Variant_Type type = GetVariantType(set);
+	if (type == Variant_Type::Line)
+	{
+		Line & line = std::get<Line>(set);
+		for (int i = 0; i < line.points.size(); i++)
+		{
+			child.SetLocal(name, line.points[i]);
+			value = CHECK_RETURN(operation->Evaluate(child));
+		}
+	}
+	else if (type == Variant_Type::Area)
+	{
+		Area & area = std::get<Area>(set);
+		for (int i = 0; i < area.points.size(); i++)
+		{
+			child.SetLocal(name, area.points[i]);
+			value = CHECK_RETURN(operation->Evaluate(child));
+		}
+	}
+	else
+	{
+		return Error("ForEachPoint expected a line or area");
+	}
+	return value;
+}
+
+ErrorOr<Variant> KeyWords::If(Context & context, Bool choice, const Element * primary,const Element * secondary)
+{
+	if (choice)
+	{
+		return primary->Evaluate(context);
+	}
+	else
+	{
+		return secondary->Evaluate(context);
+	}
+}
+
+ErrorOr<Variant> KeyWords::While(Context & context, const Element * condition, const Element * operation)
+{
+	Bool result = true;
+	Variant value {Success{}};
+	// @Feature execution counting number of elements evaluated, delaying until next turn?
+	// break if count > 10,000 or something large?
+	while(CHECK_RETURN(condition->EvaluateAs<Bool>(context)))
+	{
+		value = CHECK_RETURN(operation->Evaluate(context));
+	}
+	return value;
+}
+
+ErrorOr<Number> NumberLiteral::Evaluate(Context & context, std::vector<Digit> digits)
 {
 	int value = 0;
 	for (auto & digit : digits)
@@ -24,7 +115,7 @@ ErrorOr<Number> NumberFromDigits::Evaluate(Context & context, std::vector<Digit>
 	return Number{value};
 }
 
-std::string NumberFromDigits::Print(const Element & element, std::string line_prefix)
+std::string NumberLiteral::Print(const Element & element, std::string line_prefix)
 {
 	// @Cleanup this is an invasive function, is that okay?
 	std::string print_string = line_prefix;

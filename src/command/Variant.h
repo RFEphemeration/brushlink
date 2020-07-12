@@ -21,6 +21,7 @@ using namespace Brushlink;
 
 using Variant = std::variant<
 	Success,
+	Bool,
 	Number,
 	Digit,
 	ValueName,
@@ -41,6 +42,7 @@ enum class Variant_Type
 {
 	Unknown,
 	Success,
+	Bool,
 	Number,
 	Digit,
 	ValueName,
@@ -64,6 +66,8 @@ Variant_Type GetVariantType()
 {
 	if constexpr(std::is_same_v<TVal, Success>)
 		return Variant_Type::Success;
+	else if constexpr(std::is_same_v<TVal, Bool>)
+		return Variant_Type::Bool;
 	else if constexpr(std::is_same_v<TVal, Number>)
 		return Variant_Type::Number;
 	else if constexpr(std::is_same_v<TVal, Digit>)
@@ -104,6 +108,8 @@ inline Variant_Type GetVariantType(Variant v)
 {
 	if std::holds_alternative<Success>(v)
 		return Variant_Type::Success;
+	else if std::holds_alternative<Bool>(v)
+		return Variant_Type::Bool;
 	else if std::holds_alternative<Number>(v)
 		return Variant_Type::Number;
 	else if std::holds_alternative<Digit>(v)
@@ -145,6 +151,8 @@ inline std::string ToString(Variant_Type v)
 	{
 	case Variant_Type::Success:
 		return "Success";
+	case Variant_Type::Bool:
+		return "Bool";
 	case Variant_Type::Number:
 		return "Number";
 	case Variant_Type::Digit:
@@ -185,6 +193,8 @@ inline Variant_Type FromString(std::string s)
 {
 	if (s == "Success")
 		return Variant_Type::Success;
+	else if (s == "Bool")
+		return Variant_Type::Bool;
 	else if (s == "Number")
 		return Variant_Type::Number;
 	else if (s == "Digit")

@@ -9,6 +9,8 @@ namespace Brushlink
 
 using namespace Farb;
 
+using Bool = bool;
+
 struct NumberTag
 {
 	static HString GetName() { return "Command::Number"; }

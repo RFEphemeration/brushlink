@@ -88,6 +88,11 @@ ErrorOr<std::tuple<T, TArgs...>> EvaluateParameters(
 	}
 	ErrorOr<T> next = [&]
 	{
+		if constexpr (std::is_same<T, const Element *>::value)
+		{
+			// no need to copy if element is const
+			return params.pop.get();
+		}
 		if constexpr (std::is_same<T, value_ptr<Element> >::value)
 		{
 			// do we need to clone here? or can we just return the element?
