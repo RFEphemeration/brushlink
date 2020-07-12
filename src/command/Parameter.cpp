@@ -457,6 +457,15 @@ ErrorOr<std::vector<Variant> > Parameter_OneOf::EvaluateRepeatable(Context & con
 	}
 }
 
+Parameter_Implied::Parameter_Implied(std::optional<ValueName> name, value_ptr<CommandElement> && implied)
+	: Parameter{name}
+	, implied{implied}
+{
+	implied->implicit = Implicit::Child;
+	// should we recursively set all arguments to implicit?
+	// we can currently only access last
+}
+
 Element * Parameter_Implied::GetLastArgument()
 {
 	return implied.get();

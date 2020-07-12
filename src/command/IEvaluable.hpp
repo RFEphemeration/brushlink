@@ -44,7 +44,7 @@ struct IEvaluable
 	template<typename T>
 	ErrorOr<T> EvaluateAs(Context & context) const
 	{
-		else if constexpr(std::is_same<T, Variant>::value)
+		if constexpr(std::is_same<T, Variant>::value)
 		{
 			return Evaluate(context);
 		}

@@ -48,9 +48,19 @@ struct Element : public IEvaluable
 };
 
 template<typename TVal>
-struct Literal : Element
+struct Literal : public Element
 {
 	TVal value;
+
+	Literal(TVal value, ElementName name = {""}) // most literals don't have names
+		: Element{
+			name,
+			GetVariantType<TVal>(),
+			{}, // no left parameter
+			{}, // no parameters
+		}
+		, value{value}
+	{ }
 
 	Element * clone() const override
 	{
@@ -80,7 +90,9 @@ ErrorOr<std::tuple<T, TArgs...>> EvaluateParameters(
 	{
 		if constexpr (std::is_same<T, value_ptr<Element> >::value)
 		{
-			return value_ptr<Element>{clone()};
+			// do we need to clone here? or can we just return the element?
+			// it would probably need to be const
+			return value_ptr<Element>{params.pop->clone()};
 		}
 		else if constexpr (IsSpecialization<T, std::vector>::value)
 		{
@@ -115,11 +127,13 @@ ErrorOr<std::tuple<T, TArgs...>> EvaluateParameters(
 	}
 }
 
+using PrintFunction = std::string (*)(const Element & element, std::string);
+
 template<typename TRet, typename ... TArgs>
-struct ContextFunction : Element
+struct ContextFunction : public Element
 {
 	ErrorOr<TRet> (Context::*func)(TArgs...);
-	std::string (*print_func)(const ContextFunction & element, std::string);
+	PrintFunction print_func;
 
 	virtual Element * clone() const override
 	{
@@ -161,11 +175,15 @@ struct ContextFunction : Element
 	}
 };
 
+// could consider player and world functions also
+// using context::GetPlayer and context::GetWorld
+// in order to reduce different contexts overriding each of the functions
+
 template<typename TRet, typename ... TArgs>
-struct GlobalFunction : Element
+struct GlobalFunction : public Element
 {
 	ErrorOr<TRet> (*func)(TArgs...);
-	std::string (*print_func)(const GlobalFunction & element, std::string);
+	PrintFunction print_func;
 
 	virtual Element * clone() const override
 	{
@@ -204,6 +222,18 @@ struct GlobalFunction : Element
 			};
 		}
 	}
+};
+
+struct ElementFunction : public Element
+{
+	value_ptr<Element> implementation;
+
+	virtual Element * clone() const override
+	{
+		return new ElementWord(*this);
+	}
+
+	ErrorOr<Variant> Evaluate(Context & context) const override;
 };
 
 } // namespace Command

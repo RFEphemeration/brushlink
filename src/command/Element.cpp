@@ -216,4 +216,28 @@ ErrorOr<Removal> Element::RemoveLastExplicitElement()
 	return Removal::None;
 }
 
+ErrorOr<Variant> ElementFunction::Evaluate(Context & context) const override
+{
+	Context child_context = context.MakeChild();
+	if (left_parameter)
+	{
+		ValueName name {left_parameter->name ? left_parameter->name.value() : "arg_left"};
+		child_context.SetLocal(name, CHECK_RETURN(left_parameter->Evaluate(context)));
+	}
+	for (int index = 0; index < parameters.size(); index++)
+	{
+		Element * param = parameters[i].get();
+		ValueName name {param->name ? param->name.value() : ("arg_" + str(index))};
+		child_context.SetLocal(name, CHECK_RETURN(param->Evaluate(context)));
+	}
+	Variant value = CHECK_RETURN(implication->Evaluate(child_context));
+	// @Feature recursion
+	while (child_context.recurse)
+	{
+		child_context.recurse = false;
+		value = CHECK_RETURN(implication->Evaluate(child_context));
+	}
+	return value;
+}
+
 } // namespace Command

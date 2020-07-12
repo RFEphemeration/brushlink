@@ -17,6 +17,7 @@ using namespace Brushlink;
 
 // todo: custom struct/record, sum, and tuple types
 // should vector and optional be included in variant?
+// what about Element and Parameter?
 
 using Variant = std::variant<
 	Success,
@@ -38,6 +39,7 @@ using Variant = std::variant<
 
 enum class Variant_Type
 {
+	Unknown,
 	Success,
 	Number,
 	Digit,
@@ -54,7 +56,7 @@ enum class Variant_Type
 	Point,
 	Direction,
 	Line,
-	Area
+	Area,
 };
 
 template<typename TVal>
@@ -94,45 +96,47 @@ Variant_Type GetVariantType()
 		return Variant_Type::Line;
 	else if constexpr(std::is_same_v<TVal, Area>)
 		return Variant_Type::Area;
+	return Variant_Type::Unknown;
 }
 
 
 inline Variant_Type GetVariantType(Variant v)
 {
 	if std::holds_alternative<Success>(v)
-		return Variant_Type::Success
+		return Variant_Type::Success;
 	else if std::holds_alternative<Number>(v)
-		return Variant_Type::Number
+		return Variant_Type::Number;
 	else if std::holds_alternative<Digit>(v)
-		return Variant_Type::Digit
+		return Variant_Type::Digit;
 	else if std::holds_alternative<ValueName>(v)
-		return Variant_Type::ValueName
+		return Variant_Type::ValueName;
 	else if std::holds_alternative<Letter>(v)
-		return Variant_Type::Letter
+		return Variant_Type::Letter;
 	else if std::holds_alternative<Seconds>(v)
-		return Variant_Type::Seconds
+		return Variant_Type::Seconds;
 	else if std::holds_alternative<Action_Type>(v)
-		return Variant_Type::Action_Type
+		return Variant_Type::Action_Type;
 	else if std::holds_alternative<Action_Step>(v)
-		return Variant_Type::Action_Step
+		return Variant_Type::Action_Step;
 	else if std::holds_alternative<Unit_Type>(v)
-		return Variant_Type::Unit_Type
+		return Variant_Type::Unit_Type;
 	else if std::holds_alternative<Unit_Attribute>(v)
-		return Variant_Type::Unit_Attribute
+		return Variant_Type::Unit_Attribute;
 	else if std::holds_alternative<UnitID>(v)
-		return Variant_Type::UnitID
+		return Variant_Type::UnitID;
 	else if std::holds_alternative<Unit_Group>(v)
-		return Variant_Type::Unit_Group
+		return Variant_Type::Unit_Group;
 	else if std::holds_alternative<Energy>(v)
-		return Variant_Type::Energy
+		return Variant_Type::Energy;
 	else if std::holds_alternative<Point>(v)
-		return Variant_Type::Point
+		return Variant_Type::Point;
 	else if std::holds_alternative<Direction>(v)
-		return Variant_Type::Direction
+		return Variant_Type::Direction;
 	else if std::holds_alternative<Line>(v)
-		return Variant_Type::Line
+		return Variant_Type::Line;
 	else if std::holds_alternative<Area>(v)
-		return Variant_Type::Area
+		return Variant_Type::Area;
+	return Variant_Type::Unknown;
 }
 
 inline std::string ToString(Variant_Type v)
@@ -175,6 +179,45 @@ inline std::string ToString(Variant_Type v)
 		return "Area";
 	}
 	return "Variant_Type::Unknown";
+}
+
+inline Variant_Type FromString(std::string s)
+{
+	if (s == "Success")
+		return Variant_Type::Success;
+	else if (s == "Number")
+		return Variant_Type::Number;
+	else if (s == "Digit")
+		return Variant_Type::Digit;
+	else if (s == "ValueName")
+		return Variant_Type::ValueName;
+	else if (s == "Letter")
+		return Variant_Type::Letter;
+	else if (s == "Seconds")
+		return Variant_Type::Seconds;
+	else if (s == "Action_Type")
+		return Variant_Type::Action_Type;
+	else if (s == "Action_Step")
+		return Variant_Type::Action_Step;
+	else if (s == "Unit_Type")
+		return Variant_Type::Unit_Type;
+	else if (s == "Unit_Attribute")
+		return Variant_Type::Unit_Attribute;
+	else if (s == "UnitID")
+		return Variant_Type::UnitID;
+	else if (s == "Unit_Group")
+		return Variant_Type::Unit_Group;
+	else if (s == "Energy")
+		return Variant_Type::Energy;
+	else if (s == "Point")
+		return Variant_Type::Point;
+	else if (s == "Direction")
+		return Variant_Type::Direction;
+	else if (s == "Line")
+		return Variant_Type::Line;
+	else if (s == "Area")
+		return Variant_Type::Area;
+	return Variant_Type::Unknown;
 }
 
 } // namespace Brushlink

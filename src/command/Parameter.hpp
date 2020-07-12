@@ -29,19 +29,6 @@ struct Parameter : public IEvaluable
 	virtual Set<Variant_Type> Types() const = 0;
 
 	// IEvaluable interface common implementations
-	virtual std::string GetPrintString(std::string line_prefix) const override = 0;
-
-	virtual bool IsSatisfied() const override = 0;
-	virtual void GetAllowedTypes(AllowedTypes & allowed) const override = 0;
-	virtual bool IsExplicitBranch() const override = 0;
-
-	virtual ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override = 0;
-
-	virtual ErrorOr<Removal> RemoveLastExplicitElement() override = 0;
-
-	virtual ErrorOr<Variant> Evaluate(Context & context) const override = 0;
-
-	virtual ErrorOr<std::vector<Variant> > EvaluateRepeatable(Context & context) const override = 0;
 };
 
 template<bool repeatable, bool optional>
@@ -49,7 +36,7 @@ struct Parameter_Basic : public Parameter
 {
 	const Variant_Type type;
 	// only used if optional is true. Todo: move this elsewhere?
-	const std::optional<ElementName> default_value;
+	const value_ptr<Element> default_value;
 
 	// often only allow one argument but the second indirection in that case
 	// is worth it for the common interface
@@ -121,7 +108,9 @@ struct Parameter_OneOf : public Parameter
 
 struct Parameter_Implied : public Parameter
 {
-	value_ptr<CommandElement> implied;
+	value_ptr<Element> implied;
+
+	Parameter_Implied(std::optional<ValueName> name, value_ptr<Element> && implied);
 
 	// for use by value_ptr
 	Parameter * clone() const override
