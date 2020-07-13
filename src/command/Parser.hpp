@@ -56,6 +56,10 @@ struct Parser
 	std::vector<Dictionary *> existing_definitions;
 	Dictionary parsed_definitions;
 
+	ErrorOr<value_ptr<Element>> GetElementCopy(ElementName name) const;
+
+	ErrorOr<value_ptr<Element>> GetAccessorCopy(ValueName name) const;
+
 	static TokenTree Lex(std::stringstream text);
 
 	ErrorOr<Success> Parse(EvaluationContext& context, const TokenTree & tree);
@@ -138,8 +142,6 @@ struct Parser
 		}
 		parsed_definitions.insert(literal.name, {new Literal{value, name}});
 	}
-
-	value_ptr<Element> GetElement(ElementName name) const;
 
 }
 

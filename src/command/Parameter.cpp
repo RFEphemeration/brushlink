@@ -19,6 +19,10 @@ Set<Variant_Type> Parameter_Basic<repeatable, optional>::Types() const
 {
 	if (repeatable || arguments.empty())
 	{
+		if (type == Variant_Type::Any)
+		{
+			return all_variant_types;
+		}
 		return {type};
 	}
 	return {};

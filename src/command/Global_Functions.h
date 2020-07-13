@@ -17,22 +17,30 @@ namespace KeyWords
 	ErrorOr<Variant> ForEachPoint(Context & context, Variant set, ValueName name, const Element * operation);
 
 	ErrorOr<Variant> If(Context & context, Bool choice, const Element * primary, const Element * secondary);
-	ErrorOr<Variant> While(Context & context, value_ptr<Element> condition, const Element * operation);
+	ErrorOr<Variant> While(Context & context, const Element * condition, const Element * operation);
+
+	template<typename T>
+	ErrorOr<T> CastTo(Context & context, Variant value)
+	{
+		if (!std::holds_alternative<T>(value))
+			return Error("Type mismatch during cast");
+		return std::get<T>(value);
+	}
 }
 
-struct NumberLiteral
+namespace NumberLiteral
 {
-	static ErrorOr<Number> Evaluate(Context & context, std::vector<Digit> digits);
-	static std::string Print(const Element & element, std::string line_prefix);
+	ErrorOr<Number> Evaluate(Context & context, std::vector<Digit> digits);
+	std::string Print(const Element & element, std::string line_prefix);
 };
 
-struct NumberOperators
+namespace NumberOperators
 {
-	static ErrorOr<Number> Add(Context & context, Number a, Number b);
-	static ErrorOr<Number> Subtract(Context & context, Number a, Number b);
-	static ErrorOr<Number> Multiply(Context & context, Number a, Number b);
-	static ErrorOr<Number> Divide(Context & context, Number a, Number b);
-	static ErrorOr<Number> Sum(Context & context, std::vector<Number> operands);
+	ErrorOr<Number> Add(Context & context, Number a, Number b);
+	ErrorOr<Number> Subtract(Context & context, Number a, Number b);
+	ErrorOr<Number> Multiply(Context & context, Number a, Number b);
+	ErrorOr<Number> Divide(Context & context, Number a, Number b);
+	ErrorOr<Number> Sum(Context & context, std::vector<Number> operands);
 };
 
 

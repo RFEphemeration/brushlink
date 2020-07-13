@@ -29,7 +29,7 @@ using Variant = std::variant<
 	Seconds,
 	Action_Type,
 	Unit_Type,
-	Unit_Attribute,	
+	Unit_Attribute,
 	UnitID,
 	Unit_Group,
 	Energy,
@@ -40,7 +40,6 @@ using Variant = std::variant<
 
 enum class Variant_Type
 {
-	Unknown,
 	Success,
 	Bool,
 	Number,
@@ -59,6 +58,29 @@ enum class Variant_Type
 	Direction,
 	Line,
 	Area,
+	Any,
+};
+
+constexpr Set<Variant_Type> all_variant_types {
+	Variant_Type::Success,
+	Variant_Type::Bool,
+	Variant_Type::Number,
+	Variant_Type::Digit,
+	Variant_Type::ValueName,
+	Variant_Type::Letter,
+	Variant_Type::Seconds,
+	Variant_Type::Action_Type,
+	Variant_Type::Action_Step,
+	Variant_Type::Unit_Type,
+	Variant_Type::Unit_Attribute,
+	Variant_Type::UnitID,
+	Variant_Type::Unit_Group,
+	Variant_Type::Energy,
+	Variant_Type::Point,
+	Variant_Type::Direction,
+	Variant_Type::Line,
+	Variant_Type::Area,
+	Variant_Type::Any,
 };
 
 template<typename TVal>
@@ -100,7 +122,7 @@ Variant_Type GetVariantType()
 		return Variant_Type::Line;
 	else if constexpr(std::is_same_v<TVal, Area>)
 		return Variant_Type::Area;
-	return Variant_Type::Unknown;
+	return Variant_Type::Any;
 }
 
 
@@ -142,7 +164,7 @@ inline Variant_Type GetVariantType(Variant v)
 		return Variant_Type::Line;
 	else if std::holds_alternative<Area>(v)
 		return Variant_Type::Area;
-	return Variant_Type::Unknown;
+	return Variant_Type::Any;
 }
 
 inline std::string ToString(Variant_Type v)
@@ -186,7 +208,7 @@ inline std::string ToString(Variant_Type v)
 	case Variant_Type::Area:
 		return "Area";
 	}
-	return "Variant_Type::Unknown";
+	return "Any";
 }
 
 inline Variant_Type FromString(std::string s)
@@ -227,7 +249,9 @@ inline Variant_Type FromString(std::string s)
 		return Variant_Type::Line;
 	else if (s == "Area")
 		return Variant_Type::Area;
-	return Variant_Type::Unknown;
+	else if (s == "Any")
+		return Variant_Type::Any;
+	return Variant_Type::Any;
 }
 
 } // namespace Brushlink

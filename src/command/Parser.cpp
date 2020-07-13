@@ -3,6 +3,22 @@
 namespace Command
 {
 
+ErrorOr<value_ptr<Element>> Parser::GetElementCopy(ElementName name) const
+{
+	if (Contains(parsed_definitions, name))
+	{
+		return parsed_definitions[name];
+	}
+	for (auto * dict : existing_definitions)
+	{
+		if (Contains(*dict, name))
+		{
+			return (*dict)[name];
+		}
+	}
+	return Error("No element found with name " + name.value);
+}
+
 TokenTree Parser::Lex(std::stringstream text)
 {
 	// these should be stable because we never hold onto children in the stack
@@ -132,7 +148,7 @@ ErrorOr<value_ptr<Element>> Parser::ParseElementTree(const TokenTree & tree)
 
 	if (tree.linear_tokens.empty())
 	{
-		root = context.GetNode("ParseRoot");
+		root = GetElementCopy({"ParseRoot"});
 		node_stack.push_back(&root);
 	}
 
@@ -144,23 +160,30 @@ ErrorOr<value_ptr<Element>> Parser::ParseElementTree(const TokenTree & tree)
 			{
 			case TokenType::Identifier:
 				// used in context of access and assign, how to distinguish?
-				return context.MakeAccessor(token.contents);
+				return GetAccessorCopy(token.contents);
 			case TokenType::Element:
-				return context.GetNode(token.contents);
+				return GetElementCopy({token.contents});
 			case TokenType::Name:
-				return context.MakeLiteral(ValueType::String, token.contents);
+				return value_ptr<Literal>{
+					new Literal {ValueName {token.contents}}
+				};
 			case TokenType::Number:
 				auto [int_value, success] = token.ExtractInt();
 				if (success)
 				{
-					return context.MakeLiteral(ValueType::Int, int_value);
+					return value_ptr<Literal>{
+						new Literal {Number {int_value}}
+					};
 				}
+				// @Feature Floats
+				/*
 				auto [float_value, success] = token.ExtractFloat();
 				if (success)
 				{
 					return context.MakeLiteral(ValueType::Float, float_value);
 				}
-				return Error("Couldn't parse expected number as either int or float");
+				*/
+				return Error("Couldn't parse expected Number");
 			}
 		}());
 
@@ -275,7 +298,7 @@ ErrorOr<value_ptr<Parameter>> Parser::ParseParameter(const TokenTree & tree)
 
 	std::optional<ValueName> name;
 	Set<Token> flags_present;
-	Variant_Type type {Variant_Type::Unknown};
+	std::optional<Variant_Type> type;
 	value_ptr<Element> element;
 	std::vector<value_ptr<Parameter>> children;
 
@@ -344,7 +367,7 @@ ErrorOr<value_ptr<Parameter>> Parser::ParseParameter(const TokenTree & tree)
 		case Phase::Type:
 			if (Contains(types, *token))
 			{
-				type = FromString(token.contents);
+				type.reset(FromString(token.contents));
 				token_index++;
 			}
 			if (Contains(flags_present, implied)
@@ -409,10 +432,9 @@ ErrorOr<value_ptr<Parameter>> Parser::ParseParameter(const TokenTree & tree)
 			break;
 		}
 	}
-	if (type == Variant_Type::Unknown
-		&& element)
+	if (!type && element)
 	{
-		type = element->type;
+		type.reset(element->type);
 	}
 
 	int flag_count = flags_present.size();
@@ -643,7 +665,7 @@ ErrorOr<Success> Parser::ParseDeclaration(const TokenTree & tree)
 			{
 				if (implementation.name.value != "Sequence")
 				{
-					value_ptr<Element> sequence = CHECK_RETURN(GetElement({"Sequence"}));
+					value_ptr<Element> sequence = CHECK_RETURN(GetElementCopy({"Sequence"}));
 					auto result = sequence.Emplace(std::move(implementation));
 					if (result.IsError() || implementation)
 					{
