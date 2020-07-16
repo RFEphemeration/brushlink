@@ -80,7 +80,7 @@ struct Literal : public Element
 
 template<typename T, typename ... TArgs>
 ErrorOr<std::tuple<T, TArgs...>> EvaluateParameters(
-	std::priority_queue<Parameter *> & params, Context & context)
+	std::queue<Parameter *> & params, Context & context)
 {
 	if (params.empty())
 	{
@@ -115,22 +115,68 @@ ErrorOr<std::tuple<T, TArgs...>> EvaluateParameters(
 		{
 			return Error("Too many parameters during evaluation");
 		}
-		return std::tuple<T>{
-			CHECK_RETURN(next.GetValue())
-		};
+		return std::tuple<T>{ CHECK_RETURN(next.GetValue()) };
 	}
 	else
 	{
 		// evaluate the rest even if the first was an error
 		auto rest = EvaluateParameters<TArgs...>(params, context);
 		return std::tuple_cat(
-			std::tuple<T>{
-				CHECK_RETURN(result.GetValue())
-			},
+			std::tuple<T>{ CHECK_RETURN(result.GetValue())},
 			CHECK_RETURN(rest.GetValue())
 		);
 	}
 }
+
+template<typename TRet, typename TVal>
+ErrorOr<TRet> ConvertForEvaluation(TVal&& value)
+{
+	if constexpr(!std::is_same<TRet, std::vector<Variant>>::value
+		&& !std::is_same<TRet, Variant>::value)
+	{
+		assert(false);
+	}
+	if constexpr (std::is_same<TRet, TVal>::value)
+	{
+		return value;
+	}
+	else if constexpr(is_same<TRet, std::vector<Variant>>::value)
+	{
+		if constexpr(IsSpecialization<TVal, std::vector>::value)
+		{
+			// we know tval isn't vector<Variant> because that would be caught by is_same
+			std::vector<Variant> ret;
+			for (auto && val : value)
+			{
+				ret.emplace_back(std::move(val));
+			}
+			return ret;
+		}
+		else
+		{
+			return std::vector<Variant>{Variant{value}};
+		}
+	}
+	else
+	{
+		if constexpr(IsSpecialization<TVal, std::vector>::value)
+		{
+			if (value.size() != 1)
+			{
+				return Error("Tried to evaluate repeated Element as single");
+			}
+			return Variant{value[0]};
+		}
+		else
+		{
+			return Variant{value};
+		}
+	}
+}
+
+std::queue<Parameter *> ConcatParams(
+	value_ptr<Parameter> & left_parameter,
+	std::vector<value_ptr<Parameter>> & parameters);
 
 using PrintFunction = std::string (*)(const Element & element, std::string);
 
@@ -143,6 +189,11 @@ struct ContextFunction : public Element
 	virtual Element * clone() const override
 	{
 		return new ContextFunction(*this);
+	}
+
+	bool IsRepeatable() const override
+	{
+		return IsSpecialization<TRet, std::vector>::value;
 	}
 
 	std::string GetPrintString(std::string line_prefix) const override
@@ -158,24 +209,30 @@ struct ContextFunction : public Element
 	{
 		if constexpr(sizeof...(TArgs) == 0)
 		{
-			return Value{CHECK_RETURN((context.*func)())};
+			return ConvertForEvaluation<Variant, TRet>(CHECK_RETURN((context.*func)()));
 		}
 		else
 		{
-			std::priority_queue<Parameter *> params;
-			if (left_parameter)
-			{
-				params.push(left_parameter.get())
-			}
-			for (auto & param : parameters)
-			{
-				params.push(param.get());
-			}
+			std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
+			auto args = CHECK_RETURN(EvaluateParameters<Context &, TArgs...>(params, context));
+			auto context_and_args = std::tuple_cat(std::tuple<Context &>{context}, args);
+			return ConvertForEvaluation<Variant, TRet>(CHECK_RETURN(std::apply(*func, context_and_args)));
+		}
+	}
+
+	ErrorOr<std::vector<Variant>> EvaluateRepeatable(Context & context) const override
+	{
+
+		if constexpr(sizeof...(TArgs) == 0)
+		{
+			return ConvertForEvaluation<std::vector<Variant>, TRet>(CHECK_RETURN((context.*func)()));
+		}
+		else
+		{
+			std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
 			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, context));
 			auto context_and_args = std::tuple_cat(std::tuple<Context &>{context}, args);
-			return Variant{
-				CHECK_RETURN(std::apply(*func, context_and_args))
-			};
+			return ConvertForEvaluation<std::vector<Variant>, TRet>(CHECK_RETURN(std::apply(*func, context_and_args)));
 		}
 	}
 };
@@ -195,6 +252,11 @@ struct GlobalFunction : public Element
 		return new GlobalFunction(*this);
 	}
 
+	bool IsRepeatable() const override
+	{
+		return IsSpecialization<TRet, std::vector>::value;
+	}
+
 	std::string GetPrintString(std::string line_prefix) const override
 	{
 		if (print_func != nullptr)
@@ -208,23 +270,29 @@ struct GlobalFunction : public Element
 	{
 		if constexpr(sizeof...(TArgs) == 0)
 		{
-			return Value{CHECK_RETURN((*func)())};
+			return ConvertForEvaluation<Variant, TRet>(CHECK_RETURN((*func)()));
 		}
 		else
 		{
-			std::priority_queue<Parameter *> params;
-			if (left_parameter)
-			{
-				params.push(left_parameter.get())
-			}
-			for (auto & param : parameters)
-			{
-				params.push(param.get());
-			}
-			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, context));
-			return Variant{
-				CHECK_RETURN(std::apply(*func, args))
-			};
+			std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
+			Context child_context = context.MakeChild(Scoped{false});
+			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, child_context));
+			return ConvertForEvaluation<Variant, TRet>(CHECK_RETURN(std::apply(*func, args)));
+		}
+	}
+
+	ErrorOr<std::vector<Variant>> EvaluateRepeatable(Context & context) const override
+	{
+		if constexpr(sizeof...(TArgs) == 0)
+		{
+			return ConvertForEvaluation<std::vector<Variant>, TRet>(CHECK_RETURN((*func)()));
+		}
+		else
+		{
+			std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
+			Context child_context = context.MakeChild(Scoped{false});
+			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, child_context));
+			return ConvertForEvaluation<std::vector<Variant>, TRet>(CHECK_RETURN(std::apply(*func, args)));
 		}
 	}
 };
@@ -233,12 +301,21 @@ struct ElementFunction : public Element
 {
 	value_ptr<Element> implementation;
 
+	const bool repeatable;
+
 	virtual Element * clone() const override
 	{
 		return new ElementWord(*this);
 	}
 
+	bool IsRepeatable() const override
+	{
+		return repeatable;
+	}
+
 	ErrorOr<Variant> Evaluate(Context & context) const override;
+
+	ErrorOr<std::vector<Variant>> EvaluateRepeatable(Context & context) const override;
 };
 
 } // namespace Command

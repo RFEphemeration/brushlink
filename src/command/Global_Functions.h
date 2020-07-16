@@ -17,6 +17,7 @@ namespace KeyWords
 	ErrorOr<Variant> ForEachPoint(Context & context, Variant set, ValueName name, const Element * operation);
 
 	ErrorOr<Variant> If(Context & context, Bool choice, const Element * primary, const Element * secondary);
+	ErrorOr<Variant> IfError(Context & context, const Element * check, const Element * error, const Element * value);
 	ErrorOr<Variant> While(Context & context, const Element * condition, const Element * operation);
 
 	template<typename T>

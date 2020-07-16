@@ -4,6 +4,22 @@
 namespace Command
 {
 
+std::queue<Parameter *> ConcatParams(
+	value_ptr<Parameter> & left_parameter,
+	std::vector<value_ptr<Parameter>> & parameters)
+{
+	std::queue<Parameter *> params;
+	if (left_parameter)
+	{
+		params.push(left_parameter.get())
+	}
+	for (auto & param : parameters)
+	{
+		params.push(param.get());
+	}
+	return params;
+} 
+
 // helper for GetAllowedTypes, AppendArgument
 // bool is whether parameters are satisfied
 std::pair<std::vector<Parameter*>, bool> GetActiveParameters(Element & element)
@@ -12,7 +28,7 @@ std::pair<std::vector<Parameter*>, bool> GetActiveParameters(Element & element)
 	// and if this element exists its left parameter is assumed to be satisfied
 
 	// @Feature permutable
-	std::vector<Parameter*> active;
+	std::vector<Parameter *> active;
 	int first_active_param = 0;
 	for (int index = element.parameters.size() - 1; index >= 0 ; index--)
 	{
@@ -216,26 +232,51 @@ ErrorOr<Removal> Element::RemoveLastExplicitElement()
 	return Removal::None;
 }
 
+
+ErrorOr<Success> EvaluateAndSetArguments(std::queue<Parameter *> params, Context & context)
+{
+	int index = 0;
+	while (!params.empty())
+	{
+		Parameter * param = params.pop();
+		ValueName name { param->name ? param->name.value() : "arg_" + str(index) };
+		// arguments are always evaluated repeatable
+		// and collapsed back to single variant at point of use if there is only one
+		context.arguments[name] = CHECK_RETURN(param->EvaluateRepeatable(context));
+	}
+	return Success();
+}
+
 ErrorOr<Variant> ElementFunction::Evaluate(Context & context) const override
 {
-	Context child_context = context.MakeChild();
-	if (left_parameter)
-	{
-		ValueName name {left_parameter->name ? left_parameter->name.value() : "arg_left"};
-		child_context.SetLocal(name, CHECK_RETURN(left_parameter->Evaluate(context)));
-	}
-	for (int index = 0; index < parameters.size(); index++)
-	{
-		Element * param = parameters[i].get();
-		ValueName name {param->name ? param->name.value() : ("arg_" + str(index))};
-		child_context.SetLocal(name, CHECK_RETURN(param->Evaluate(context)));
-	}
-	Variant value = CHECK_RETURN(implication->Evaluate(child_context));
+	Context child_context = context.MakeChild(Scoped{true});
+	// using child context during evaluation here makes previous arguments available to later ones
+	// @Bug when to call EvaluateRepeatable? can we store those?
+
+	std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
+	CHECK_RETURN(EvaluateAndSetArguments(params, child_context));
+	Variant value = CHECK_RETURN(implementation->Evaluate(child_context));
 	// @Feature recursion
 	while (child_context.recurse)
 	{
 		child_context.recurse = false;
-		value = CHECK_RETURN(implication->Evaluate(child_context));
+		value = CHECK_RETURN(implementation->Evaluate(child_context));
+	}
+	return value;
+}
+
+ErrorOr<std::vector<Variant>> ElementFunction::EvaluateRepeatable(Context & context) const override
+{
+	Context child_context = context.MakeChild(Scoped{true});
+	// using child context during evaluation here makes previous arguments available to later ones
+	std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
+	CHECK_RETURN(EvaluateAndSetArguments(params, child_context));
+	std::vector<Variant> value = CHECK_RETURN(implementation->EvaluateRepeatable(child_context));
+	// @Feature recursion
+	while (child_context.recurse)
+	{
+		child_context.recurse = false;
+		value = CHECK_RETURN(implementation->EvaluateRepeatable(child_context));
 	}
 	return value;
 }

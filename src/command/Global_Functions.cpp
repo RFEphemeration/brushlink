@@ -17,13 +17,19 @@ ErrorOr<Variant> KeyWords::Repeat(Context & context, Number count, ValueName nam
 	// how do we want child contexts to work?
 	// should we just polute the local namespace?
 	Context child = context.MakeChild();
-	Variant value {Success{}};
 	for (int i = 0; i < count.value; i++)
 	{
 		child.SetLocal(name, Number{i});
-		value = CHECK_RETURN(operation->Evaluate(child));
+		if (i == count.value - 1)
+		{
+			return operation->Evaluate(child);
+		}
+		else
+		{
+			CHECK_RETURN(operation->Evaluate(child));
+		}
 	}
-	return value;
+	return Variant{Success{}};
 }
 
 ErrorOr<Variant> KeyWords::ForEach(Context & context, std::vector<Variant> args, ValueName name, const Element * operation)
@@ -89,6 +95,22 @@ ErrorOr<Variant> KeyWords::If(Context & context, Bool choice, const Element * pr
 	else
 	{
 		return secondary->Evaluate(context);
+	}
+}
+
+ErrorOr<Variant> KeyWords::IfError(Context & context,
+	const Element * check,
+	const Element * error,
+	const Element * value)
+{
+	auto result = check->Evaluate(context);
+	if (result.IsError())
+	{
+		return error->Evaluate(context);
+	}
+	else
+	{
+		return value->Evaluate(context);
 	}
 }
 

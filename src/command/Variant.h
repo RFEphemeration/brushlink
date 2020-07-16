@@ -16,7 +16,7 @@ using namespace Farb;
 using namespace Brushlink;
 
 // todo: custom struct/record, sum, and tuple types
-// should vector and optional be included in variant?
+// should vector and/or optional be included in variant?
 // what about Element and Parameter?
 
 using Variant = std::variant<

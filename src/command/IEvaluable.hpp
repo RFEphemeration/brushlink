@@ -27,6 +27,7 @@ struct IEvaluable
 
 	virtual bool IsSatisfied() const = 0;
 	virtual bool IsExplicitBranch() const = 0;
+	virtual bool IsRepeatable() const { return false; }
 	virtual void GetAllowedTypes(AllowedTypes & allowed) const = 0;
 
 	virtual ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) = 0;

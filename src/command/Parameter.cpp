@@ -145,6 +145,7 @@ ErrorOr<bool> Parameter_Basic<repeatable, optional>::AppendArgument(Context & co
 	}
 
 	auto args_capacity = arguments.capacity();
+	// @Bug repeatable element in inappropriate spot?
 	if (type == next->type)
 	{
 		arguments.push_back(std::move(next));
@@ -285,18 +286,21 @@ ErrorOr<std::vector<Variant> > Parameter_Basic<repeatable, optional>::EvaluateRe
 {
 	if constexpr (optional)
 	{
-		if (arguments.empty() && default_value.has_value())
+		if (arguments.empty() && default_value)
 		{
-			value_ptr<Element> default_element = CHECK_RETURN(context.GetElement(default_value.value()));
-			return std::vector<Variant>{
-				CHECK_RETURN(default_element->Evaluate(context))
-			};
+			return default_value->EvaluateRepeatable(context);
 		}
 	}
 	std::vector<Variant> values;
 	for(auto & arg : arguments)
 	{
-		values.push_back(CHECK_RETURN(arg->Evaluate(context)));
+		// are arguments just always evaluaterepeatable now?
+		// packing and unpacking is inefficient...
+		auto repeated = CHECK_RETURN(arg->EvaluateRepeatable(context))
+		for (auto && value : repeated)
+		{
+			values.emplace_back(std::move(value));
+		}
 	}
 	return values;
 }
@@ -328,6 +332,22 @@ Set<Variant_Type> Parameter_OneOf::Types() const
 		types.merge(option->Types());
 	}
 	return types;
+}
+
+bool Parameter_OneOf::IsRepeatable() const override
+{
+	if (chosen_index)
+	{
+		return options[chosen_index.value()]->IsRepeatable();
+	}
+	for (auto & option : options)
+	{
+		if (option->IsRepeatable())
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 std::string Parameter_OneOf::GetPrintString(std::string line_prefix) const

@@ -4,10 +4,40 @@
 namespace Command
 {
 
+enum class Scope
+{
+	Global,
+	Function,
+	Element
+}
+
 struct Context
 {
+	Context * parent {nullptr};
+
+	Scope scope;
+
+	// these two are only used for function calls
+	// consider subclassing?
+	bool recurse {false};
+	Table<ValueName, std::vector<Variant> > values;
+
+	Table<ValueName, std::vector<Variant> > arguments;
+
 	virtual ~Context() = default;
+
+	// internal functions
 	Set<Variant_Type> GetAllowedWithImplied(Set<Variant_Type> allowed) const;
+
+	Context MakeChild(Scope new_scope);
+
+	// exposed functions
+	ErrorOr<Success> Recurse();
+	ErrorOr<Success> SetArgument(ValueName name, std::vector<Variant> value);
+	ErrorOr<std::vector<Variant>> SetLocal(ValueName name, std::vector<Variant> value);
+	ErrorOr<std::vector<Variant>> SetGlobal(ValueName name, std::vector<Variant> value);
+
+	ErrorOr<std::vector<Variant>> Get(ValueName name);
 };
 
 // multiple sub types

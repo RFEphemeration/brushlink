@@ -111,6 +111,15 @@ const Dictionary builtins = []
 	Parameter primary Any
 	Parameter secondary Any Optional
 		Success)");
+	builtin(&Keywords::IfError,
+		R"(Builtin IfError Any Global
+	Parameter check Any
+	Parameter error Any
+	Parameter value Any Optional
+		# check)"); // I think we shouldn't allow parameters to access previous parameters
+	// but that's pretty much what the actors stack is doing...
+	// when implementing this it led to me making a new child context for every element call
+	// which I think feels inappropriate...
 	builtin(&Keywords::While,
 		R"(Builtin While Any Global
 	Parameter condition Bool
@@ -133,13 +142,30 @@ const Dictionary builtins = []
 	DECLARE_CAST_BUILTIN(Line)
 	DECLARE_CAST_BUILTIN(Area)
 
-	builtin(&Context::GetValue,
+	builtin(&Context::Get,
 		R"(Builtin Get Any Context
 	Parameter name ValueName)");
-	builtin(&Context::SetValue,
-		R"(Builtin Set Any Context
+	builtin(&Context::SetLocal,
+		R"(Builtin SetLocal Any Context
 	Parameter name ValueName
 	Parameter value Any)");
+	builtin(&Context::SetGlobal,
+		R"(Builtin SetGlobal Any Context
+	Parameter name ValueName
+	Parameter value Any)");
+
+	// command groups could just be a stored value
+	// but that doesn't play well with our type system in the current state...
+
+	builtin(&Context::CurrentSelection,
+		R"(Builtin CurrentSelection UnitGroup Context)");
+	builtin(&Context::Allies,
+		R"(Builtin Allies UnitGroup Context)");
+	builtin(&Context::Enemies,
+		R"(Builtin Enemies UnitGroup Context)");
+	builtin(&Context::CommandGroup,
+		R"(Builtin CommandGroup UnitGroup Context
+	Parameter id Number)");
 
 	builtin(&Context::Select,
 		R"(Builtin Select Success Context
@@ -147,6 +173,16 @@ const Dictionary builtins = []
 		Parameter UnitGroup
 		Parameter Implied UnitGroup
 			Allies)");
+	builtin(&Context::SetCommandGroup,
+		R"(Builtin AssignCommandGroup Success Context
+	Parameter group UnitGroup Optional
+		CurrentSelection
+	Parameter id Number)");
+	builtin(&Context::SetAction,
+		R"(Builtin SetAction Success Context
+	Parameter group UnitGroup Optional
+		CurrentSelection
+	Parameter action Action_Step)");
 
 	builtin(&Context::Command,
 		R"(Builtin Command Success Context
@@ -156,7 +192,7 @@ const Dictionary builtins = []
 		Parameter select_command_group Implied
 			Select CommandGroup
 		Parameter action Implied
-			AssignAction CurrentSelection
+			SetAction CurrentSelection
 		Parameter statement Success # what about set value, does that return Success?
 	)");
 	/*
