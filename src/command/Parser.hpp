@@ -37,8 +37,7 @@ struct Declaration
 {
 	enum class Type
 	{
-		Context,
-		Global,
+		Builtin
 		Element
 	};
 
@@ -72,66 +71,26 @@ struct Parser
 	ErrorOr<Success> ParseAndAddDeclaration(const TokenTree & tree, F evaluate, PrintFunction print)
 	{
 		Declaration decl = CHECK_RETURN(ParseDeclaration(tree));
-		if constexpr(std::is_member_function_pointer<F>::value)
+		if (decl_type != Declaration::Type::Builtin)
 		{
-			if (decl_type != Declaration::Type::Context)
-			{
-				return Error("This declaration was expected to be a Context Builtin");
-			}
-			value_ptr<Element> def {new ContextFunction{
-				{	
-					decl.name,
-					decl.type,
-					std::move(decl.left_parameter),
-					std::move(decl.parameters)
-				},
-				evaluate,
-				print
-			}};
-			parsed_definitions.insert(decl.name, std::move(defn));
-		}
-		else
-		{
-			if (decl_type != Declaration::Type::Global)
-			{
-				return Error("This declaration was expected to be a Global Builtin");
-			}
-			value_ptr<Element> def {new GlobalFunction{
-				{	
-					decl.name,
-					decl.type,
-					std::move(decl.left_parameter),
-					std::move(decl.parameters)
-				},
-				evaluate,
-				print
-			}};
-			parsed_definitions.insert(decl.name, std::move(defn));
+			return Error("This declaration was expected to be a Builtin");
 		}
 
-		return Success{};
-	}
-
-	ErrorOr<Success> ParseAndAddDeclaration(const TokenTree & tree)
-	{
-		Declaration decl = CHECK_RETURN(ParseDeclaration(tree));
-		if (decl_type != Declaration::Type::Element)
-		{
-			return Error("This declaration needs a builtin function pointer");
-		}
-		value_ptr<Element> def {new ElementFunction{
+		value_ptr<Element> def {new ContextFunction{
 			{	
 				decl.name,
 				decl.type,
 				std::move(decl.left_parameter),
 				std::move(decl.parameters)
 			},
-			std::move(implementation)
+			{evaluate}, // variant of context member or global function
+			print
 		}};
-		parsed_definitions.insert(decl.name, std::move(defn));
 
 		return Success{};
 	}
+
+	ErrorOr<Success> ParseAndAddDeclaration(const TokenTree & tree);
 
 	template<typename TVal>
 	ErrorOr<Success> AddLiteral(TVal&& value, ElementName name)

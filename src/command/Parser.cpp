@@ -154,17 +154,19 @@ ErrorOr<value_ptr<Element>> Parser::ParseElementTree(const TokenTree & tree)
 
 	for (auto token & : tree.linear_tokens)
 	{
-		Node node = CHECK_RETURN([&] -> ErrorOr<Node>
+		Node node = CHECK_RETURN([&] -> ErrorOr<value_ptr<Element>>
 		{
 			switch(token.type)
 			{
 			case TokenType::Identifier:
 				// used in context of access and assign, how to distinguish?
-				return GetAccessorCopy(token.contents);
+				return value_ptr<Element>{
+					new GetValueName{token.contents}
+				};
 			case TokenType::Element:
 				return GetElementCopy({token.contents});
 			case TokenType::Name:
-				return value_ptr<Literal>{
+				return value_ptr<Element>{
 					new Literal {ValueName {token.contents}}
 				};
 			case TokenType::Number:
@@ -251,8 +253,6 @@ const Set<Token> types {
 	{TokenType::Element, "Area"},
 };
 const Token builtin {TokenType::Element, "Builtin"};
-const Token global {TokenType::Element, "Global"};
-const Token context {TokenType::Element, "Context"};
 const Token function {TokenType::Element, "Function"};
 const Token left_parameter {TokenType::Identifier, "LeftParameter"};
 const Token parameter {TokenType::Element, "Parameter"};
@@ -531,7 +531,6 @@ ErrorOr<Success> Parser::ParseDeclaration(const TokenTree & tree)
 		Declaration,
 		Name,
 		Type,
-		BuiltinType,
 		LeftParameter,
 		Parameters,
 		Elements,
@@ -612,14 +611,6 @@ ErrorOr<Success> Parser::ParseDeclaration(const TokenTree & tree)
 				phase = Phase::LeftParameter;
 			}
 			break;
-		case Phase::BuiltinType:
-			if (*token != global
-				&& *token != context)
-			{
-				return Error("Builtins must define whether they are Global or Context functions");
-			}
-			flags_present.insert(*token);
-			break;
 		case Phase::LeftParameter:
 			if (*token == left_parameter)
 			{
@@ -688,13 +679,9 @@ ErrorOr<Success> Parser::ParseDeclaration(const TokenTree & tree)
 	}
 		Type decl_type;
 	Declaration::Type decl_type;
-	if (Contains(flags_present, context))
+	if (Contains(flags_present, builtin))
 	{
-		decl_type = Declaration::Type::Context;
-	}
-	else if (Contains(flags_present, global))
-	{
-		decl_type = Declaration::Type::Global;
+		decl_type = Declaration::Type::Builtin;
 	}
 	else if (Contains(flags_present, function))
 	{
@@ -712,6 +699,27 @@ ErrorOr<Success> Parser::ParseDeclaration(const TokenTree & tree)
 		parameters,
 		implementation
 	};
+}
+
+ErrorOr<Success> Parser::ParseAndAddDeclaration(const TokenTree & tree)
+{
+	Declaration decl = CHECK_RETURN(ParseDeclaration(tree));
+	if (decl_type != Declaration::Type::Element)
+	{
+		return Error("This declaration needs a builtin function pointer");
+	}
+	value_ptr<Element> def {new ElementFunction{
+		{	
+			decl.name,
+			decl.type,
+			std::move(decl.left_parameter),
+			std::move(decl.parameters)
+		},
+		std::move(implementation)
+	}};
+	parsed_definitions.insert(decl.name, std::move(defn));
+
+	return Success{};
 }
 
 } // namespace Command

@@ -54,8 +54,6 @@ struct Parameter_Basic : public Parameter
 
 	Set<Variant_Type> Types() const override;
 
-	bool IsRepeatable() const override { return repeatable; }
-
 
 	// IEvaluable interface
 	std::string GetPrintString(std::string line_prefix) const override;
@@ -95,7 +93,6 @@ struct Parameter_OneOf : public Parameter
 	// Parameter interface
 	Element * GetLastArgument() override;
 	Set<Variant_Type> Types() const override;
-	bool IsRepeatable() const override;
 
 	// IEvaluable interface
 	std::string GetPrintString(std::string line_prefix) const override;

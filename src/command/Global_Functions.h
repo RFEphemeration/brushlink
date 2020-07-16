@@ -4,21 +4,21 @@
 namespace Command
 {
 
-// arguments can be received as value_ptr<Element> in order to allow repeat evaluation
-// const Element * is to prevent copying
-// or prevent premature evaluation
+// const Parameter * allows repeat evaluation
+// or to conditionally not evaluate a parameter
+// but it doesn't distinguish between repeatable or not...
 namespace KeyWords
 {
 	ErrorOr<Variant> Sequence(Context & context, std::vector<Variant> args);
-	ErrorOr<Variant> Repeat(Context & context, Number count, ValueName name, const Element * operation);
+	ErrorOr<Variant> Repeat(Context & context, Number count, ValueName name, const Parameter * operation);
 
-	ErrorOr<Variant> ForEach(Context & context, std::vector<Variant> args, ValueName name, const Element * operation);
-	ErrorOr<Variant> ForEachUnit(Context & context, UnitGroup group, ValueName name, const Element * operation);
-	ErrorOr<Variant> ForEachPoint(Context & context, Variant set, ValueName name, const Element * operation);
+	ErrorOr<Variant> ForEach(Context & context, std::vector<Variant> args, ValueName name, const Parameter * operation);
+	ErrorOr<Variant> ForEachUnit(Context & context, UnitGroup group, ValueName name, const Parameter * operation);
+	ErrorOr<Variant> ForEachPoint(Context & context, Variant set, ValueName name, const Parameter * operation);
 
-	ErrorOr<Variant> If(Context & context, Bool choice, const Element * primary, const Element * secondary);
-	ErrorOr<Variant> IfError(Context & context, const Element * check, const Element * error, const Element * value);
-	ErrorOr<Variant> While(Context & context, const Element * condition, const Element * operation);
+	ErrorOr<Variant> If(Context & context, Bool choice, const Parameter * primary, const Parameter * secondary);
+	ErrorOr<Variant> IfError(Context & context, const Parameter * check, const Parameter * error, const Parameter * value);
+	ErrorOr<Variant> While(Context & context, const Parameter * condition, const Parameter * operation);
 
 	template<typename T>
 	ErrorOr<T> CastTo(Context & context, Variant value)

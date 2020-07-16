@@ -17,7 +17,7 @@ struct Context
 
 	Scope scope;
 
-	// these two are only used for function calls
+	// these two are only used for function scope contexts
 	// consider subclassing?
 	bool recurse {false};
 	Table<ValueName, std::vector<Variant> > values;
@@ -28,16 +28,17 @@ struct Context
 
 	// internal functions
 	Set<Variant_Type> GetAllowedWithImplied(Set<Variant_Type> allowed) const;
-
 	Context MakeChild(Scope new_scope);
+	ErrorOr<std::vector<Variant>> GetNamedValue(ValueName name);
 
 	// exposed functions
 	ErrorOr<Success> Recurse();
 	ErrorOr<Success> SetArgument(ValueName name, std::vector<Variant> value);
-	ErrorOr<std::vector<Variant>> SetLocal(ValueName name, std::vector<Variant> value);
-	ErrorOr<std::vector<Variant>> SetGlobal(ValueName name, std::vector<Variant> value);
-
-	ErrorOr<std::vector<Variant>> Get(ValueName name);
+	ErrorOr<Success> SetLocal(ValueName name, std::vector<Variant> value);
+	ErrorOr<Success> SetGlobal(ValueName name, std::vector<Variant> value);
+	ErrorOr<Variant> GetLast(ValueName name);
+	ErrorOr<Variant> GetNth(ValueName name);
+	ErrorOr<Number> Count(ValueName name);
 };
 
 // multiple sub types

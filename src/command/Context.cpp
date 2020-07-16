@@ -43,6 +43,26 @@ Context Context::MakeChild(Scope new_scope)
 	return child;
 }
 
+ErrorOr<std::vector<Variant>> Context::GetNamedValue(ValueName name)
+{
+	if (Contains(values, name))
+	{
+		return values[name];
+	}
+
+	if (Contains(arguments, name))
+	{
+		return arguments[name];
+	}
+
+	if (parent != nullptr)
+	{
+		return parent->Get(name);
+	}
+
+	return Error("No value found with name " + name.value);
+}
+
 ErrorOr<Success> Context::Recurse()
 {
 	if (scope == Scope::Function)
@@ -118,26 +138,6 @@ ErrorOr<std::vector<Variant>> Context::SetGlobal(ValueName name, std::vector<Var
 		}
 		return Error("Context parent is unexpectedly null");
 	}
-}
-
-ErrorOr<std::vector<Variant>> Context::Get(ValueName name)
-{
-	if (Contains(values, name))
-	{
-		return values[name];
-	}
-
-	if (Contains(arguments, name))
-	{
-		return arguments[name];
-	}
-
-	if (parent != nullptr)
-	{
-		return parent->Get(name);
-	}
-
-	return Error("No value found with name " + name.value);
 }
 
 } // namespace Command

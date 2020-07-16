@@ -114,12 +114,9 @@ const Dictionary builtins = []
 	builtin(&Keywords::IfError,
 		R"(Builtin IfError Any Global
 	Parameter check Any
-	Parameter error Any
-	Parameter value Any Optional
-		# check)"); // I think we shouldn't allow parameters to access previous parameters
-	// but that's pretty much what the actors stack is doing...
-	// when implementing this it led to me making a new child context for every element call
-	// which I think feels inappropriate...
+	Parameter on_error Any
+	Parameter on_value Any Optional
+		check)");
 	builtin(&Keywords::While,
 		R"(Builtin While Any Global
 	Parameter condition Bool

@@ -45,6 +45,9 @@ struct Element : public IEvaluable
 	ErrorOr<bool> AppendArgument(Context & context, value_ptr<Element>&& next, int &skip_count) override;
 
 	ErrorOr<Removal> RemoveLastExplicitElement() override;
+
+protected:
+	std::queue<Parameter *> GetParams();
 };
 
 template<typename TVal>
@@ -72,250 +75,131 @@ struct Literal : public Element
 		return ToString(TVal);
 	}
 
-	ErrorOr<Variant> Evaluate(context & context) const override
+	ErrorOr<Variant> Evaluate(Context & context) const override
 	{
 		return Variant{value};
 	}
 };
 
-template<typename T, typename ... TArgs>
-ErrorOr<std::tuple<T, TArgs...>> EvaluateParameters(
-	std::queue<Parameter *> & params, Context & context)
+struct GetNamedValue : public Element
 {
-	if (params.empty())
+	GetNamedValue();
+
+	GetNamedValue(ValueName name);
+
+	Element * clone() const override
 	{
-		return Error("Not enough parameters during evaluation");
+		return new GetNamedValue(*this);
 	}
-	ErrorOr<T> next = [&]
-	{
-		if constexpr (std::is_same<T, const Element *>::value)
-		{
-			// no need to copy if element is const
-			return params.pop.get();
-		}
-		if constexpr (std::is_same<T, value_ptr<Element> >::value)
-		{
-			// do we need to clone here? or can we just return the element?
-			// it would probably need to be const
-			return value_ptr<Element>{params.pop->clone()};
-		}
-		else if constexpr (IsSpecialization<T, std::vector>::value)
-		{
-			return params.pop->template EvaluateAsRepeatable<T::value_type>(context);
-		}
-		else
-		{
-			return params.pop()->template EvaluateAs<T>(context);
-		}
-	}();
-	
-	if constexpr (sizeof...(TArgs) == 0)
-	{
-		if (!params.empty())
-		{
-			return Error("Too many parameters during evaluation");
-		}
-		return std::tuple<T>{ CHECK_RETURN(next.GetValue()) };
-	}
-	else
-	{
-		// evaluate the rest even if the first was an error
-		auto rest = EvaluateParameters<TArgs...>(params, context);
-		return std::tuple_cat(
-			std::tuple<T>{ CHECK_RETURN(result.GetValue())},
-			CHECK_RETURN(rest.GetValue())
-		);
-	}
+
+	ErrorOr<Variant> Evaluate(Context & context) const override;
+
+	// typical element evaluation paths should only ever return one value
+	// this should only be used inside of Parameter::EvaluateRepeatable
+	// after an explicit dynamic cast
+	ErrorOr<std::vector<Variant>> EvaluateRepeatable(Context & context) const override;
 }
-
-template<typename TRet, typename TVal>
-ErrorOr<TRet> ConvertForEvaluation(TVal&& value)
-{
-	if constexpr(!std::is_same<TRet, std::vector<Variant>>::value
-		&& !std::is_same<TRet, Variant>::value)
-	{
-		assert(false);
-	}
-	if constexpr (std::is_same<TRet, TVal>::value)
-	{
-		return value;
-	}
-	else if constexpr(is_same<TRet, std::vector<Variant>>::value)
-	{
-		if constexpr(IsSpecialization<TVal, std::vector>::value)
-		{
-			// we know tval isn't vector<Variant> because that would be caught by is_same
-			std::vector<Variant> ret;
-			for (auto && val : value)
-			{
-				ret.emplace_back(std::move(val));
-			}
-			return ret;
-		}
-		else
-		{
-			return std::vector<Variant>{Variant{value}};
-		}
-	}
-	else
-	{
-		if constexpr(IsSpecialization<TVal, std::vector>::value)
-		{
-			if (value.size() != 1)
-			{
-				return Error("Tried to evaluate repeated Element as single");
-			}
-			return Variant{value[0]};
-		}
-		else
-		{
-			return Variant{value};
-		}
-	}
-}
-
-std::queue<Parameter *> ConcatParams(
-	value_ptr<Parameter> & left_parameter,
-	std::vector<value_ptr<Parameter>> & parameters);
-
-using PrintFunction = std::string (*)(const Element & element, std::string);
-
-template<typename TRet, typename ... TArgs>
-struct ContextFunction : public Element
-{
-	ErrorOr<TRet> (Context::*func)(TArgs...);
-	PrintFunction print_func;
-
-	virtual Element * clone() const override
-	{
-		return new ContextFunction(*this);
-	}
-
-	bool IsRepeatable() const override
-	{
-		return IsSpecialization<TRet, std::vector>::value;
-	}
-
-	std::string GetPrintString(std::string line_prefix) const override
-	{
-		if (print_func != nullptr)
-		{
-			return (*print_func)(*this, line_prefix);
-		}
-		return Element::GetPrintString(line_prefix);
-	}
-
-	ErrorOr<Variant> Evaluate(Context & context) const override
-	{
-		if constexpr(sizeof...(TArgs) == 0)
-		{
-			return ConvertForEvaluation<Variant, TRet>(CHECK_RETURN((context.*func)()));
-		}
-		else
-		{
-			std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
-			auto args = CHECK_RETURN(EvaluateParameters<Context &, TArgs...>(params, context));
-			auto context_and_args = std::tuple_cat(std::tuple<Context &>{context}, args);
-			return ConvertForEvaluation<Variant, TRet>(CHECK_RETURN(std::apply(*func, context_and_args)));
-		}
-	}
-
-	ErrorOr<std::vector<Variant>> EvaluateRepeatable(Context & context) const override
-	{
-
-		if constexpr(sizeof...(TArgs) == 0)
-		{
-			return ConvertForEvaluation<std::vector<Variant>, TRet>(CHECK_RETURN((context.*func)()));
-		}
-		else
-		{
-			std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
-			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, context));
-			auto context_and_args = std::tuple_cat(std::tuple<Context &>{context}, args);
-			return ConvertForEvaluation<std::vector<Variant>, TRet>(CHECK_RETURN(std::apply(*func, context_and_args)));
-		}
-	}
-};
-
-// could consider player and world functions also
-// using context::GetPlayer and context::GetWorld
-// in order to reduce different contexts overriding each of the functions
-
-template<typename TRet, typename ... TArgs>
-struct GlobalFunction : public Element
-{
-	ErrorOr<TRet> (*func)(TArgs...);
-	PrintFunction print_func;
-
-	virtual Element * clone() const override
-	{
-		return new GlobalFunction(*this);
-	}
-
-	bool IsRepeatable() const override
-	{
-		return IsSpecialization<TRet, std::vector>::value;
-	}
-
-	std::string GetPrintString(std::string line_prefix) const override
-	{
-		if (print_func != nullptr)
-		{
-			return (*print_func)(*this, line_prefix);
-		}
-		return Element::GetPrintString(line_prefix);
-	}
-
-	ErrorOr<Variant> Evaluate(Context & context) const override
-	{
-		if constexpr(sizeof...(TArgs) == 0)
-		{
-			return ConvertForEvaluation<Variant, TRet>(CHECK_RETURN((*func)()));
-		}
-		else
-		{
-			std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
-			Context child_context = context.MakeChild(Scoped{false});
-			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, child_context));
-			return ConvertForEvaluation<Variant, TRet>(CHECK_RETURN(std::apply(*func, args)));
-		}
-	}
-
-	ErrorOr<std::vector<Variant>> EvaluateRepeatable(Context & context) const override
-	{
-		if constexpr(sizeof...(TArgs) == 0)
-		{
-			return ConvertForEvaluation<std::vector<Variant>, TRet>(CHECK_RETURN((*func)()));
-		}
-		else
-		{
-			std::queue<Parameter *> params = ConcatParams(left_parameter, parameters);
-			Context child_context = context.MakeChild(Scoped{false});
-			auto args = CHECK_RETURN(EvaluateParameters<TArgs...>(params, child_context));
-			return ConvertForEvaluation<std::vector<Variant>, TRet>(CHECK_RETURN(std::apply(*func, args)));
-		}
-	}
-};
 
 struct ElementFunction : public Element
 {
 	value_ptr<Element> implementation;
-
-	const bool repeatable;
 
 	virtual Element * clone() const override
 	{
 		return new ElementWord(*this);
 	}
 
-	bool IsRepeatable() const override
+	ErrorOr<Variant> Evaluate(Context & context) const override;
+};
+
+template<typename TRet, typename ... TArgs>
+struct BuiltinFunction : public Element
+{
+	std::variant<
+		ErrorOr<TRet>(Context::*)(TArgs...),
+		ErrorOr<TRet>(*)(TArgs...)> eval_func;
+	std::string (*print_func)(const Element & element, std::string) ;
+
+	virtual Element * clone() const override
 	{
-		return repeatable;
+		return new BuiltinFunction(*this);
 	}
 
-	ErrorOr<Variant> Evaluate(Context & context) const override;
+	std::string GetPrintString(std::string line_prefix) const override
+	{
+		if (print_func != nullptr)
+		{
+			return (*print_func)(*this, line_prefix);
+		}
+		return Element::GetPrintString(line_prefix);
+	}
 
-	ErrorOr<std::vector<Variant>> EvaluateRepeatable(Context & context) const override;
+	template<typename TNext, typename ... TRest>
+	ErrorOr<std::tuple<TNext, TRest...>> MakeEvaluatedArgs(
+		std::queue<Parameter *> & params, Context & context)
+	{
+		if (params.empty() && !std::is_same<TNext, Context &>::value)
+		{
+			return Error("Not enough parameters during evaluation");
+		}
+		auto next = [&] -> ErrorOr<TNext>
+		{
+			if constexpr(std::is_same<TNext, Context &>::value)
+				return context;
+			else if constexpr (std::is_same<TNext, const Parameter *>::value)
+				// no need to copy if parameter is const
+				return params.pop.get();
+			else if constexpr (IsSpecialization<TNext, std::vector>::value)
+				return params.pop->template EvaluateAsRepeatable<TNext::value_type>(context);
+			else
+				return params.pop()->template EvaluateAs<T>(context);
+		}();
+		if constexpr (sizeof...(TRest) == 0)
+		{
+			if (!params.empty())
+			{
+				return Error("Too many parameters during evaluation");
+			}
+			return std::tuple<T>{ CHECK_RETURN(next) };
+		}
+		else
+		{
+			// evaluate the rest even if the first was an error
+			// is this necessary? do we ever recover from errors?
+			// aren't there more likely to be cascading errors then?
+			auto rest = MakeEvaluatedArgs<TRest...>(params, context);
+			return std::tuple_cat(
+				std::tuple<T>{ CHECK_RETURN(next) },
+				CHECK_RETURN(rest)
+			);
+		}
+	}
+
+	ErrorOr<Variant> Evaluate(Context & context) const override
+	{
+		if constexpr(sizeof...(TArgs) == 0)
+		{
+			return Variant{CHECK_RETURN((context.*func)())};
+		}
+		else
+		{
+			std::queue<Parameter *> params = GetParams();
+			if (eval_func.index == 0)
+			{
+				auto args = CHECK_RETURN(MakeEvaluatedArgs<Context &, TArgs...>(params, context));
+				return Variant{
+					CHECK_RETURN(std::apply(*std::get<0>(eval_func), args))
+				};
+			}
+			else
+			{
+				auto args = CHECK_RETURN(MakeEvaluatedArgs<TArgs...>(params, context));
+				return Variant{
+					CHECK_RETURN(std::apply(*std::get<1>(eval_func), args))
+				};
+			}
+		}
+	}
 };
 
 } // namespace Command

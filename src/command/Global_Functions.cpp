@@ -12,7 +12,7 @@ ErrorOr<Variant> KeyWords::Sequence(Context & context, std::vector<Variant> args
 	return args.back();
 }
 
-ErrorOr<Variant> KeyWords::Repeat(Context & context, Number count, ValueName name, const Element * operation)
+ErrorOr<Variant> KeyWords::Repeat(Context & context, Number count, ValueName name, const Parameter * operation)
 {
 	// how do we want child contexts to work?
 	// should we just polute the local namespace?
@@ -32,10 +32,11 @@ ErrorOr<Variant> KeyWords::Repeat(Context & context, Number count, ValueName nam
 	return Variant{Success{}};
 }
 
-ErrorOr<Variant> KeyWords::ForEach(Context & context, std::vector<Variant> args, ValueName name, const Element * operation)
+ErrorOr<Variant> KeyWords::ForEach(Context & context, std::vector<Variant> args, ValueName name, const Parameter * operation)
 {
 	Context child = context.MakeChild();
 	Variant value {Success{}};
+	// @Feature Push/Pop local variable shadowing?
 	for (int i = 0; i < args.size(); i++)
 	{
 		child.SetLocal(name, args[i]);
@@ -44,7 +45,7 @@ ErrorOr<Variant> KeyWords::ForEach(Context & context, std::vector<Variant> args,
 	return value;
 }
 
-ErrorOr<Variant> KeyWords::ForEachUnit(Context & context, UnitGroup group, ValueName name, const Element * operation)
+ErrorOr<Variant> KeyWords::ForEachUnit(Context & context, UnitGroup group, ValueName name, const Parameter * operation)
 {
 	Context child = context.MakeChild();
 	Variant value {Success{}};
@@ -56,7 +57,7 @@ ErrorOr<Variant> KeyWords::ForEachUnit(Context & context, UnitGroup group, Value
 	return value;
 }
 
-ErrorOr<Variant> KeyWords::ForEachPoint(Context & context, Variant set, ValueName name, const Element * operation)
+ErrorOr<Variant> KeyWords::ForEachPoint(Context & context, Variant set, ValueName name, const Parameter * operation)
 {
 	Context child = context.MakeChild();
 	Variant value {Success{}};
@@ -86,7 +87,7 @@ ErrorOr<Variant> KeyWords::ForEachPoint(Context & context, Variant set, ValueNam
 	return value;
 }
 
-ErrorOr<Variant> KeyWords::If(Context & context, Bool choice, const Element * primary,const Element * secondary)
+ErrorOr<Variant> KeyWords::If(Context & context, Bool choice, const Parameter * primary,const Parameter * secondary)
 {
 	if (choice)
 	{
@@ -99,9 +100,9 @@ ErrorOr<Variant> KeyWords::If(Context & context, Bool choice, const Element * pr
 }
 
 ErrorOr<Variant> KeyWords::IfError(Context & context,
-	const Element * check,
-	const Element * error,
-	const Element * value)
+	const Parameter * check,
+	const Parameter * error,
+	const Parameter * value)
 {
 	auto result = check->Evaluate(context);
 	if (result.IsError())
@@ -114,7 +115,7 @@ ErrorOr<Variant> KeyWords::IfError(Context & context,
 	}
 }
 
-ErrorOr<Variant> KeyWords::While(Context & context, const Element * condition, const Element * operation)
+ErrorOr<Variant> KeyWords::While(Context & context, const Parameter * condition, const Parameter * operation)
 {
 	Bool result = true;
 	Variant value {Success{}};

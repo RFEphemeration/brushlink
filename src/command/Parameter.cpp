@@ -294,12 +294,19 @@ ErrorOr<std::vector<Variant> > Parameter_Basic<repeatable, optional>::EvaluateRe
 	std::vector<Variant> values;
 	for(auto & arg : arguments)
 	{
-		// are arguments just always evaluaterepeatable now?
-		// packing and unpacking is inefficient...
-		auto repeated = CHECK_RETURN(arg->EvaluateRepeatable(context))
-		for (auto && value : repeated)
+		// @Feature Repeatable Argument Passthrough
+		GetNamedValue * named_value = dynamic_cast<GetNamedValue *>(arg.get());
+		if (named_value)
 		{
-			values.emplace_back(std::move(value));
+			auto repeated_evaluation = named_value->EvaluateRepeatable(context);
+			for (auto && value : repeated_evaluation)
+			{
+				values.emplace_back(std::move(value));
+			}
+		}
+		else
+		{
+			values.push_back(CHECK_RETURN(arg->Evaluate(context)))
 		}
 	}
 	return values;
@@ -332,22 +339,6 @@ Set<Variant_Type> Parameter_OneOf::Types() const
 		types.merge(option->Types());
 	}
 	return types;
-}
-
-bool Parameter_OneOf::IsRepeatable() const override
-{
-	if (chosen_index)
-	{
-		return options[chosen_index.value()]->IsRepeatable();
-	}
-	for (auto & option : options)
-	{
-		if (option->IsRepeatable())
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 std::string Parameter_OneOf::GetPrintString(std::string line_prefix) const
@@ -544,6 +535,10 @@ ErrorOr<Variant> Parameter_Implied::Evaluate(Context & context) const
 
 ErrorOr<std::vector<Variant> > Parameter_Implied::EvaluateRepeatable(Context & context) const
 {
+	// this is evaluating the element as repeatable directly
+	// which is a little strange because elements are almost always evaluated as single
+	// except for GetNamedValue, which we usually dynamic cast
+	// but the end result would just be the same as what we do here
 	return implied->EvaluateRepeatable(context);
 }
 
