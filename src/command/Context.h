@@ -9,10 +9,11 @@ enum class Scope
 	Global,
 	Function,
 	Element
-}
+};
 
 struct Context
 {
+	Player * player {nullptr};
 	Context * parent {nullptr};
 
 	Scope scope;
@@ -40,6 +41,35 @@ struct Context
 	ErrorOr<Variant> GetNth(ValueName name);
 	ErrorOr<Number> Count(ValueName name);
 };
+
+/*
+struct PlayerCommandContext : public Context
+{
+	Player * player;
+	Dictionary hidden_elements;
+	Dictionary exposed_elements;
+
+	Table<ValueName, std::vector<Variant> > global_values;
+};
+
+struct UnitCommandContext : public Context
+{
+};
+
+struct FunctionContext : public Context
+{
+	Context * parent {nullptr};
+	bool recurse;
+	Table<ValueName, std::vector<Variant> > local_values;
+};
+
+struct ElementContext : public Context
+{
+	Context * parent {nullptr};
+	Table<ValueName, std::vector<Variant> > arguments;
+};
+*/
+
 
 // multiple sub types
 // root player context - append elements, global variables, get elements, tree navigation

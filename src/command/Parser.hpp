@@ -76,8 +76,8 @@ struct Parser
 			return Error("This declaration was expected to be a Builtin");
 		}
 
-		value_ptr<Element> def {new ContextFunction{
-			{	
+		value_ptr<Element> def {new BuiltinFunction{
+			{
 				decl.name,
 				decl.type,
 				std::move(decl.left_parameter),

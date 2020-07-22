@@ -1,4 +1,11 @@
-# new
+# command
+parse element tree
+root command context accessing player
+command card
+instructions
+
+
+# command_2
 features
 	# implied nodes
 	# left parameters - most important for numbers

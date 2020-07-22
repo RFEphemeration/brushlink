@@ -29,7 +29,7 @@ Function Name Type
 
 #ifndef DECLARE_CAST_BUILTIN
 #define DECLARE_CAST_BUILTIN(T)	builtin(&Keywords::CastTo<T>, \
-	"Builtin CastTo" #T " " #T R"( Global
+	"Builtin CastTo" #T " " #T R"(
 	Parameter value Any)");
 #endif
 
@@ -72,33 +72,33 @@ const Dictionary builtins = []
 	literal(Digit{9}, "Nine");
 	builtin_print(&NumberLiteral::Evaluate,
 		&NumberLiteral::Print,
-		R"(Builtin NumberLiteral Number Global
+		R"(Builtin NumberLiteral Number
 	Parameter Repeatable Digit)");
 
 	builtin(&Keywords::Sequence,
-		R"(Builtin Sequence Any Global
+		R"(Builtin Sequence Any
 	Parameter expressions Repeatable Optional  Any
 		Success)");
 	builtin(&Keywords::Repeat,
-		R"(Builtin Repeat Any Global
+		R"(Builtin Repeat Any
 	Parameter count Number
 	Parameter index Optional ValueName
 		"index"
 	Parameter expression Any)");
 	builtin(&Keywords::ForEach,
-		R"(Builtin ForEach Any Global
+		R"(Builtin ForEach Any
 	Parameter values Repeatable Optional Any
 	Parameter iter Optional ValueName
 		"iter"
 	Parameter expression Any)");
 	builtin(&Keywords::ForEachUnit,
-		R"(Builtin ForEachUnit Any Global
+		R"(Builtin ForEachUnit Any
 	Parameter units UnitGroup
 	Parameter unit Optional ValueName
 		"unit"
 	Parameter expression Any)");
 	builtin(&Keywords::ForEachPoint,
-		R"(Builtin ForEachPoint Any Global
+		R"(Builtin ForEachPoint Any
 	Parameter set OneOf
 		Parameter Line
 		Parameter Area
@@ -106,19 +106,19 @@ const Dictionary builtins = []
 		"point"
 	Parameter expression Any)");
 	builtin(&Keywords::If,
-		R"(Builtin If Any Global
+		R"(Builtin If Any
 	Parameter choice Bool
 	Parameter primary Any
 	Parameter secondary Any Optional
 		Success)");
 	builtin(&Keywords::IfError,
-		R"(Builtin IfError Any Global
+		R"(Builtin IfError Any
 	Parameter check Any
 	Parameter on_error Any
 	Parameter on_value Any Optional
 		check)");
 	builtin(&Keywords::While,
-		R"(Builtin While Any Global
+		R"(Builtin While Any
 	Parameter condition Bool
 	Parameter expression Any)");
 	DECLARE_CAST_BUILTIN(Success)
@@ -140,14 +140,14 @@ const Dictionary builtins = []
 	DECLARE_CAST_BUILTIN(Area)
 
 	builtin(&Context::Get,
-		R"(Builtin Get Any Context
+		R"(Builtin Get Any
 	Parameter name ValueName)");
 	builtin(&Context::SetLocal,
-		R"(Builtin SetLocal Any Context
+		R"(Builtin SetLocal Any
 	Parameter name ValueName
 	Parameter value Any)");
 	builtin(&Context::SetGlobal,
-		R"(Builtin SetGlobal Any Context
+		R"(Builtin SetGlobal Any
 	Parameter name ValueName
 	Parameter value Any)");
 
@@ -155,34 +155,34 @@ const Dictionary builtins = []
 	// but that doesn't play well with our type system in the current state...
 
 	builtin(&Context::CurrentSelection,
-		R"(Builtin CurrentSelection UnitGroup Context)");
+		R"(Builtin CurrentSelection UnitGroup)");
 	builtin(&Context::Allies,
-		R"(Builtin Allies UnitGroup Context)");
+		R"(Builtin Allies UnitGroup)");
 	builtin(&Context::Enemies,
-		R"(Builtin Enemies UnitGroup Context)");
+		R"(Builtin Enemies UnitGroup)");
 	builtin(&Context::CommandGroup,
-		R"(Builtin CommandGroup UnitGroup Context
+		R"(Builtin CommandGroup UnitGroup
 	Parameter id Number)");
 
 	builtin(&Context::Select,
-		R"(Builtin Select Success Context
+		R"(Builtin Select Success
 	Parameter group OneOf
 		Parameter UnitGroup
 		Parameter Implied UnitGroup
 			Allies)");
 	builtin(&Context::SetCommandGroup,
-		R"(Builtin AssignCommandGroup Success Context
+		R"(Builtin AssignCommandGroup Success
 	Parameter group UnitGroup Optional
 		CurrentSelection
 	Parameter id Number)");
 	builtin(&Context::SetAction,
-		R"(Builtin SetAction Success Context
+		R"(Builtin SetAction Success
 	Parameter group UnitGroup Optional
 		CurrentSelection
 	Parameter action Action_Step)");
 
 	builtin(&Context::Command,
-		R"(Builtin Command Success Context
+		R"(Builtin Command Success
 	Parameter command OneOf
 		Parameter select Implied
 			Select
