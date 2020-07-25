@@ -2,7 +2,7 @@
 parse element tree
 root command context accessing player
 command card
-instructions
+instructions for command builder
 
 
 # command_2

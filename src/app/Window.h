@@ -30,8 +30,9 @@ struct Window
 {
 	Window_Settings settings;
 	std::shared_ptr<Tigr> screen;
-	char key_down_buffer[256];
-	char key_up_buffer[256];
+	std::shared_ptr<Tigr> screen_buffer;
+	char key_down_buffer[256]{0};
+	char key_up_buffer[256]{0};
 	int previous_mouse_buttons{0};
 
 	Window(Window_Settings settings = Window_Settings{})
@@ -40,7 +41,12 @@ struct Window
 			settings.width,
 			settings.height,
 			settings.title.c_str(),
-			0)
+			TIGR_FARB_OVERSCALE_DOWNSIZE)
+			, TigrDeleter{}
+		}
+		, screen_buffer{tigrBitmap(
+			settings.width,
+			settings.height)
 			, TigrDeleter{}
 		}
 	{ }
@@ -55,10 +61,9 @@ struct Window
 		tigrClear(screen.get(), settings.clear_color);
 	}
 
-	inline void PresentAndUpdate()
-	{
-		tigrUpdate(screen.get());
-	}
+	void PresentAndUpdate();
+
+	Dimensions GetWorldPortion();
 
 	inline Key_Changes GetKeyChanges()
 	{

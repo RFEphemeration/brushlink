@@ -40,6 +40,7 @@ struct Context
 	ErrorOr<Variant> GetLast(ValueName name);
 	ErrorOr<Variant> GetNth(ValueName name);
 	ErrorOr<Number> Count(ValueName name);
+	ErrorOr<Point> GetAveragePoint(UnitGroup group);
 };
 
 /*

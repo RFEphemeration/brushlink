@@ -24,8 +24,10 @@ struct Player_Data
 		{Pattern::Grid, Palette{{}, 3, Palette_Type::Orange}},
 	};
 
-	Map<Unit_Type, value_ptr<Command>> starting_unit_idle_commands;
-	Map<ValueName, value_ptr<Command>> starting_commands;
+	Map<Unit_Type, ElementName> starting_unit_idle_commands;
+	Map<ValueName, ElementName> starting_commands;
+
+	std::vector<std::string> element_definition_folders;
 };
 
 enum class Player_Type
@@ -50,6 +52,8 @@ struct Player
 	// though data may change in editor mode
 	std::shared_ptr<Player_Data> data;
 	Player_Settings settings;
+	Command::Dictionary exposed_elements;
+	Command::Dictionary hidden_elements;
 
 	// these are set when the game starts, are map/matchup dependent
 	PlayerID id;
@@ -58,12 +62,17 @@ struct Player
 
 	// these change over the course of the game
 	Point camera_location;
-	CommandContext root_command_context;
+
+	Command::Context root_command_context;
+	Table<Number, UnitGroup> command_groups;
+
 	// todo: command buffer, stored values, evaluation context, etc
 
 	static Player FromSettings(const Player_Settings & settings, PlayerID id, Point starting_location);
 
 	void RemoveUnits(Set<UnitID> unit_ids);
+
+	ErrorOr<ElementToken> GetTokenForName(ElementName name);
 
 
 };

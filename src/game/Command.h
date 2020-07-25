@@ -17,8 +17,6 @@ struct CommandContext
 	PlayerID player_id;
 
 	shared_ptr<CommandContext> parent;
-
-
 };
 
 // temporary

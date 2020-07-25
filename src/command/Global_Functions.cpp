@@ -128,7 +128,7 @@ ErrorOr<Variant> KeyWords::While(Context & context, const Parameter * condition,
 	return value;
 }
 
-ErrorOr<Number> NumberLiteral::Evaluate(Context & context, std::vector<Digit> digits)
+ErrorOr<Number> NumberLiteral::Evaluate(std::vector<Digit> digits)
 {
 	int value = 0;
 	for (auto & digit : digits)
@@ -147,33 +147,35 @@ std::string NumberLiteral::Print(const Element & element, std::string line_prefi
 		auto * digit = dynamic_cast<Literal<Digit> * >(arg.get());
 		if (digit == nullptr)
 		{
-			Error("NumberLiteral should only have Literal<Digit> arguments");
+			Error("NumberLiteral should only have Literal<Digit> arguments").Log();
+			break;
 		}
 		print_string += str(digit->value);
 	}
+	return print_string;
 }
 
-ErrorOr<Number> NumberOperators::Add(Context & context, Number a, Number b)
+ErrorOr<Number> NumberOperators::Add(Number a, Number b)
 {
 	return Number{a.value + b.value};
 }
 
-ErrorOr<Number> NumberOperators::Subtract(Context & context, Number a, Number b)
+ErrorOr<Number> NumberOperators::Subtract(Number a, Number b)
 {
 	return Number{a.value - b.value};
 }
 
-ErrorOr<Number> NumberOperators::Multiply(Context & context, Number a, Number b)
+ErrorOr<Number> NumberOperators::Multiply(Number a, Number b)
 {
 	return Number{a.value * b.value};
 }
 
-ErrorOr<Number> NumberOperators::Divide(Context & context, Number a, Number b)
+ErrorOr<Number> NumberOperators::Divide(Number a, Number b)
 {
 	return Number{a.value / b.value};
 }
 
-ErrorOr<Number> NumberOperators::Sum(Context & context, std::vector<Number> operands)
+ErrorOr<Number> NumberOperators::Sum(std::vector<Number> operands)
 {
 	Number sum;
 	for (auto & o : operands)
@@ -181,6 +183,94 @@ ErrorOr<Number> NumberOperators::Sum(Context & context, std::vector<Number> oper
 		sum.value += o.value;
 	}
 	return sum;
+}
+
+ErrorOr<ValueName> ValueNameConstructors::Literal(std::vector<Letter> letters)
+{
+	return ValueName{}
+}
+
+std::string ValueNameConstructors::PrintLiteral(const Element & element, std::string line_prefix)
+{
+	// @Cleanup this is an invasive function, is that okay?
+	std::string print_string = line_prefix;
+	for (auto & arg : element.parameters[0]->arguments)
+	{
+		auto * letter = dynamic_cast<Literal<Letter> * >(arg.get());
+		if (letter == nullptr)
+		{
+			Error("ValueNameLiteral should only have Literal<Letter> arguments").Log();
+			break;
+		}
+		print_string += letter->value;
+	}
+	return print_string;
+}
+
+ErrorOr<ValueName> ValueNameConstructors::FromNumber(Number number)
+{
+	return ValueName{str(number.value)};
+}
+
+ErrorOr<ValueName> ValueNameConstructors::Concatenate(std::vector<ValueName> names)
+{
+	ValueName result;
+	for (auto & name : names)
+	{
+		result.value += name.value;
+	}
+	return result;
+}
+
+ErrorOr<Line> LocationConstructors::LineFromPoints(std::vector<Point> points)
+{
+	return Line{std::move(points)};
+}
+
+ErrorOr<Direction> LocationConstructors::DirectionFromTo(Point from, Point to)
+{
+	return Direction{to - from};
+}
+
+ErrorOr<Area> LocationConstructors::AreaUnion(std::vector<Area> areas)
+{
+	Area result;
+	for (const auto & area : areas)
+	{
+		result.UnionWith(area);
+	}
+	return result;
+}
+
+ErrorOr<Point> LocationConstructors::PointAtAreaCenter(Area area)
+{
+	if (area.points.empty())
+	{
+		return Error("Area is empty");
+	}
+	Point center{0,0};
+	for (auto & point : area.points)
+	{
+		center += point;
+	}
+	center /= area.points.size();
+	if (Contains(area.points, center))
+	{
+		return center;
+	}
+	Point closest = center;
+	int min_cardinal_distance = -1;
+	for (auto & point : area.points)
+	{
+		int cardinal_distance = center.CardinalDistance(point);
+		if (min_cardinal_distance == -1
+			|| cardinal_distance < min_cardinal_distance)
+		{
+			closest = point;
+			min_cardinal_distance = cardinal_distance;
+		}
+	}
+	return closest;
 }
 
 } // namespace Command

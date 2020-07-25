@@ -22,6 +22,30 @@ void Player::RemoveUnits(Set<UnitID> unit_ids)
 {
 	// todo: remove from command context stored variables
 	// and from per-tick evaluations, if necessary
+	for (auto & pair : command_groups)
+	{
+		for (auto & id : unit_ids)
+		{
+			pair.second.units.remove(id);
+		}
+	}
+}
+
+ErrorOr<ElementToken> Player::GetTokenForName(ElementName name)
+{
+	if (Contains(exposed_elements, name))
+	{
+		return {name, exposed_elements[name]->type};
+	}
+	if (Contains(hidden_elements, name))
+	{
+		return {name, hidden_elements[name]->type};
+	}
+	if (Contains(builtins, name))
+	{
+		return {name, builtins[name]->type};
+	}
+	return Error{"No element with name " + name.value + " was found."};
 }
 
 } // namespace Brushlink

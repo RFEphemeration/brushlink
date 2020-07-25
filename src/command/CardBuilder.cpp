@@ -52,34 +52,38 @@ const Table<Variant_Type, int> default_tab_type_indexes{
 	// success feels super broad...
 	{Variant_Type::Success, 0},
 
-	// any also feels super broad..
-	{Variant_Type::Any, 1},
+	// we are not allowing use of the Any type during gameplay command building
+	// because it prohibits meaningful suggestions
+	{Variant_Type::Any, -1},
 
-	{Variant_Type::Bool, 2},
+	// used for conditionals, is this also used for filter functions?
+	// could also filter by picking items from a list
+	// or every filter could be its own element which by convention also takes a size
+	{Variant_Type::Bool, 1},
 
-	{Variant_Type::Number, 3},
-	{Variant_Type::Digit, 3},
+	{Variant_Type::Number, 2},
+	{Variant_Type::Digit, 2},
 
-	{Variant_Type::ValueName, 4},
-	{Variant_Type::Letter, 4}, // letters should probably not be hotkeyed? and just read literally
+	{Variant_Type::ValueName, 3},
+	{Variant_Type::Letter, 3}, // letters should probably not be hotkeyed? and just read literally
 
-	{Variant_Type::Action_Type, 5},
-	{Variant_Type::Action_Step, 5},
+	{Variant_Type::Action_Type, 4}, // implicitly creates a Step of Type
+	{Variant_Type::Action_Step, 4},
 
-	{Variant_Type::Unit_Type, 6},
-	{Variant_Type::Unit_Attribute, 6},
+	{Variant_Type::Unit_Type, 5},
+	{Variant_Type::Unit_Attribute, 5},
 
-	{Variant_Type::UnitID, 7},
-	{Variant_Type::UnitGroup, 7},
+	{Variant_Type::UnitID, 6},
+	{Variant_Type::UnitGroup, 6},
 
 	// should Energy and Seconds be variant_types at all?
-	{Variant_Type::Seconds, 8},
-	{Variant_Type::Energy, 8},
+	{Variant_Type::Seconds, 7},
+	{Variant_Type::Energy, 7},
 
-	{Variant_Type::Point, 9},
-	{Variant_Type::Direction, 9},
-	{Variant_Type::Line, 9},
-	{Variant_Type::Area, 9},
+	{Variant_Type::Point, 8},
+	{Variant_Type::Direction, 8},
+	{Variant_Type::Line, 8},
+	{Variant_Type::Area, 8},
 };
 
 const std::string horizontal_line = "––––––––––––––––––––––––––––––––––––––––";

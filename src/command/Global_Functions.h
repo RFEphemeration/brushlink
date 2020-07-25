@@ -21,7 +21,7 @@ namespace KeyWords
 	ErrorOr<Variant> While(Context & context, const Parameter * condition, const Parameter * operation);
 
 	template<typename T>
-	ErrorOr<T> CastTo(Context & context, Variant value)
+	ErrorOr<T> CastTo(Variant value)
 	{
 		if (!std::holds_alternative<T>(value))
 			return Error("Type mismatch during cast");
@@ -31,17 +31,33 @@ namespace KeyWords
 
 namespace NumberLiteral
 {
-	ErrorOr<Number> Evaluate(Context & context, std::vector<Digit> digits);
+	ErrorOr<Number> Evaluate(std::vector<Digit> digits);
 	std::string Print(const Element & element, std::string line_prefix);
 };
 
 namespace NumberOperators
 {
-	ErrorOr<Number> Add(Context & context, Number a, Number b);
-	ErrorOr<Number> Subtract(Context & context, Number a, Number b);
-	ErrorOr<Number> Multiply(Context & context, Number a, Number b);
-	ErrorOr<Number> Divide(Context & context, Number a, Number b);
-	ErrorOr<Number> Sum(Context & context, std::vector<Number> operands);
+	ErrorOr<Number> Add(Number a, Number b);
+	ErrorOr<Number> Subtract(Number a, Number b);
+	ErrorOr<Number> Multiply(Number a, Number b);
+	ErrorOr<Number> Divide(Number a, Number b);
+	ErrorOr<Number> Sum(std::vector<Number> operands);
+};
+
+namespace ValueNameConstructors
+{
+	ErrorOr<ValueName> Literal(std::vector<Letter> letters);
+	std::string PrintLiteral(const Element & element, std::string line_prefix);
+	ErrorOr<ValueName> FromNumber(Number number);
+	ErrorOr<ValueName> Concatenate(std::vector<ValueName> names);
+};
+
+namespace LocationConstructors
+{
+	ErrorOr<Line> LineFromPoints(std::vector<Point> points);
+	ErrorOr<Direction> DirectionFromTo(Point from, Point to);
+	ErrorOr<Area> AreaUnion(std::vector<Area> areas);
+	ErrorOr<Point> PointAtAreaCenter(Area area);
 };
 
 
