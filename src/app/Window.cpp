@@ -113,25 +113,10 @@ void ScaleNotQuiteNearest()
 
 void Window::PresentAndUpdate()
 {
-	// integer scale screen_buffer to screen
-	int screen_scale = screen->w / screen_buffer->w;
-	for (int sx = 0; sx < screen_buffer->w; sx++)
-	{
-		for (int sy = 0; sy < screen_buffer->h; sy++)
-		{
-			int dxmax = (sx + 1) * screen_scale;
-			int dymax = (sy + 1) * screen_scale;
-			for (int dx = sx * screen_scale; dx < dxmax; dx++)
-			{
-				for (int dy = sy * screen_scale; dy < dymax; dy++)
-				{
-					screen->pix[dx][dy] = screen_buffer[sx][sy];
-				}
-			}
-		}
-	}
-
 	TSize window = tigrUpdate(screen.get());
+	/* upscaling here breaks using blit in world::render
+	// upscaling via a second bitmap breaks expected event locations
+	// we should probably just write a shader to do it
 	// ensure screen is bigger than window so we're only ever downscaling
 	// there will be a 1 frame lag where we might upscale
 	int w = screen->w;
@@ -145,6 +130,7 @@ void Window::PresentAndUpdate()
 	{
 		tigrResize(screen.get(), w, h);
 	}
+	*/
 }
 
 Dimensions Window::GetWorldPortion()
@@ -154,7 +140,7 @@ Dimensions Window::GetWorldPortion()
 		settings.world_portion.x * scale,
 		settings.world_portion.y * scale,
 		settings.world_portion.width * scale,
-		settings.world_portion.height * scale,
+		settings.world_portion.height * scale
 	};
 }
 

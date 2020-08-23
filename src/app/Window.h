@@ -30,7 +30,6 @@ struct Window
 {
 	Window_Settings settings;
 	std::shared_ptr<Tigr> screen;
-	std::shared_ptr<Tigr> screen_buffer;
 	char key_down_buffer[256]{0};
 	char key_up_buffer[256]{0};
 	int previous_mouse_buttons{0};
@@ -42,11 +41,6 @@ struct Window
 			settings.height,
 			settings.title.c_str(),
 			TIGR_FARB_OVERSCALE_DOWNSIZE)
-			, TigrDeleter{}
-		}
-		, screen_buffer{tigrBitmap(
-			settings.width,
-			settings.height)
 			, TigrDeleter{}
 		}
 	{ }
