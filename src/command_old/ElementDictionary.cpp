@@ -117,7 +117,7 @@ const std::map<ElementName, ElementDeclaration> ElementDictionary::declarations
 	// Set
 	Decl({ "Enemies", Set, Atom(enemies) }),
 	Decl({ "Allies", Set, Atom(allies) }),
-	Decl({ "Current_Selection", Se, Atom(current_selection) }),
+	Decl({ "Current_Selection", Set, Atom(current_selection) }),
 	Decl({ "Actors", Set, Atom(actors) }),
 	Decl({ "Command_Group", Set, Atom(command_group), Right{{ Number }} }),
 

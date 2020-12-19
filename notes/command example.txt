@@ -1,0 +1,23 @@
+Success
+
+
+Function Sum Number
+	Parameter values Repeatable
+	Sequence
+		SetLocal sum 0
+		ForEach values value
+			SetLocal sum
+				Add sum value
+		Get sum
+
+
+Select
+	(Allies) OnScreen OfUnitType Melee
+
+
+SetCommandGroup
+	(CurrentSelection)
+	1
+
+Select
+	CommandGroup 1 WithStat
