@@ -4,7 +4,7 @@ TARGET_LINKS=-framework OpenGL -framework Cocoa
 
 COMMAND_SOURCE_FILES = $(wildcard src/command/*.cpp)
 
-GAME_MODULES = app game
+GAME_MODULES = app game command
 GAME_INCLUDES = $(addprefix -I src/, $(GAME_MODULES))
 GAME_SOURCE_FILES = $(foreach MODULE,$(GAME_MODULES),$(wildcard src/$(MODULE)/*.cpp))
 
@@ -18,7 +18,7 @@ debug: build/bin/runtests build/bin/brushlink
 all: build/bin/runtests build/bin/brushlink
 
 build/bin/runtests: tests/RunTests.cpp src/command/* tests/command/* ../farb/build/link/farb.a
-	g++ ${CXXFLAGS}  $(FARB_INCLUDES) tests/RunTests.cpp $(COMMAND_SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/runtests
+	g++ ${CXXFLAGS}  $(FARB_INCLUDES) $(GAME_INCLUDES) tests/RunTests.cpp $(COMMAND_SOURCE_FILES) ../farb/build/link/farb.a -g -o ./build/bin/runtests
 
 build/bin/brushlink: src/game/* src/app/* ../farb/build/link/farb.a
 	$(CXX) $(CXXFLAGS) $(FARB_INCLUDES) $(GAME_INCLUDES) $(GAME_SOURCE_FILES) ../farb/build/link/farb.a -o ./build/bin/brushlink $(TARGET_LINKS)

@@ -4,8 +4,8 @@
 #include <assert.h> 
 
 #include "../../../farb/tests/RegisterTest.hpp"
-#include "../../src/command/CommandContext.h"
-#include "../../src/command/CommandElement.hpp"
+#include "../../src/command/Context.h"
+#include "../../src/command/Element.hpp"
 #include "../../../farb/src/utils/StringExtensions.hpp"
 
 using namespace Farb;
@@ -25,7 +25,7 @@ public:
 
 		std::string line;
 
-		CommandContext context;
+		Context context;
 		context.InitElementDictionary();
 		context.InitNewCommand();
 

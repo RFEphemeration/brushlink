@@ -24,7 +24,7 @@ const GameSettings GameSettings::default_settings {
 		{ Unit_Type::Spawner, {
 			Unit_Type::Spawner,
 			{6}, {24}, {{1}, {0.5}}, // more energy in order to reduce healing and make harder to kill
-			{}, // todo: drawn_body
+			{}, // todo: drawn_body	
 			{
 				{ Action_Type::Nothing, Action_Settings{} },
 				{ Action_Type::Idle, Action_Settings{} },

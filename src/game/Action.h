@@ -7,6 +7,7 @@
 #include "Resources.h"
 #include "Game_Time.h"
 #include "Location.h"
+#include "Game_Basic_Types.h"
 
 namespace Brushlink
 {

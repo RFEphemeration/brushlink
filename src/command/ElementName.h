@@ -8,9 +8,9 @@ namespace Command
 
 struct ElementNameTag
 {
-	static HString GetName() { return "ElementName"; }
+	static Farb::HString GetName() { return "ElementName"; }
 };
-using ElementName = NamedType<HString, ElementNameTag>;
+using ElementName = Farb::NamedType<Farb::HString, ElementNameTag>;
 
 } // namespace Command
 

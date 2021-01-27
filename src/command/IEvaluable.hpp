@@ -9,8 +9,9 @@
 namespace Command
 {
 
-struct Element : public IEvaluable;
-struct Parameter : public IEvaluable;
+struct Context;
+struct Element;
+struct Parameter;
 
 enum class Removal
 {
@@ -58,7 +59,7 @@ struct IEvaluable
 	}
 
 	template<typename T>
-	ErrorOr<std::vector<T> > EvaluateAsRepeatable(CommandContext & context) const
+	ErrorOr<std::vector<T> > EvaluateAsRepeatable(Context & context) const
 	{
 		std::vector<Variant> values = CHECK_RETURN(EvaluateRepeatable(context));
 		if constexpr(std::is_same<T, Variant>::value)
@@ -79,7 +80,7 @@ struct IEvaluable
 			return ret;
 		}
 	}
-}
+};
 
 } // namespace Command
 

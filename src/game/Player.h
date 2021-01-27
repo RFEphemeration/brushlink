@@ -6,6 +6,8 @@
 
 #include "NamedType.hpp"
 
+#include "ElementName.h"
+#include "Dictionary.h"
 #include "Player_Graphics.h"
 #include "Location.h"
 #include "Game_Basic_Types.h"
@@ -24,8 +26,8 @@ struct Player_Data
 		{Pattern::Grid, Palette{{}, 3, Palette_Type::Orange}},
 	};
 
-	Map<Unit_Type, ElementName> starting_unit_idle_commands;
-	Map<ValueName, ElementName> starting_commands;
+	Map<Unit_Type, Command::ElementName> starting_unit_idle_commands;
+	Map<ValueName, Command::ElementName> starting_commands;
 
 	std::vector<std::string> element_definition_folders;
 };

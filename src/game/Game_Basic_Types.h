@@ -38,7 +38,7 @@ enum class Unit_Type
 	Attacker,
 };
 
-enum class Attribute_Type
+enum class Unit_Attribute
 {
 	Energy,
 	Movement_Speed,

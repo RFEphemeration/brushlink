@@ -44,8 +44,8 @@ struct Unit
 	// Command type in unit context?
 	// need an already executed type stored by value
 	// and a repeatedly executed type full tree
-	std::queue<value_ptr<Command> > command_queue;
-	value_ptr<Command> idle_command;
+	std::queue<value_ptr<Action_Command> > command_queue;
+	value_ptr<Action_Command> idle_command;
 };
 
 

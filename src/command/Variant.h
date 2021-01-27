@@ -28,6 +28,7 @@ using Variant = std::variant<
 	Letter,
 	Seconds,
 	Action_Type,
+	Action_Step,
 	Unit_Type,
 	Unit_Attribute,
 	UnitID,
@@ -61,7 +62,7 @@ enum class Variant_Type
 	Any,
 };
 
-constexpr Set<Variant_Type> all_variant_types {
+const Set<Variant_Type> all_variant_types {
 	Variant_Type::Success,
 	Variant_Type::Bool,
 	Variant_Type::Number,
@@ -128,41 +129,41 @@ Variant_Type GetVariantType()
 
 inline Variant_Type GetVariantType(Variant v)
 {
-	if std::holds_alternative<Success>(v)
+	if (std::holds_alternative<Success>(v))
 		return Variant_Type::Success;
-	else if std::holds_alternative<Bool>(v)
+	else if (std::holds_alternative<Bool>(v))
 		return Variant_Type::Bool;
-	else if std::holds_alternative<Number>(v)
+	else if (std::holds_alternative<Number>(v))
 		return Variant_Type::Number;
-	else if std::holds_alternative<Digit>(v)
+	else if (std::holds_alternative<Digit>(v))
 		return Variant_Type::Digit;
-	else if std::holds_alternative<ValueName>(v)
+	else if (std::holds_alternative<ValueName>(v))
 		return Variant_Type::ValueName;
-	else if std::holds_alternative<Letter>(v)
+	else if (std::holds_alternative<Letter>(v))
 		return Variant_Type::Letter;
-	else if std::holds_alternative<Seconds>(v)
+	else if (std::holds_alternative<Seconds>(v))
 		return Variant_Type::Seconds;
-	else if std::holds_alternative<Action_Type>(v)
+	else if (std::holds_alternative<Action_Type>(v))
 		return Variant_Type::Action_Type;
-	else if std::holds_alternative<Action_Step>(v)
+	else if (std::holds_alternative<Action_Step>(v))
 		return Variant_Type::Action_Step;
-	else if std::holds_alternative<Unit_Type>(v)
+	else if (std::holds_alternative<Unit_Type>(v))
 		return Variant_Type::Unit_Type;
-	else if std::holds_alternative<Unit_Attribute>(v)
+	else if (std::holds_alternative<Unit_Attribute>(v))
 		return Variant_Type::Unit_Attribute;
-	else if std::holds_alternative<UnitID>(v)
+	else if (std::holds_alternative<UnitID>(v))
 		return Variant_Type::UnitID;
-	else if std::holds_alternative<Unit_Group>(v)
+	else if (std::holds_alternative<Unit_Group>(v))
 		return Variant_Type::Unit_Group;
-	else if std::holds_alternative<Energy>(v)
+	else if (std::holds_alternative<Energy>(v))
 		return Variant_Type::Energy;
-	else if std::holds_alternative<Point>(v)
+	else if (std::holds_alternative<Point>(v))
 		return Variant_Type::Point;
-	else if std::holds_alternative<Direction>(v)
+	else if (std::holds_alternative<Direction>(v))
 		return Variant_Type::Direction;
-	else if std::holds_alternative<Line>(v)
+	else if (std::holds_alternative<Line>(v))
 		return Variant_Type::Line;
-	else if std::holds_alternative<Area>(v)
+	else if (std::holds_alternative<Area>(v))
 		return Variant_Type::Area;
 	return Variant_Type::Any;
 }
@@ -207,6 +208,8 @@ inline std::string ToString(Variant_Type v)
 		return "Line";
 	case Variant_Type::Area:
 		return "Area";
+	case Variant_Type::Any:
+		return "Any";
 	}
 	return "Any";
 }

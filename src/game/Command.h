@@ -9,6 +9,7 @@ namespace Brushlink
 
 // forward declare for Evaluate parameter, maybe not necessary
 struct Unit;
+struct Game;
 
 // temporary
 struct CommandContext
@@ -16,7 +17,7 @@ struct CommandContext
 	Game & game;
 	PlayerID player_id;
 
-	shared_ptr<CommandContext> parent;
+	std::shared_ptr<CommandContext> parent;
 };
 
 // temporary

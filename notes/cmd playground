@@ -1,0 +1,64 @@
+
+
+Function Sum Number
+	Parameter values Repeatable Number
+	Sequence
+		SetLocal sum 0
+		ForEach values value
+			SetLocal sum
+				Add sum value
+		Get sum
+
+
+Function Wounded Func<Unit Number>
+	LeftParameter units UnitGroup
+
+
+Function ApplyFilter UnitGroup
+	LeftParameter units UnitGroup
+	Parameter filter Filter
+	Parameter size Number
+
+
+Function Ratio Number
+	ContextParameter group UnitGroup (OneOf MostProximalParent Selection)
+	Parameter ratio Number
+	Sequence
+		SetLocal size GroupSize group
+		If size GreaterThan 0
+			then Max 1 size DividedBy ratio
+			else 0
+
+
+If multiple implied options, present them to the player
+
+
+(Command) (Select) (Allies) (InStatQuartile) Health 1
+
+
+
+Function
+	name Sum
+	type Number
+	[leftParameter LeftParameter]
+	parameters
+		Parameter
+			values
+			Repeatable
+			Number
+		[Parameter]
+	Sequence
+		SetLocal
+			sum
+			0
+		ForEach
+			values
+			value
+			SetLocal
+				sum
+				Add
+					sum 
+					value
+		Get
+			sum
+		[Element]

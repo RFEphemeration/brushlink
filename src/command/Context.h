@@ -1,6 +1,8 @@
 #ifndef BRUSHLINK_CONTEXT_H
 #define BRUSHLINK_CONTEXT_H
 
+#include "Player.h"
+
 namespace Command
 {
 
@@ -13,7 +15,7 @@ enum class Scope
 
 struct Context
 {
-	Player * player {nullptr};
+	Brushlink::Player * player {nullptr};
 	Context * parent {nullptr};
 
 	Scope scope;
