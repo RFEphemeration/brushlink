@@ -2,6 +2,7 @@
 #define BRUSHLINK_ELEMENT_HPP
 
 #include "IEvaluable.hpp"
+#include "Parameter.hpp"
 
 namespace Command
 {
@@ -27,6 +28,17 @@ struct Element : public IEvaluable
 	// these changes depending on contextual use, so they cannot be const
 	Implicit implicit;
 	value_ptr<Element> * location_in_parent;
+
+	Element(ElementName name
+		, Variant_Type type
+		, value_ptr<Parameter> left_parameter
+		, std::vector<value_ptr<Parameter> > parameters
+	)
+		: name(name)
+		, type(type)
+		, left_parameter(left_parameter)
+		, parameters(parameters)
+	{ }
 
 	virtual ~Element() = default;
 
@@ -72,7 +84,7 @@ struct Literal : public Element
 
 	std::string GetPrintString(std::string line_prefix) const
 	{
-		return ToString(TVal);
+		return line_prefix + ToString(value);
 	}
 
 	ErrorOr<Variant> Evaluate(Context & context) const override
@@ -98,7 +110,7 @@ struct GetNamedValue : public Element
 	// this should only be used inside of Parameter::EvaluateRepeatable
 	// after an explicit dynamic cast
 	ErrorOr<std::vector<Variant>> EvaluateRepeatable(Context & context) const override;
-}
+};
 
 struct ElementFunction : public Element
 {
@@ -106,7 +118,7 @@ struct ElementFunction : public Element
 
 	virtual Element * clone() const override
 	{
-		return new ElementWord(*this);
+		return new ElementFunction(*this);
 	}
 
 	ErrorOr<Variant> Evaluate(Context & context) const override;
@@ -142,17 +154,31 @@ struct BuiltinFunction : public Element
 		{
 			return Error("Not enough parameters during evaluation");
 		}
-		auto next = [&] -> ErrorOr<TNext>
+		auto next = [&]() -> ErrorOr<TNext>
 		{
 			if constexpr(std::is_same<TNext, Context &>::value)
+			{
 				return context;
+			}
 			else if constexpr (std::is_same<TNext, const Parameter *>::value)
+			{
 				// no need to copy if parameter is const
-				return params.pop.get();
+				TNext n = params.front();
+				params.pop();
+				return n;
+			}
 			else if constexpr (IsSpecialization<TNext, std::vector>::value)
-				return params.pop->template EvaluateAsRepeatable<TNext::value_type>(context);
+			{
+				TNext n = params.front()->EvaluateAsRepeatable<TNext::value_type>(context);
+				params.pop();
+				return n;
+			}
 			else
-				return params.pop()->template EvaluateAs<T>(context);
+			{
+				TNext n = params.front()->template EvaluateAs<TNext::value_type>(context);
+				params.pop();
+				return n;
+			}
 		}();
 		if constexpr (sizeof...(TRest) == 0)
 		{
@@ -160,7 +186,7 @@ struct BuiltinFunction : public Element
 			{
 				return Error("Too many parameters during evaluation");
 			}
-			return std::tuple<T>{ CHECK_RETURN(next) };
+			return std::tuple<TNext>{ CHECK_RETURN(next) };
 		}
 		else
 		{
@@ -169,7 +195,7 @@ struct BuiltinFunction : public Element
 			// aren't there more likely to be cascading errors then?
 			auto rest = MakeEvaluatedArgs<TRest...>(params, context);
 			return std::tuple_cat(
-				std::tuple<T>{ CHECK_RETURN(next) },
+				std::tuple<TNext>{ CHECK_RETURN(next) },
 				CHECK_RETURN(rest)
 			);
 		}
@@ -179,21 +205,21 @@ struct BuiltinFunction : public Element
 	{
 		if constexpr(sizeof...(TArgs) == 0)
 		{
-			return Variant{CHECK_RETURN((context.*func)())};
+			return Variant{CHECK_RETURN(context.*eval_func())};
 		}
 		else
 		{
 			std::queue<Parameter *> params = GetParams();
 			if (eval_func.index == 0)
 			{
-				auto args = CHECK_RETURN(MakeEvaluatedArgs<Context &, TArgs...>(params, context));
+				auto args = CHECK_RETURN((MakeEvaluatedArgs<Context &, TArgs...>(params, context)));
 				return Variant{
 					CHECK_RETURN(std::apply(*std::get<0>(eval_func), args))
 				};
 			}
 			else
 			{
-				auto args = CHECK_RETURN(MakeEvaluatedArgs<TArgs...>(params, context));
+				auto args = CHECK_RETURN((MakeEvaluatedArgs<TArgs...>(params, context)));
 				return Variant{
 					CHECK_RETURN(std::apply(*std::get<1>(eval_func), args))
 				};

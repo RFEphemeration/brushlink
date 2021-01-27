@@ -11,10 +11,10 @@ enum class TokenType
 {
 	None,
 	Element,
-	Identifier
+	Identifier,
 	Name,
 	Number,
-}
+};
 
 struct Token
 {

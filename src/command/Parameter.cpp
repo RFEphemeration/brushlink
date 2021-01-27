@@ -481,6 +481,14 @@ Parameter_Implied::Parameter_Implied(std::optional<ValueName> name, value_ptr<Co
 	// we can currently only access last
 }
 
+// for value ptr
+Parameter * Parameter_Implied::clone() const override
+{
+	Parameter_Implied * clone = new Parameter_Implied(*this);
+	clone->implied->implicit = Implicit::Child;
+	return clone;
+}
+
 Element * Parameter_Implied::GetLastArgument()
 {
 	return implied.get();

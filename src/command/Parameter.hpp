@@ -45,7 +45,7 @@ struct Parameter_Basic : public Parameter
 	// for use by value_ptr
 	Parameter * clone() const override
 	{
-		return new Parameter(*this);
+		return new Parameter_Basic(*this);
 	}
 
 	// Parameter interface
@@ -114,12 +114,7 @@ struct Parameter_Implied : public Parameter
 	Parameter_Implied(std::optional<ValueName> name, value_ptr<Element> && implied);
 
 	// for use by value_ptr
-	Parameter * clone() const override
-	{
-		Parameter * clone = new Parameter_Implied(*this);
-		clone->implied->implicit = Implicit::Child;
-		return clone;
-	}
+	Parameter * clone() const override;
 
 	// Parameter interface
 	Element * GetLastArgument() override;

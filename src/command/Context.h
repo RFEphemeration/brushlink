@@ -1,7 +1,15 @@
 #ifndef BRUSHLINK_CONTEXT_H
 #define BRUSHLINK_CONTEXT_H
 
-#include "Player.h"
+#include "BuiltinTypedefs.h"
+
+namespace Brushlink
+{
+
+struct Player;
+
+} // namespace Brushlink
+
 
 namespace Command
 {
@@ -23,9 +31,9 @@ struct Context
 	// these two are only used for function scope contexts
 	// consider subclassing?
 	bool recurse {false};
-	Table<ValueName, std::vector<Variant> > values;
+	Farb::Table<ValueName, std::vector<Variant> > values;
 
-	Table<ValueName, std::vector<Variant> > arguments;
+	Farb::Table<ValueName, std::vector<Variant> > arguments;
 
 	virtual ~Context() = default;
 
