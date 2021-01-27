@@ -113,7 +113,7 @@ void ScaleNotQuiteNearest()
 
 void Window::PresentAndUpdate()
 {
-	TSize window = tigrUpdate(screen.get());
+	/*TSize window = */tigrUpdate(screen.get());
 	/* upscaling here breaks using blit in world::render
 	// upscaling via a second bitmap breaks expected event locations
 	// we should probably just write a shader to do it

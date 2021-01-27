@@ -13,7 +13,6 @@
 #include "Game_Basic_Types.h"
 #include "Command.h"
 #include "Action.h"
-#include "Player.h"
 
 namespace Brushlink
 {

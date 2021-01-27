@@ -1,8 +1,20 @@
-void Move(CommandContext & context, Unit_Group actors, Point location)
+#include "Command.h"
+#include "Context.h"
+
+namespace Brushlink
+{
+
+void Move(Command::Context & context, Unit_Group actors, Point location)
 {
 	for (auto & unit_id : actors.members)
 	{
-		Unit & unit = context.GetUnit(unit_id);
+		ErrorOr<Ref<Unit>> result = context.GetUnit(unit_id);
+		if (result.IsError())
+		{
+			// rmf todo: log invalid unit id? report back to user?
+			continue;
+		}
+		auto unit = result.GetValue();
 		unit.command_queue.clear();
 		unit.command_queue.push_back()
 	}
@@ -11,7 +23,7 @@ void Move(CommandContext & context, Unit_Group actors, Point location)
 struct Action_Move : Action_Command
 {
 	Point location;
-	Action_Step Evaluate(CommandContext & context, Unit & unit)
+	Action_Step Evaluate(Command::Context & context, Unit & unit)
 	{
 		Point next = unit.position;
 		int distance = location.CardinalDistance(next);
@@ -81,3 +93,6 @@ void SetUnitCommand(UnitId unit_id, ElementName command, std::vector<Value> para
 	Unit & unit = context.GetUnit(unit_id);
 
 }
+
+
+} // namespace Brushlink

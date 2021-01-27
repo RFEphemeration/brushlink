@@ -1,5 +1,7 @@
 
 #include "Context.h"
+#include "Game.h"
+#include "Player.h"
 
 namespace Command
 {
@@ -61,6 +63,18 @@ ErrorOr<std::vector<Variant>> Context::GetNamedValue(ValueName name)
 	}
 
 	return Error("No value found with name " + name.value);
+}
+
+ErrorOr<Brushlink::Unit &> GetUnit(Brushlink::UnitID id)
+{
+	if (Contains(game->world.units, id))
+	{
+		return game->world.units[id];
+	}
+	else
+	{
+		return Error("InvalidID");
+	}
 }
 
 ErrorOr<Success> Context::Recurse()

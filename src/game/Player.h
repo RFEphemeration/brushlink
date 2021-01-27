@@ -12,6 +12,7 @@
 #include "Location.h"
 #include "Game_Basic_Types.h"
 #include "Command.h"
+#include "Context.h"
 
 namespace Brushlink
 {
@@ -66,7 +67,7 @@ struct Player
 	Point camera_location;
 
 	Command::Context root_command_context;
-	Table<Number, UnitGroup> command_groups;
+	Table<Number, Unit_Group> command_groups;
 
 	// todo: command buffer, stored values, evaluation context, etc
 
@@ -74,7 +75,7 @@ struct Player
 
 	void RemoveUnits(Set<UnitID> unit_ids);
 
-	ErrorOr<ElementToken> GetTokenForName(ElementName name);
+	ErrorOr<Command::ElementToken> GetTokenForName(Command::ElementName name);
 
 
 };

@@ -4,6 +4,11 @@
 
 #include "Action.h"
 
+namespace Command
+{
+	struct Context;
+} // namespace Command
+
 namespace Brushlink
 {
 
@@ -12,6 +17,7 @@ struct Unit;
 struct Game;
 
 // temporary
+/*
 struct CommandContext
 {
 	Game & game;
@@ -19,11 +25,12 @@ struct CommandContext
 
 	std::shared_ptr<CommandContext> parent;
 };
+*/
 
 // temporary
 struct Action_Command
 {
-	Action_Step Evaluate(CommandContext & context, Unit & unit) { return {}; }
+	Action_Step Evaluate(Command::Context & context, Unit & unit) { return {}; }
 	bool EvaluateEveryTick() { return false; }
 };
 

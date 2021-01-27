@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 			// especially for things like mouse input
 			// which we could render on top of the world
 			window.Clear();
-			game.Render(window.screen_buffer.get(), window.GetWorldPortion());
+			game.Render(window.screen.get(), window.GetWorldPortion());
 			window.PresentAndUpdate();
 
 			auto input_result = input.ProcessInput(

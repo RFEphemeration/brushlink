@@ -3,10 +3,15 @@
 
 #include "BuiltinTypedefs.h"
 
+#include "Basic_Types.h"
+#include "Variant.h"
+#include "Unit.h"
+
 namespace Brushlink
 {
 
 struct Player;
+struct Game;
 
 } // namespace Brushlink
 
@@ -23,6 +28,7 @@ enum class Scope
 
 struct Context
 {
+	Brushlink::Game * game {nullptr};
 	Brushlink::Player * player {nullptr};
 	Context * parent {nullptr};
 
@@ -31,16 +37,17 @@ struct Context
 	// these two are only used for function scope contexts
 	// consider subclassing?
 	bool recurse {false};
-	Farb::Table<ValueName, std::vector<Variant> > values;
+	Farb::Table<Brushlink::ValueName, std::vector<Variant> > values;
 
-	Farb::Table<ValueName, std::vector<Variant> > arguments;
+	Farb::Table<Brushlink::ValueName, std::vector<Variant> > arguments;
 
 	virtual ~Context() = default;
 
 	// internal functions
 	Set<Variant_Type> GetAllowedWithImplied(Set<Variant_Type> allowed) const;
 	Context MakeChild(Scope new_scope);
-	ErrorOr<std::vector<Variant>> GetNamedValue(ValueName name);
+	ErrorOr<std::vector<Variant>> GetNamedValue(Brushlink::ValueName name);
+	ErrorOr<Ref<Brushlink::Unit>> GetUnit(Brushlink::UnitID id);
 
 	// exposed functions
 	ErrorOr<Success> Recurse();
@@ -50,7 +57,7 @@ struct Context
 	ErrorOr<Variant> GetLast(ValueName name);
 	ErrorOr<Variant> GetNth(ValueName name);
 	ErrorOr<Number> Count(ValueName name);
-	ErrorOr<Point> GetAveragePoint(UnitGroup group);
+	ErrorOr<Point> GetAveragePoint(Unit_Group group);
 };
 
 /*
