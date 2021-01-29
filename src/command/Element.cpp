@@ -9,7 +9,7 @@ std::queue<Parameter *> Element::GetParams()
 	std::queue<Parameter *> params;
 	if (left_parameter)
 	{
-		params.push(left_parameter.get())
+		params.push(left_parameter.get());
 	}
 	for (auto & param : parameters)
 	{

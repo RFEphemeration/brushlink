@@ -3,6 +3,7 @@
 #define BRUSHLINK_PARSER_HPP
 
 #include <type_traits>
+#include <string>
 
 namespace Command
 {
@@ -37,7 +38,7 @@ struct Declaration
 {
 	enum class Type
 	{
-		Builtin
+		Builtin,
 		Element
 	};
 

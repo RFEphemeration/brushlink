@@ -1,5 +1,11 @@
+#pragma once
 #ifndef BRUSHLINK_GLOBAL_FUNCTIONS_H
 #define BRUSHLINK_GLOBAL_FUNCTIONS_H
+
+#include "ErrorOr.hpp"
+
+#include "Context.h"
+#include "Variant.h"
 
 namespace Command
 {

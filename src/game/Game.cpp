@@ -266,7 +266,7 @@ void Game::AllUnitsTakeAction()
 
 	auto UpdateUnitAction = [&](Unit & unit)
 	{
-		Command * command = unit.command_queue.empty()
+		Action_Command * command = unit.command_queue.empty()
 				? unit.idle_command.get()
 				: unit.command_queue.front().get();
 		unit.pending = command->Evaluate(

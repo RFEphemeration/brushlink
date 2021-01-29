@@ -13,7 +13,8 @@ Player Player::FromSettings(const Player_Settings & settings, PlayerID id, Point
 		data->graphical_preferences.front(),
 		starting_location,
 		Point{0,0}, // camera location, is this bottom_left or center?
-		CommandContext{} // @Feature Commands
+		Command::Context{}, // @Feature Commands
+		{}
 	};
 	return p;
 }

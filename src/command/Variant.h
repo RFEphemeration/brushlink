@@ -2,6 +2,8 @@
 #ifndef BRUSHLINK_VARIANT_H
 #define BRUSHLINK_VARIANT_H
 
+#include "BuiltinTypedefs.h"
+
 #include "Action.h"
 #include "Basic_Types.h"
 #include "Game_Basic_Types.h"
@@ -257,7 +259,27 @@ inline Variant_Type FromString(std::string s)
 	return Variant_Type::Any;
 }
 
-} // namespace Brushlink
+
+} // namespace Command
+
+namespace std
+{
+template<>
+class hash<Farb::Set<Command::Variant_Type>>
+{
+public:
+	size_t operator()(const Farb::Set<Command::Variant_Type> & set) const
+	{
+		size_t sum = 0;
+		for(auto type : set)
+		{
+			sum += static_cast<size_t>(1 << static_cast<int>(type));
+		}
+		return sum;
+	}
+};
+
+} // namespace std
 
 #endif // BRUSHLINK_VARIANT_H
 

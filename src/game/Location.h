@@ -37,7 +37,7 @@ struct Point
 		return CardinalDistance(other) == 1;
 	}
 
-	inline std::vector<Point> GetCarndinalNeighbors()
+	inline std::vector<Point> GetCardinalNeighbors()
 	{
 		return {
 			{x + 1, y},

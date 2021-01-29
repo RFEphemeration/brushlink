@@ -32,6 +32,14 @@ struct Action_Command
 {
 	Action_Step Evaluate(Command::Context & context, Unit & unit) { return {}; }
 	bool EvaluateEveryTick() { return false; }
+
+	virtual ~Action_Command()
+	{ }
+
+	virtual Action_Command * clone() const
+	{
+		return new Action_Command{};
+	}
 };
 
 
