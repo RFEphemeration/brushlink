@@ -2,12 +2,19 @@
 #include "Context.h"
 #include "Game.h"
 
+using namespace Command;
+
 namespace Brushlink
 {
 
 struct Action_Move : Action_Command
 {
 	Point location;
+
+	Action_Move (Point location)
+		: location(location)
+	{ }
+
 	Action_Step Evaluate(Command::Context & context, Unit & unit)
 	{
 		Point next = unit.position;
@@ -37,7 +44,7 @@ struct Action_Move : Action_Command
 	
 	Action_Command * clone() const override
 	{
-		return new Action_Move{{}, location};
+		return new Action_Move{*this};
 	}
 };
 
@@ -55,7 +62,7 @@ void Move(Command::Context & context, Unit_Group actors, Point location)
 		std::queue<value_ptr<Action_Command> > empty;
 		std::swap(unit.command_queue, empty);
 		// rmf todo: get offset from average location
-		unit.command_queue.push({new Action_Move{{}, location}});
+		unit.command_queue.push({new Action_Move{location}});
 	}
 }
 
@@ -98,12 +105,14 @@ Action_Step MultipleTickCommands()
 }
 */
 
+/*
 // how to apply type restrictions to which ElementNames are accepted?
-void SetUnitCommand(UnitId unit_id, ElementName command, std::vector<Value> parameters)
+void SetUnitCommand(UnitID unit_id, ElementName command, std::vector<Variant> parameters)
 {
 	Unit & unit = context.GetUnit(unit_id);
 
 }
+*/
 
 
 } // namespace Brushlink

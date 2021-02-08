@@ -18,12 +18,12 @@ struct Game;
 
 // temporary
 /*
-struct CommandContext
+struct Context
 {
 	Game & game;
 	PlayerID player_id;
 
-	std::shared_ptr<CommandContext> parent;
+	std::shared_ptr<Context> parent;
 };
 */
 

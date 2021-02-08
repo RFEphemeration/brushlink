@@ -28,7 +28,7 @@ using UnitID = NamedType<int, UnitIDTag>;
 
 struct Unit_Group
 {
-	std::vector<UnitID> members;
+	Farb::Set<UnitID> members;
 };
 
 enum class Unit_Type

@@ -1,5 +1,7 @@
 #include "Player.h"
 
+using namespace Command;
+
 namespace Brushlink
 {
 
@@ -9,6 +11,8 @@ Player Player::FromSettings(const Player_Settings & settings, PlayerID id, Point
 	Player p{
 		data,
 		settings,
+		{}, // exposed_elements
+		{}, // hidden_elements
 		id,
 		data->graphical_preferences.front(),
 		starting_location,
@@ -27,7 +31,7 @@ void Player::RemoveUnits(Set<UnitID> unit_ids)
 	{
 		for (auto & id : unit_ids)
 		{
-			pair.second.units.remove(id);
+			pair.second.members.erase(id);
 		}
 	}
 }
@@ -36,15 +40,15 @@ ErrorOr<ElementToken> Player::GetTokenForName(ElementName name)
 {
 	if (Contains(exposed_elements, name))
 	{
-		return {name, exposed_elements[name]->type};
+		return ElementToken{name, exposed_elements[name]->type};
 	}
 	if (Contains(hidden_elements, name))
 	{
-		return {name, hidden_elements[name]->type};
+		return ElementToken{name, hidden_elements[name]->type};
 	}
 	if (Contains(builtins, name))
 	{
-		return {name, builtins[name]->type};
+		return ElementToken{name, builtins.at(name)->type};
 	}
 	return Error{"No element with name " + name.value + " was found."};
 }
