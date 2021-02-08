@@ -90,7 +90,7 @@ const std::string horizontal_line = "––––––––––––––�
 
 // @Feature different default_hotkeys for numbers of columns/rows
 
-CardBuilder::CardBuilder(CommandContext & context)
+CardBuilder::CardBuilder(Context & context)
 	: columns{default_columns}
 	, rows{default_rows}
 	, hotkeys{default_hotkeys}
@@ -257,7 +257,7 @@ ErrorOr<Success> CardBuilder::InitNewCommand()
 }
 
 
-void CommandContext::RefreshAllowedTypes()
+void Context::RefreshAllowedTypes()
 {
 	allowed.priority.clear();
 	allowed.total_right.clear();
@@ -299,7 +299,7 @@ void CommandContext::RefreshAllowedTypes()
 	allowed.total_instruction[ET::Cancel] = 1;
 }
 
-ErrorOr<Success> CommandContext::PerformUndo()
+ErrorOr<Success> Context::PerformUndo()
 {
 	// we just performed an Undo, so we can do one fewer
 	allowed.total_instruction[ET::Undo] -= 1;
@@ -324,7 +324,7 @@ ErrorOr<Success> CommandContext::PerformUndo()
 	return Success();
 }
 
-ErrorOr<Success> CommandContext::PerformRedo()
+ErrorOr<Success> Context::PerformRedo()
 {
 	if (undo_count <= 0 || undo_stack.size() == 0)
 	{
@@ -350,7 +350,7 @@ ErrorOr<Success> CommandContext::PerformRedo()
 	return Success();
 }
 
-void CommandContext::BreakUndoChain(ElementToken token)
+void Context::BreakUndoChain(ElementToken token)
 {
 	if (undo_count > 0)
 	{
@@ -365,7 +365,7 @@ void CommandContext::BreakUndoChain(ElementToken token)
 	allowed.total_instruction[ET::Redo] = 0;
 }
 
-bool CommandContext::IsAllowed(ElementToken token)
+bool Context::IsAllowed(ElementToken token)
 {
 	// should we assume tokens have associated elements?
 	if (!Contains(element_dictionary, token.name.value)
@@ -393,7 +393,7 @@ bool CommandContext::IsAllowed(ElementToken token)
 	return true;
 }
 
-void CommandContext::GetAllowedNextElements(Set<ElementName> & allowed)
+void Context::GetAllowedNextElements(Set<ElementName> & allowed)
 {
 	allowed.clear();
 	for (auto & pair : element_dictionary)
@@ -410,7 +410,7 @@ void CommandContext::GetAllowedNextElements(Set<ElementName> & allowed)
 	}
 }
 
-ErrorOr<Success> CommandContext::AppendElement(value_ptr<CommandElement>&& next)
+ErrorOr<Success> Context::AppendElement(value_ptr<CommandElement>&& next)
 {
 	int skips = skip_count; // copying here, append takes a ref and modifies
 	bool success = CHECK_RETURN(command->AppendArgument(
@@ -586,7 +586,7 @@ std::string CardBuilder::MakeCurrentTabPrintString()
 				{
 					continue;
 				}
-				if (Contains(CommandContext::instruction_element_types, pair.first))
+				if (Contains(Context::instruction_element_types, pair.first))
 				{
 					return "Instructions";
 				}

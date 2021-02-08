@@ -5,6 +5,7 @@
 
 #include "CardTypes.h"
 #include "Context.h"
+#include "Element.hpp"
 
 namespace Command
 {
@@ -42,7 +43,7 @@ struct CardBuilder
 	int undo_count;
 	std::vector<std::string> action_log;
 
-	CardBuilder(CommandContext & context);
+	CardBuilder(Context & context);
 
 	void SetupTabs(std::vector<ElementToken> tokens);
 

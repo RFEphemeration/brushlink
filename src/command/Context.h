@@ -61,7 +61,7 @@ struct Context
 };
 
 /*
-struct PlayerCommandContext : public Context
+struct PlayerContext : public Context
 {
 	Player * player;
 	Dictionary hidden_elements;
@@ -70,7 +70,7 @@ struct PlayerCommandContext : public Context
 	Table<ValueName, std::vector<Variant> > global_values;
 };
 
-struct UnitCommandContext : public Context
+struct UnitContext : public Context
 {
 };
 

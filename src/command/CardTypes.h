@@ -46,6 +46,14 @@ using HotKeyLoc = std::pair<int,int>;
 using TabTokenMapping = std::vector<std::vector<ElementToken>>;
 
 using CardInput = std::variant<Instruction, TabNav, ElementToken, HotKeyLoc>;
+
+class Tab
+{
+public:
+	Variant_Type type;
+	TabTokenMapping tokens;
+};
+
 }
 
 
