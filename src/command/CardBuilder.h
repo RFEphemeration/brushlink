@@ -65,7 +65,7 @@ struct CardBuilder
 	ErrorOr<Success> PerformUndo();
 	ErrorOr<Success> PerformRedo();
 	void BreakUndoChain(ElementToken token);
-	ErrorOr<Success> AppendElement(value_ptr<CommandElement>&& next);
+	ErrorOr<Success> AppendElement(value_ptr<Element>&& next);
 };
 
 } // namespace Command

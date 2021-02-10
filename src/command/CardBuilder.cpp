@@ -8,7 +8,7 @@ namespace Command
 
 const int default_columns = 4;
 const int default_rows = 4;
-const Table<std::string, CardBuilder::CardInput> default_hotkeys{
+const Table<std::string, CardInput> default_hotkeys{
 	{"Tab", {TabNav::NextHighestPriority}},
 	{"Back", {TabNav::Back}},
 	{"Left", {TabNav::Left}},
@@ -74,7 +74,7 @@ const Table<Variant_Type, int> default_tab_type_indexes{
 	{Variant_Type::Unit_Attribute, 5},
 
 	{Variant_Type::UnitID, 6},
-	{Variant_Type::UnitGroup, 6},
+	{Variant_Type::Unit_Group, 6},
 
 	// should Energy and Seconds be variant_types at all?
 	{Variant_Type::Seconds, 7},
@@ -410,7 +410,7 @@ void Context::GetAllowedNextElements(Set<ElementName> & allowed)
 	}
 }
 
-ErrorOr<Success> Context::AppendElement(value_ptr<CommandElement>&& next)
+ErrorOr<Success> Context::AppendElement(value_ptr<Element>&& next)
 {
 	int skips = skip_count; // copying here, append takes a ref and modifies
 	bool success = CHECK_RETURN(command->AppendArgument(

@@ -6,6 +6,14 @@
 namespace Command
 {
 
+// should probably make this a per-player setting
+const Table<Variant_Type, Set<Variant_Type>> allowed_with_implied{
+	//{ET::Selector, {ET::Set, ET::Filter, ET::Group_Size, ET::Superlative}},
+	//{ET::Location, {ET::Point, ET::Line, ET::Direction, ET::Area}},
+	//{ET::Set, {ET::Number}} // Command Group, this feels like it would come up unintentionally too often
+	{Variant_Type::Number, {Variant_Type::Digit}} // Number literal
+};
+
 Set<Variant_Type> Context::GetAllowedWithImplied(Set<Variant_Type> allowed) const
 {
 	static Table<Set<Variant_Type>, Set<Variant_Type> > cache;

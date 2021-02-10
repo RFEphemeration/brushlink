@@ -45,7 +45,7 @@ struct Declaration
 	Type decl_type;
 
 	ElementName name;
-	Variant_Type type = Variant_Type::Unknown;
+	Variant_Type type = Variant_Type::Any;
 	value_ptr<Parameter> left_parameter;
 	std::vector<value_ptr<Parameter>> parameters;
 	value_ptr<Element> implementation;

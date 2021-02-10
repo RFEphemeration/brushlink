@@ -45,7 +45,7 @@ ErrorOr<Variant> KeyWords::ForEach(Context & context, std::vector<Variant> args,
 	return value;
 }
 
-ErrorOr<Variant> KeyWords::ForEachUnit(Context & context, UnitGroup group, ValueName name, const Parameter * operation)
+ErrorOr<Variant> KeyWords::ForEachUnit(Context & context, Unit_Group group, ValueName name, const Parameter * operation)
 {
 	Context child = context.MakeChild();
 	Variant value {Success{}};

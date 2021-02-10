@@ -472,7 +472,7 @@ ErrorOr<std::vector<Variant> > Parameter_OneOf::EvaluateRepeatable(Context & con
 	}
 }
 
-Parameter_Implied::Parameter_Implied(std::optional<ValueName> name, value_ptr<CommandElement> && implied)
+Parameter_Implied::Parameter_Implied(std::optional<ValueName> name, value_ptr<Element> && implied)
 	: Parameter{name}
 	, implied{implied}
 {

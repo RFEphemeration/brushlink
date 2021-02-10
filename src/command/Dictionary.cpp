@@ -93,7 +93,7 @@ const Dictionary builtins = []
 	Parameter expression Any)");
 	builtin(&Keywords::ForEachUnit,
 		R"(Builtin ForEachUnit Any
-	Parameter units UnitGroup
+	Parameter units Unit_Group
 	Parameter unit Optional ValueName
 		"unit"
 	Parameter expression Any)");
@@ -155,29 +155,29 @@ const Dictionary builtins = []
 	// but that doesn't play well with our type system in the current state...
 
 	builtin(&Context::CurrentSelection,
-		R"(Builtin CurrentSelection UnitGroup)");
+		R"(Builtin CurrentSelection Unit_Group)");
 	builtin(&Context::Allies,
-		R"(Builtin Allies UnitGroup)");
+		R"(Builtin Allies Unit_Group)");
 	builtin(&Context::Enemies,
-		R"(Builtin Enemies UnitGroup)");
+		R"(Builtin Enemies Unit_Group)");
 	builtin(&Context::CommandGroup,
-		R"(Builtin CommandGroup UnitGroup
+		R"(Builtin CommandGroup Unit_Group
 	Parameter id Number)");
 
 	builtin(&Context::Select,
 		R"(Builtin Select Success
 	Parameter group OneOf
-		Parameter UnitGroup
-		Parameter Implied UnitGroup
+		Parameter Unit_Group
+		Parameter Implied Unit_Group
 			Allies)");
 	builtin(&Context::SetCommandGroup,
 		R"(Builtin AssignCommandGroup Success
-	Parameter group UnitGroup Optional
+	Parameter group Unit_Group Optional
 		CurrentSelection
 	Parameter id Number)");
 	builtin(&Context::SetAction,
 		R"(Builtin SetAction Success
-	Parameter group UnitGroup Optional
+	Parameter group Unit_Group Optional
 		CurrentSelection
 	Parameter action Action_Step)");
 
