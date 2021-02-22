@@ -6,6 +6,7 @@
 #include "CardTypes.h"
 #include "Context.h"
 #include "Element.hpp"
+#include "Dictionary.h"
 
 namespace Command
 {
@@ -66,6 +67,8 @@ struct CardBuilder
 	ErrorOr<Success> PerformRedo();
 	void BreakUndoChain(ElementToken token);
 	ErrorOr<Success> AppendElement(value_ptr<Element>&& next);
+
+	static std::vector<ElementToken> MakeTokensFromDictionary(Dictionary dict);
 };
 
 } // namespace Command

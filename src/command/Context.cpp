@@ -29,7 +29,7 @@ Set<Variant_Type> Context::GetAllowedWithImplied(Set<Variant_Type> allowed) cons
 		{
 			continue;
 		}
-		merged_type_set_with_implied.merge(Set<ElementType::Enum>{type_set_with_implied});
+		merged_type_set_with_implied.merge(Set<Variant_Type>{type_set_with_implied});
 	}
 	for (auto&& type : merged_type_set_with_implied)
 	{

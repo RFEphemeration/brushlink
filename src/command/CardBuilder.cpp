@@ -102,7 +102,7 @@ CardBuilder::CardBuilder(Context & context)
 	, page_row_offset{0}
 	, priority_next_count{0}
 {
-	SetupTabs(context.GetAllTokens());
+	SetupTabs(context.player->exposed_elements->GetAllTokens());
 	PickTabBasedOnContextState();
 }
 
@@ -645,6 +645,17 @@ std::string CardBuilder::MakeCurrentTabPrintString()
 		output += "\n";
 	}
 	return output;
+}
+
+std::vector<ElementToken> CardBuilder::MakeTokensFromDictionary(Dictionary dict)
+{
+	std::vector<ElementToken> tokens;
+	tokens.reserve(dict.size());
+	for (const auto & pair : dict)
+	{
+		tokens.push_back(ElementToken{pair.value.name, pair.value.type});
+	}
+
 }
 
 } // namespace Command
