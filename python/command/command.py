@@ -1,20 +1,24 @@
-
 # Elements
-
-
 class EvaluationError(Exception):
 	pass
 
+
 class Value:
 	def __init__(self, value, element_type):
+		if isinstance(value, Value):
+			raise EvaluationError("value is being nested, was %s, adding type %s" % (value, element_type))
 		self.value = value
 		self.element_type = element_type
 
 	def __str__(self):
-		return str(self.value) + ": " + self.element_type
+		if self.value is None:
+			return "(None): " + self.element_type
+		else:
+			return str(self.value) + ": " + self.element_type
 
 	def __repr__(self):
 		return self.__str__()
+
 
 class Parameter:
 	def __init__(self, name, element_type, default_value = None, repeatable = False):
@@ -23,8 +27,15 @@ class Parameter:
 		self.default_value = default_value
 		self.repeatable = repeatable
 
+	def compile(self, context):
+		# todo: compile default code rather than doing so in evaluation
+		# and assuming only a single element
+		if self.default_value:
+			pass
+
 	def accepts(self, element_type):
-		return self.element_type == element_type or self.element_type == 'any'
+		# rmf todo: any type matching needs more rigor
+		return self.element_type == element_type or self.element_type == 'any' or element_type == 'any'
 
 
 class Element:
@@ -35,6 +46,10 @@ class Element:
 
 	def evaluate(self, context, unevaluated_arguments):
 		pass
+
+	def compile(self, context):
+		for param in self.parameters:
+			param.compile(context)
 
 	def match_args_to_params(self, context, unevaluated_arguments):
 		args = []
@@ -68,7 +83,10 @@ class Element:
 					param_index += 1
 					param_repeatable_found = False
 				else:
-					raise EvaluationError("element %s has an argument of incorrect type. expects %s, got %s."  % (self.name, param.element_type, arg.element_type))
+					raise EvaluationError("element %s has an argument of incorrect type. expects %s, got %s." % (
+						self.name,
+						param.element_type,
+						arg.element.element_type))
 		if len(args) != len(self.parameters):
 			raise EvaluationError("element %s has an incorrect number of parameters" % (self.name))
 		return args
@@ -87,10 +105,10 @@ class Element:
 		return evaluated_args
 
 	@staticmethod
-	def strip_values(evaluated_arguments):
+	def unwrap_values(evaluated_arguments):
 		args = []
 		for arg in evaluated_arguments:
-			if type(arg) is list:
+			if isinstance(arg, list):
 				repeatable = []
 				for repeat in arg:
 					repeatable.append(repeat.value)
@@ -98,6 +116,7 @@ class Element:
 			else:
 				args.append(arg.value)
 		return args
+
 
 class Literal(Element):
 	def __init__(self, name, element_type, value):
@@ -107,43 +126,49 @@ class Literal(Element):
 	def evaluate(self, context, unevaluated_arguments):
 		if unevaluated_arguments:
 			raise EvaluationError("literal %s shouldn't have any arguments." % (self.name))
-		if type(self.value) is Value:
+		if isinstance(self.value, Value):
 			return self.value
 		else:
-			return Value(self.value, self.element_type);
+			return Value(self.value, self.element_type)
+
 
 class Builtin(Element):
-	def __init__(self, name, element_type, func, parameters):
+	def __init__(self, name, element_type, func, use_context, unwrap_values, parameters):
 		Element.__init__(self, name, element_type, parameters)
 		self.func = func
+		self.use_context = use_context
+		self.unwrap_values = unwrap_values
 
 	def evaluate(self, context, unevaluated_arguments):
-		value_args = self.evaluate_arguments(context, unevaluated_arguments)
-		args = Element.strip_values(value_args)
-		result = self.func(*args)
-		if type(result) is Value:
+		args = self.evaluate_arguments(context, unevaluated_arguments)
+		if self.unwrap_values:
+			args = Element.unwrap_values(args)
+		if self.use_context:
+			result = self.func(context, *args)
+		else:
+			result = self.func(*args)
+		if isinstance(result, Value):
 			return result
 		else:
 			return Value(result, self.element_type);
 
-class ContextBuiltin(Element):
-	def __init__(self, name, element_type, func, parameters):
-		Element.__init__(self, name, element_type, parameters)
-		self.func = func
-
-	def evaluate(self, context, unevaluated_arguments):
-		value_args = self.evaluate_arguments(context, unevaluated_arguments)
-		args = Element.strip_values(value_args)
-		result = self.func(context, *args)
-		if type(result) is Value:
-			return result
-		else:
-			return Value(result, self.element_type);
 
 class Definition(Element):
-	def __init__(self, name, element_type, parameters, evaluator):
+	def __init__(self, name, element_type, parameters, evaluator = None, context = None, code = None):
 		Element.__init__(self, name, element_type, parameters)
-		self.evaluator = evaluator
+		if evaluator:
+			self.evaluator = evaluator
+		elif code and context:
+			self.evaluator = EvalNode.make(context, ParseNode.parse(code))
+		elif code:
+			self.code = code
+		else:
+			self.evaluator = EvalNode(Literal('none', 'none', None))
+
+	def compile(self, context):
+		Element.compile(context)
+		if self.code and not self.evaluator:
+			self.evaluator = EvalNode.make(ParseNode.parse(context, self.code))
 
 	def evaluate(self, context, unevaluated_arguments):
 		args = self.evaluate_arguments(context, unevaluated_arguments)
@@ -151,10 +176,10 @@ class Definition(Element):
 		for param, arg in zip(self.parameters, args):
 			values[param.name] = arg
 		child_context = Context(context, values=values)
-		self.evaluator.evaluate(child_context);
+		return self.evaluator.evaluate(child_context)
+
 
 # Parsing
-
 class ParseNode:
 	def __init__(self, contents, indentation, parent = None, children = None):
 		self.contents = contents
@@ -196,13 +221,17 @@ class ParseNode:
 			current.children.append(node)
 			node.parent = current
 
-		return root
+		if len(root.children) == 1:
+			return root.children[0]
+		else:
+			return root
 
 	def evaluate(self, context):
 		evaluator = EvalNode.make(context, self)
 		return evaluator.evaluate(context)
 
 # Evaluation
+
 
 class EvalNode:
 	def __init__(self, element, arguments = None):
@@ -229,6 +258,7 @@ class EvalNode:
 
 # Context and builtins
 
+
 class Context:
 	def __init__(self, parent, values = None, definitions = None, types = None):
 		self.parent = parent
@@ -250,67 +280,89 @@ class Context:
 	# builtin functions
 
 	def set_local(self, name, value):
-		self.values[name] = value
+		self.values[name.value] = value
 		return value
 
 	def set_global(self, name, value):
 		context = self
 		while context.parent:
 			context = context.parent
-		context.values[name] = value
+		context.values[name.value] = value
 		return value
 
 	def get(self, name):
 		context = self
 		while context:
-			if name in context.values:
-				return context.values[name]
+			if name.value in context.values:
+				return context.values[name.value]
 			else:
 				context = context.parent
-		raise EvaluationError("get failed, no value found with name %s" % (name))
+		raise EvaluationError("get failed, no value found with name %s" % (name.value))
+
 
 def element_sum(operand, operands):
 	return sum(operands, operand)
 
+
 def sequence(children):
 	return children[-1]
 
-root = Context(None, definitions = {
-	'sequence' : Builtin('sequence', 'any', sequence, [
+
+root = Context(None, definitions={
+	'sequence': Builtin('sequence', 'any', sequence, False, False, [
 		Parameter('children', 'any', repeatable=True)
 	]),
-	'set_local': ContextBuiltin('set_local', 'none', Context.set_local, [
+	'set_local': Builtin('set_local', 'none', Context.set_local, True, False, [
 		Parameter('name', 'name'),
 		Parameter('value', 'any'),
 	]),
-	'set_global': ContextBuiltin('set_global', 'none', Context.set_global, [
+	'set_global': Builtin('set_global', 'none', Context.set_global, True, False, [
 		Parameter('name', 'name'),
 		Parameter('value', 'any'),
 	]),
-	'get': ContextBuiltin('get', 'any', Context.get, [
+	'get': Builtin('get', 'any', Context.get, True, False, [
 		Parameter('name', 'name'),
 	]),
-	'one' : Literal('one', 'number', 1),
-	'sum': Builtin('sum', 'number', sum, [
+	'one': Literal('one', 'number', 1),
+	'sum': Builtin('sum', 'number', sum, False, True, [
 		Parameter('operands', 'number', repeatable=True)
 	]),
 })
 
+root.definitions['add_one'] = Definition('add_one', 'number', [
+		Parameter('value', 'number')
+	],
+	context=root,
+	code="""
+	sum
+		get
+			value
+		one
+	""")
+
 # Testing
+
 
 def main():
 	print root.definitions.keys()
-	ast = ParseNode.parse ("""
+	ast = ParseNode.parse("""
 	set_local
 		hi
 		sum
 			one
 			one
+	add_one
+		one
+	set_local
+		hi
+		add_one
+			get
+				hi
 	get
 		hi""")
-
 	print ast
 	print ast.evaluate(root).value
+
 
 if __name__ == "__main__":
 	main()
