@@ -366,10 +366,16 @@ class EvalNode:
 		#if isinstance(self.element, Element):
 
 	def append_argument(self, arg):
-		if self.mapped_arguments and isinstance(self.mapped_arguments[-1], list) and self.mapped_arguments[-1]:
-			success = self.mapped_arguments[-1][-1].append_argument(arg)
-			if success:
-				return True
+		if self.mapped_arguments:
+			if not isinstance(self.mapped_arguments[-1], list):
+				success = self.mapped_arguments[-1].append_argument(arg)
+				if success:
+					return True
+			elif self.mapped_arguments[-1]:
+				success = self.mapped_arguments[-1][-1].append_argument(arg)
+				if success:
+					return True
+
 					
 		success = self.element.try_append_to_mapped_arguments(self.mapped_arguments, arg)
 		if success:
@@ -400,12 +406,14 @@ class EvalNode:
 			if not root_node:
 				root_node = node
 			else:
-				root_node.append_argument(node)
+				success = root_node.append_argument(node)
+				if not success:
+					raise EvaluationError("Failed to append argument")
 
 		# rmf todo: map arguments to params, if param is of type name, are all names literals?
 		for child in parse_node.children:
 			child_node = EvalNode.from_parse_tree(context, child)
-			success = root_node.element.try_append_to_mapped_arguments(node.mapped_arguments, child_node)
+			success = root_node.element.try_append_to_mapped_arguments(root_node.mapped_arguments, child_node)
 			if not success:
 				raise EvaluationError("incorrect argument")
 		return root_node
@@ -577,14 +585,9 @@ root.definitions['AddOne'] = Definition('AddOne', 'Number', [
 def main():
 	print root.definitions.keys()
 	ast = ParseNode.parse("""
-	SetLocal
-		hi
+	SetLocal hi
 		Sum one one
-	SetLocal
-		hi
-		AddOne
-			Get
-				hi
+	SetLocal hi AddOne Get hi
 	Define
 		AddTwo
 		Number
