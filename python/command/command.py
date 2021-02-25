@@ -58,6 +58,64 @@ class Element:
 		for param in self.parameters:
 			param.compile(context)
 
+	def try_append_to_mapped_arguments(self, mapped_arguments, next_argument):
+		""" using True, False as Accept, Continue. exceptions are errors """
+		param_index = len(mapped_arguments)
+		if mapped_arguments and isinstance(mapped_arguments[-1], list):
+			param_index -= 1
+
+		for param_index in range(param_index, len(self.parameters)):
+			param = self.parameters[param_index]
+			# rmf todo: how to deal with unbound names here?
+			if param.accepts(next_argument.element.element_type):
+				if not param.repeatable:
+					mapped_arguments.append(next_argument)
+				else:
+					if param_index < len(mapped_arguments):
+						mapped_arguments[param_index].append(next_argument)
+					else:
+						mapped_arguments.append([next_argument])
+				return True
+			if param.required:
+				raise EvaluationError("element %s parameter %s has an argument of incorrect type. expects %s, got %s." % (
+						self.name, param.name, param.element_type,
+						next_argument.element.element_type))
+			else:
+				if param.repeatable:
+					mapped_arguments.append([])
+				else:
+					# rmf todo: should we evaluate default values yet?
+					mapped_arguments.append(None)
+
+		# we may have modified mapped_arguments by filling in default values
+		# this should be alright, but will need updating with an undo feature
+		return False
+
+	def fill_defaults(self, context, unevaluated_arguments):
+		for param_index in range(len(self.parameters)):
+			param = self.parameters[param_index]
+			if param_index == len(unevaluated_arguments):
+				if param.required:
+					raise EvaluationError(
+							"element %s required parameter %s has no argument" % (
+								self.name, param.name))
+				if param.repeatable:
+					unevaluated_arguments.append([])
+				else:
+					unevaluated_arguments.append(None)
+
+			if unevaluated_arguments[param_index] == [] and param.repeatable and param.default_value:
+				default = context.get_definition(param.default_value)
+				unevaluated_arguments[param_index].append(EvalNode(default, []))
+			elif unevaluated_arguments[param_index] is None and (not param.repeatable) and param.default_value:
+				default = context.get_definition(param.default_value)
+				unevaluated_arguments[param_index] = EvalNode(default, [])
+
+		if len(unevaluated_arguments) != len(self.parameters):
+			raise EvaluationError("element %s has an incorrect number of parameters" % (self.name))
+
+
+	"""
 	def match_args_to_params(self, context, unevaluated_arguments):
 		args = []
 		arg_index = 0
@@ -104,11 +162,10 @@ class Element:
 		if len(args) != len(self.parameters):
 			raise EvaluationError("element %s has an incorrect number of parameters" % (self.name))
 		return args
-
+	"""
 	def evaluate_arguments(self, context, unevaluated_arguments):
-		unevaluated_args = self.match_args_to_params(context, unevaluated_arguments)
 		evaluated_args = []
-		for arg in unevaluated_args:
+		for arg in unevaluated_arguments:
 			if isinstance(arg, list):
 				evaluated_subs = []
 				for sub in arg:
@@ -133,7 +190,8 @@ class Element:
 
 class UnboundSymbol(Element):
 	def __init__(self, name):
-		# passing a repeatable not required Any parameter here
+		# consider passing a repeatable not required Any parameter here
+		# would probably be a bad idea, this likely means declarations are in order
 		Element.__init__(self, name, 'Any')
 		self.binding = None
 
@@ -151,6 +209,7 @@ class UnboundSymbol(Element):
 
 		return self.binding.evaluate(context, unevaluated_arguments)
 
+
 class Literal(Element):
 	def __init__(self, name, element_type, value):
 		Element.__init__(self, name, element_type)
@@ -164,6 +223,7 @@ class Literal(Element):
 		else:
 			return Value(self.value, self.element_type)
 
+
 class Handling:
 	# argument handling
 	PASSTHROUGH = 0
@@ -174,6 +234,7 @@ class Handling:
 	STANDALONE = 0
 	CONTEXT = 1
 
+
 class Builtin(Element):
 	def __init__(self, name, element_type, func, use_context=Handling.CONTEXT, handling=Handling.EVALUATE, parameters=None):
 		Element.__init__(self, name, element_type, parameters)
@@ -183,7 +244,7 @@ class Builtin(Element):
 
 	def evaluate(self, context, unevaluated_arguments):
 		if self.handling == Handling.PASSTHROUGH:
-			args = self.match_args_to_params(context, unevaluated_arguments)
+			args = unevaluated_arguments
 		else:
 			args = self.evaluate_arguments(context, unevaluated_arguments)
 
@@ -207,17 +268,17 @@ class Definition(Element):
 		if evaluator:
 			self.evaluator = evaluator
 		elif code and context:
-			self.evaluator = EvalNode.make(context, ParseNode.parse(code))
+			self.evaluator = EvalNode.from_parse_tree(context, ParseNode.parse(code))
 		elif code:
 			self.code = code
 		else:
+			# self.evaluator = EvalNode(Literal('None', 'None', None))
 			raise Exception("Definitions require either code or evaluator")
-			#self.evaluator = EvalNode(Literal('None', 'None', None))
 
 	def compile(self, context):
 		Element.compile(context)
 		if self.code and not self.evaluator:
-			self.evaluator = EvalNode.make(ParseNode.parse(context, self.code))
+			self.evaluator = EvalNode.from_parse_tree(ParseNode.parse(context, self.code))
 
 	def evaluate(self, context, unevaluated_arguments):
 		args = self.evaluate_arguments(context, unevaluated_arguments)
@@ -230,14 +291,16 @@ class Definition(Element):
 
 # Parsing
 class ParseNode:
-	def __init__(self, contents, indentation, parent = None, children = None):
+	def __init__(self, contents, indentation, end_children = None, children = None):
 		self.contents = contents
 		self.indentation = indentation
-		self.parent = parent
+		self.end_children = end_children if end_children is not None else []
 		self.children = children if children is not None else []
 
-	def __str__(self, indentation = 0):
+	def __str__(self, indentation=0):
 		out = ("   " * indentation) + self.contents
+		for child in self.end_children:
+			out += "\n" + child.__str__(indentation + 2)
 		for child in self.children:
 			out += "\n" + child.__str__(indentation + 1)
 		return out
@@ -252,59 +315,113 @@ class ParseNode:
 		for line in lines:
 			contents = line.lstrip('\t')
 			indentation = len(line) - len(contents)
-			if nodes and indentation >= nodes[-1].indentation + 2:
-				# this is a continuation of the previous line, not a new node
-				if nodes[-1].contents:
-					nodes[-1].contents += " "
-				nodes[-1].contents += contents
-			else:
-				nodes.append(ParseNode(contents, indentation))
+			nodes.append(ParseNode(contents, indentation))
 
-		root = ParseNode("Sequence", 0)
+		root_node = ParseNode("Sequence", 0)
 		for node in nodes:
 			if node.contents == "":
 				continue
-			current = root
+			current = root_node
 			while current.children and node.indentation > (current.indentation + 1):
 				current = current.children[-1]
-			current.children.append(node)
-			node.parent = current
+			if node.indentation > current.indentation + 1:
+				current.end_children.append(node)
+			else:
+				current.children.append(node)
 
-		if len(root.children) == 1:
-			return root.children[0]
+		if len(root_node.children) == 1:
+			return root_node.children[0]
 		else:
-			return root
+			return root_node
 
 	def evaluate(self, context):
-		evaluator = EvalNode.make(context, self)
+		evaluator = EvalNode.from_parse_tree(context, self)
 		return evaluator.evaluate(context)
 
 # Evaluation
 
 
 class EvalNode:
-	def __init__(self, element, arguments = None):
+	def __init__(self, element, mapped_arguments = None):
 		self.element = element
-		self.arguments = arguments if arguments is not None else []
+		self.mapped_arguments = mapped_arguments if mapped_arguments is not None else []
+
+	def __str__(self, indentation = 0):
+		output = "   " * indentation + self.element.name
+		for arg in self.mapped_arguments:
+			if isinstance(arg, list):
+				for each in arg:
+					output += "\n" + each.__str__(indentation + 1)
+			else:
+				output += "\n" + arg.__str__(indentation + 1)
+		return output
+
+	def __repr__(self):
+		return self.__str__()
 
 	def evaluate(self, context):
-		return self.element.evaluate(context, self.arguments)
-		#if isinstance(self.element, Element):	
+		# rmf todo: this is going to modify mapped arguments, is that okay?
+		self.element.fill_defaults(context, self.mapped_arguments)
+		return self.element.evaluate(context, self.mapped_arguments)
+		#if isinstance(self.element, Element):
+
+	def append_argument(self, arg):
+		if self.mapped_arguments and isinstance(self.mapped_arguments[-1], list) and self.mapped_arguments[-1]:
+			success = self.mapped_arguments[-1][-1].append_argument(arg)
+			if success:
+				return True
+					
+		success = self.element.try_append_to_mapped_arguments(self.mapped_arguments, arg)
+		if success:
+			return True
+
+		return False
+
+	def get_last_arg(self):
+		if not self.mapped_arguments:
+			return self
+		elif isinstance(self.mapped_arguments[-1], list):
+			if self.mapped_arguments[-1]:
+				return self.mapped_arguments[-1][-1]
+			else:
+				# what do we do here?
+				raise EvaluationError("mapped_arguments of %s last arg is an empty list" % (self.element.name))
+		else:
+			return self.mapped_arguments[-1].get_last_arg()
+
 
 	@staticmethod
-	def make(context, parse_node):
-		try:
-			element = context.get_definition(parse_node.contents)
-		except:
-			if context.is_known_type(parse_node.contents):
-				element = Literal(parse_node.contents, 'Type', parse_node.contents)
+	def from_parse_tree(context, parse_node):
+		root_node = None
+		for name in str.split(parse_node.contents):
+			if not name:
+				continue
+			node = EvalNode.try_bind(context, name)
+			if not root_node:
+				root_node = node
 			else:
-				element = UnboundSymbol(parse_node.contents)
-		node = EvalNode(element)
+				root_node.append_argument(node)
+
 		# rmf todo: map arguments to params, if param is of type name, are all names literals?
 		for child in parse_node.children:
-			node.arguments.append(EvalNode.make(context, child))
-		return node
+			child_node = EvalNode.from_parse_tree(context, child)
+			success = root_node.element.try_append_to_mapped_arguments(node.mapped_arguments, child_node)
+			if not success:
+				raise EvaluationError("incorrect argument")
+		return root_node
+
+	@staticmethod
+	def try_bind(context, name):
+		try:
+			element = context.get_definition(name)
+		except:
+			if context.is_known_type(name):
+				element = Literal(name, 'Type', name)
+			else:
+				element = UnboundSymbol(name)
+		return EvalNode(element)
+
+
 
 # Context and builtins
 
@@ -427,7 +544,7 @@ root = Context(None, types={
 			# rmf todo: type disambiguation from definitions
 			Parameter('element_type', 'Type'),
 			# rmf todo: generics/polymorphism, this should match element_type
-			Parameter('default_value', 'Any', required=False),
+			Parameter('default_value', 'Any', default_value='None'),
 			Parameter('repeatable', 'Boolean', default_value='False'),
 		]),
 		'Define': Builtin('Define', 'Element', Context.define, handling=Handling.PASSTHROUGH, parameters=[
@@ -462,11 +579,7 @@ def main():
 	ast = ParseNode.parse("""
 	SetLocal
 		hi
-		Sum
-			one
-			one
-	AddOne
-		one
+		Sum one one
 	SetLocal
 		hi
 		AddOne
@@ -483,15 +596,12 @@ def main():
 				value
 			one
 			one
-	SetLocal
-		hi
-		AddTwo
-			Get
-				hi
 	Get
 		hi""")
-	print ast
-	print ast.evaluate(root).value
+	#print ast
+	evaluator = EvalNode.from_parse_tree(root, ast)
+	print evaluator
+	print evaluator.evaluate(root).value
 
 
 if __name__ == "__main__":
