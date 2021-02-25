@@ -21,10 +21,11 @@ class Value:
 
 
 class Parameter:
-	def __init__(self, name, element_type, default_value = None, repeatable = False):
+	def __init__(self, name, element_type, default_value=None, required=True, repeatable=False):
 		self.name = name
 		self.element_type = element_type
 		self.default_value = default_value
+		self.required = (default_value is None) and required
 		self.repeatable = repeatable
 
 	def compile(self, context):
@@ -35,7 +36,13 @@ class Parameter:
 
 	def accepts(self, element_type):
 		# rmf todo: any type matching needs more rigor
-		return self.element_type == element_type or self.element_type == 'any' or element_type == 'any'
+		# also polymorphic types
+		# also generics
+		return self.element_type == element_type or self.element_type == 'Any' or element_type == 'Any'
+
+	@staticmethod
+	def make(name, element_type, default_value, repeatable):
+		return Parameter(name, element_type, default_value=default_value,repeatable=repeatable)
 
 
 class Element:
@@ -53,40 +60,47 @@ class Element:
 
 	def match_args_to_params(self, context, unevaluated_arguments):
 		args = []
-		param_repeatable_found = False
-		param_index = 0
-		for arg in unevaluated_arguments:
-			if param_index > len(self.parameters):
-				raise EvaluationError("element %s has too many arguments." % (self.name))
-			while True:
-				param = self.parameters[param_index]
-				if param.accepts(arg.element.element_type):
-					if param.repeatable:
-						if param_repeatable_found:
-							args[-1].append(arg)
-						else:
-							args.append([arg])
-							param_repeatable_found = True
-					else:
-						args.append(arg)
-						param_index += 1
+		arg_index = 0
+		for param_index in range(len(self.parameters)):
+			param = self.parameters[param_index]
+			while arg_index < len(unevaluated_arguments):
+				arg = unevaluated_arguments[arg_index]
+				if not param.accepts(arg.element.element_type):
 					break
-				elif param.repeatable and param_repeatable_found:
-					# this arg isn't for this repeatable param
-					# but we already have a value for it, so no need to add default
-					param_index += 1
-					param_repeatable_found = False
-				elif param.default_value:
+
+				if not param.repeatable:
+					args.append(arg)
+					arg_index += 1
+					break
+
+				elif param.repeatable:
+					if param_index == len(args) - 1:
+						# we have already started this parameter list
+						args[-1].append(arg)
+					else:
+						args.append([arg])
+					arg_index += 1
+
+			# we haven't yet added an argument for this parameter
+			if param_index >= len(args):
+				if param.default_value:
 					default = context.get_definition(param.default_value)
-					# default values don't require any arguments
 					args.append(EvalNode(default, []))
-					param_index += 1
-					param_repeatable_found = False
+				elif not param.required:
+					if param.repeatable:
+						args.append([])
+					else:
+						args.append(EvalNode(Literal('None', 'None', None), []))
 				else:
-					raise EvaluationError("element %s has an argument of incorrect type. expects %s, got %s." % (
-						self.name,
-						param.element_type,
-						arg.element.element_type))
+					if arg_index < len(unevaluated_arguments):
+						raise EvaluationError("element %s parameter %s has an argument of incorrect type. expects %s, got %s." % (
+								self.name, param.name, param.element_type,
+								unevaluated_arguments[arg_index].element.element_type))
+					else:
+						raise EvaluationError(
+							"element %s required parameter %s has no argument" % (
+								self.name, param.name))
+			
 		if len(args) != len(self.parameters):
 			raise EvaluationError("element %s has an incorrect number of parameters" % (self.name))
 		return args
@@ -117,6 +131,25 @@ class Element:
 				args.append(arg.value)
 		return args
 
+class UnboundSymbol(Element):
+	def __init__(self, name):
+		# passing a repeatable not required Any parameter here
+		Element.__init__(self, name, 'Any')
+		self.binding = None
+
+	def evaluate(self, context, unevaluated_arguments):
+		if not self.binding:
+			symbol_type = context.get_symbol_type(self.name)
+
+			if symbol_type == 'Element':
+				self.binding = context.get_definition(self.name)
+				self.element_type = self.binding.element_type
+			else:
+				# ValueName or Type
+				self.binding = Literal(self.name, symbol_type, self.name)
+				self.element_type = symbol_type
+
+		return self.binding.evaluate(context, unevaluated_arguments)
 
 class Literal(Element):
 	def __init__(self, name, element_type, value):
@@ -131,30 +164,45 @@ class Literal(Element):
 		else:
 			return Value(self.value, self.element_type)
 
+class Handling:
+	# argument handling
+	PASSTHROUGH = 0
+	EVALUATE = 1
+	UNWRAP = 2
+
+	# use context
+	STANDALONE = 0
+	CONTEXT = 1
 
 class Builtin(Element):
-	def __init__(self, name, element_type, func, use_context, unwrap_values, parameters):
+	def __init__(self, name, element_type, func, use_context=Handling.CONTEXT, handling=Handling.EVALUATE, parameters=None):
 		Element.__init__(self, name, element_type, parameters)
 		self.func = func
 		self.use_context = use_context
-		self.unwrap_values = unwrap_values
+		self.handling = handling
 
 	def evaluate(self, context, unevaluated_arguments):
-		args = self.evaluate_arguments(context, unevaluated_arguments)
-		if self.unwrap_values:
+		if self.handling == Handling.PASSTHROUGH:
+			args = self.match_args_to_params(context, unevaluated_arguments)
+		else:
+			args = self.evaluate_arguments(context, unevaluated_arguments)
+
+		if self.handling == Handling.UNWRAP:
 			args = Element.unwrap_values(args)
-		if self.use_context:
+
+		if self.use_context == Handling.CONTEXT:
 			result = self.func(context, *args)
 		else:
 			result = self.func(*args)
+
 		if isinstance(result, Value):
 			return result
 		else:
-			return Value(result, self.element_type);
+			return Value(result, self.element_type)
 
 
 class Definition(Element):
-	def __init__(self, name, element_type, parameters, evaluator = None, context = None, code = None):
+	def __init__(self, name, element_type, parameters, code=None, context=None, evaluator=None):
 		Element.__init__(self, name, element_type, parameters)
 		if evaluator:
 			self.evaluator = evaluator
@@ -163,7 +211,8 @@ class Definition(Element):
 		elif code:
 			self.code = code
 		else:
-			self.evaluator = EvalNode(Literal('none', 'none', None))
+			raise Exception("Definitions require either code or evaluator")
+			#self.evaluator = EvalNode(Literal('None', 'None', None))
 
 	def compile(self, context):
 		Element.compile(context)
@@ -211,7 +260,7 @@ class ParseNode:
 			else:
 				nodes.append(ParseNode(contents, indentation))
 
-		root = ParseNode("sequence", 0)
+		root = ParseNode("Sequence", 0)
 		for node in nodes:
 			if node.contents == "":
 				continue
@@ -247,11 +296,12 @@ class EvalNode:
 		try:
 			element = context.get_definition(parse_node.contents)
 		except:
-			# assume this is a value name
-			# todo: it could also be something that is not yet defined
-			# todo: it feels weird to use literals for value names
-			element = Literal(parse_node.contents, 'name', parse_node.contents)
+			if context.is_known_type(parse_node.contents):
+				element = Literal(parse_node.contents, 'Type', parse_node.contents)
+			else:
+				element = UnboundSymbol(parse_node.contents)
 		node = EvalNode(element)
+		# rmf todo: map arguments to params, if param is of type name, are all names literals?
 		for child in parse_node.children:
 			node.arguments.append(EvalNode.make(context, child))
 		return node
@@ -277,7 +327,42 @@ class Context:
 				context = context.parent
 		raise EvaluationError("get failed, no definition found with name %s" % (name))
 
+	def is_known_type(self, name):
+		context = self
+		while context:
+			if name in context.types:
+				return True
+			else:
+				context = context.parent
+		return False
+
+	def get_symbol_type(self, name):
+		context = self
+		while context:
+			if name in context.types:
+				return 'Type'
+			elif name in context.definitions:
+				return 'Element'
+			elif name in context.values:
+				return 'ValueName'
+			else:
+				context = context.parent
+		# assume unrecognized symbols are new value names, does this hold?
+		return 'ValueName'
+
 	# builtin functions
+
+	def define(self, name, element_type, parameters, evaluator):
+		eval_name = name.evaluate(self).value
+		eval_type = element_type.evaluate(self).value
+		eval_params = []
+		for param in parameters:
+			eval_params.append(param.evaluate(self).value)
+		sequence = EvalNode(self.get_definition('Sequence'), evaluator)
+		definition = Definition(eval_name, eval_type, eval_params, evaluator=sequence)
+		self.definitions[eval_name] = definition
+		# rmf todo: should this return the definition? or just nothing
+		return definition
 
 	def set_local(self, name, value):
 		self.values[name.value] = value
@@ -304,38 +389,67 @@ def element_sum(operand, operands):
 	return sum(operands, operand)
 
 
-def sequence(children):
-	return children[-1]
+def sequence(expressions):	
+	return expressions[-1]
 
 
-root = Context(None, definitions={
-	'sequence': Builtin('sequence', 'any', sequence, False, False, [
-		Parameter('children', 'any', repeatable=True)
-	]),
-	'set_local': Builtin('set_local', 'none', Context.set_local, True, False, [
-		Parameter('name', 'name'),
-		Parameter('value', 'any'),
-	]),
-	'set_global': Builtin('set_global', 'none', Context.set_global, True, False, [
-		Parameter('name', 'name'),
-		Parameter('value', 'any'),
-	]),
-	'get': Builtin('get', 'any', Context.get, True, False, [
-		Parameter('name', 'name'),
-	]),
-	'one': Literal('one', 'number', 1),
-	'sum': Builtin('sum', 'number', sum, False, True, [
-		Parameter('operands', 'number', repeatable=True)
-	]),
-})
+root = Context(None, types={
+		'Any',
+		'None',
+		'Type',
+		'ValueName',
+		'Boolean',
+		'Number',
+		'Parameter',
+		'Element',
+	},
+	definitions={
+		'Sequence': Builtin('Sequence', 'Any', sequence, Handling.STANDALONE, parameters=[
+			Parameter('expressions', 'Any', repeatable=True)
+		]),
+		'SetLocal': Builtin('SetLocal', 'None', Context.set_local, parameters=[
+			Parameter('name', 'ValueName'),
+			Parameter('value', 'Any'),
+		]),
+		'SetGlobal': Builtin('SetGlobal', 'None', Context.set_global, parameters=[
+			Parameter('name', 'ValueName'),
+			Parameter('value', 'Any'),
+		]),
+		'Get': Builtin('Get', 'Any', Context.get, parameters=[
+			Parameter('name', 'ValueName'),
+		]),
+		'True': Literal('True', 'Boolean', True),
+		'False': Literal('False', 'Boolean', False),
+		'None': Literal('None', 'none', None),
+		'Parameter': Builtin('Parameter', 'Parameter', Parameter.make, Handling.STANDALONE, Handling.UNWRAP, [
+			# rmf todo: default name based on index
+			Parameter('name', 'ValueName'),
+			# rmf todo: type disambiguation from definitions
+			Parameter('element_type', 'Type'),
+			# rmf todo: generics/polymorphism, this should match element_type
+			Parameter('default_value', 'Any', required=False),
+			Parameter('repeatable', 'Boolean', default_value='False'),
+		]),
+		'Define': Builtin('Define', 'Element', Context.define, handling=Handling.PASSTHROUGH, parameters=[
+			Parameter('name', 'ValueName'),
+			Parameter('element_type', 'Type'),
+			Parameter('parameters', 'Parameter', required=False, repeatable=True),
+			# rmf todo: generics/polymorphism, this should match element_type
+			Parameter('code', 'Any', repeatable=True),
+		]),
+		'one': Literal('one', 'Number', 1),
+		'Sum': Builtin('Sum', 'Number', sum, Handling.STANDALONE, Handling.UNWRAP, [
+			Parameter('operands', 'Number', repeatable=True)
+		]),
+	})
 
-root.definitions['add_one'] = Definition('add_one', 'number', [
-		Parameter('value', 'number')
+root.definitions['AddOne'] = Definition('AddOne', 'Number', [
+		Parameter('value', 'Number')
 	],
 	context=root,
 	code="""
-	sum
-		get
+	Sum
+		Get
 			value
 		one
 	""")
@@ -346,19 +460,35 @@ root.definitions['add_one'] = Definition('add_one', 'number', [
 def main():
 	print root.definitions.keys()
 	ast = ParseNode.parse("""
-	set_local
+	SetLocal
 		hi
-		sum
+		Sum
 			one
 			one
-	add_one
+	AddOne
 		one
-	set_local
+	SetLocal
 		hi
-		add_one
-			get
+		AddOne
+			Get
 				hi
-	get
+	Define
+		AddTwo
+		Number
+		Parameter
+			value
+			Number
+		Sum
+			Get
+				value
+			one
+			one
+	SetLocal
+		hi
+		AddTwo
+			Get
+				hi
+	Get
 		hi""")
 	print ast
 	print ast.evaluate(root).value
@@ -366,3 +496,13 @@ def main():
 
 if __name__ == "__main__":
 	main()
+
+
+# todo:
+"""
+you can't use anything as a value name after it has been defined as a definition or type
+is that okay?
+
+
+"""
+
