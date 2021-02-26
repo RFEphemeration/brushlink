@@ -317,7 +317,7 @@ class ParseNode:
 			indentation = len(line) - len(contents)
 			nodes.append(ParseNode(contents, indentation))
 
-		root_node = ParseNode("Sequence", 0)
+		root_node = ParseNode("RootSequence", 0)
 		for node in nodes:
 			if node.contents == "":
 				continue
@@ -335,8 +335,18 @@ class ParseNode:
 			return root_node
 
 	def evaluate(self, context):
-		evaluator = EvalNode.from_parse_tree(context, self)
-		return evaluator.evaluate(context)
+		if self.contents == "RootSequence":
+			if self.end_children:
+				raise EvaluationError("RootSequence has end_children, since it's implicit it should never have things on the same line.")
+			# this being hardcoded is probably not ideal? but fine for now
+			evaluated_children = []
+			for child in self.children:
+				child_evaluator = EvalNode.from_parse_tree(context, child)
+				evaluated_children.append(child_evaluator.evaluate(context))
+			return evaluated_children[-1]
+		else:	
+			evaluator = EvalNode.from_parse_tree(context, self)
+			return evaluator.evaluate(context)
 
 # Evaluation
 
@@ -533,6 +543,9 @@ root = Context(None, types={
 		'Element',
 	},
 	definitions={
+		'RootSequence': Builtin('RootSequence', 'Any', sequence, Handling.STANDALONE, parameters=[
+			Parameter('expressions', 'Any', repeatable=True)
+		]),
 		'Sequence': Builtin('Sequence', 'Any', sequence, Handling.STANDALONE, parameters=[
 			Parameter('expressions', 'Any', repeatable=True)
 		]),
@@ -601,12 +614,11 @@ def main():
 		Parameter value Number
 		Sum one one one Get value
 	SetLocal hi
-		AddTwo Get hi
+		AddThree Get hi
 	Get hi""")
 	# print ast
-	evaluator = EvalNode.from_parse_tree(root, ast)
-	print evaluator
-	print evaluator.evaluate(root).value
+	print ast
+	print ast.evaluate(root).value
 
 
 if __name__ == "__main__":
