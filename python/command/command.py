@@ -114,55 +114,6 @@ class Element:
 		if len(unevaluated_arguments) != len(self.parameters):
 			raise EvaluationError("element %s has an incorrect number of parameters" % (self.name))
 
-
-	"""
-	def match_args_to_params(self, context, unevaluated_arguments):
-		args = []
-		arg_index = 0
-		for param_index in range(len(self.parameters)):
-			param = self.parameters[param_index]
-			while arg_index < len(unevaluated_arguments):
-				arg = unevaluated_arguments[arg_index]
-				if not param.accepts(arg.element.element_type):
-					break
-
-				if not param.repeatable:
-					args.append(arg)
-					arg_index += 1
-					break
-
-				elif param.repeatable:
-					if param_index == len(args) - 1:
-						# we have already started this parameter list
-						args[-1].append(arg)
-					else:
-						args.append([arg])
-					arg_index += 1
-
-			# we haven't yet added an argument for this parameter
-			if param_index >= len(args):
-				if param.default_value:
-					default = context.get_definition(param.default_value)
-					args.append(EvalNode(default, []))
-				elif not param.required:
-					if param.repeatable:
-						args.append([])
-					else:
-						args.append(EvalNode(Literal('None', 'None', None), []))
-				else:
-					if arg_index < len(unevaluated_arguments):
-						raise EvaluationError("element %s parameter %s has an argument of incorrect type. expects %s, got %s." % (
-								self.name, param.name, param.element_type,
-								unevaluated_arguments[arg_index].element.element_type))
-					else:
-						raise EvaluationError(
-							"element %s required parameter %s has no argument" % (
-								self.name, param.name))
-			
-		if len(args) != len(self.parameters):
-			raise EvaluationError("element %s has an incorrect number of parameters" % (self.name))
-		return args
-	"""
 	def evaluate_arguments(self, context, unevaluated_arguments):
 		evaluated_args = []
 		for arg in unevaluated_arguments:
@@ -437,13 +388,18 @@ class EvalNode:
 
 	@staticmethod
 	def try_bind(context, name):
-		try:
-			element = context.get_definition(name)
-		except:
-			if context.is_known_type(name):
-				element = Literal(name, 'Type', name)
-			else:
-				element = UnboundSymbol(name)
+		if name.isdigit():
+			element = Literal(name, 'Number', int(name))
+		elif name[0] == "-":
+			element = Literal(name, 'Number', -1 * int(name[1:]))
+		else:
+			try:
+				element = context.get_definition(name)
+			except:
+				if context.is_known_type(name):
+					element = Literal(name, 'Type', name)
+				else:
+					element = UnboundSymbol(name)
 		return EvalNode(element)
 
 
@@ -523,6 +479,55 @@ class Context:
 				context = context.parent
 		raise EvaluationError("get failed, no value found with name %s" % (name.value))
 
+	def for_loop(self, count, index_name, expression):
+		value = Value(None, 'None')
+		eval_index_name = index_name.evaluate(self).value
+		for i in range(count.evaluate(self).value):
+			if eval_index_name:
+				set_local(self, eval_index_name, Value(i, 'Number'))
+			value = expression.evaluate(self)
+		return value
+
+	def for_each_loop(self, values, index_name, expression):
+		eval_index_name = index_name.evaluate(self).value
+		eval_values = []
+		for value in values:
+			eval_values.append(value.evaluate(self))
+
+		ret = Value(None, 'None')
+		for value in eval_value:
+			set_local(self, eval_index_name, value)
+			ret = value.evaluate(self)
+		return ret
+
+	def while_loop(self, condition, expression):
+		value = Value(None, 'None')
+		while condition.evaluate(self).value:
+			value = expression.evaluate(self)
+		return value
+
+	def if_branch(self, condition, consequent, alternative):
+		if condition.evaluate(self).value:
+			return consequent.evaluate(self).value
+		else:
+			return alternative.evaluate(self).value
+
+	def logical_not(self, value):
+		return Value(not value.value, 'Boolean')
+
+	def logical_all(self, expressions):
+		for expr in expressions:
+			if not expr.evaluate(self).value:
+				return Value(False, 'Boolean')
+		return Value(True, 'Boolean')
+
+	def logical_any(self, expressions):
+		for expr in expressions:
+			if expr.evaluate(self).value:
+				return Value(True, 'Boolean')
+		return Value(False, 'Boolean')
+
+
 
 def element_sum(operand, operands):
 	return sum(operands, operand)
@@ -531,6 +536,25 @@ def element_sum(operand, operands):
 def sequence(expressions):	
 	return expressions[-1]
 
+class Comparison:
+	EQ = 0
+	NE = 1
+	LT = 2
+	GT = 3
+	LT_EQ = 4
+	GT_EQ = 5
+
+
+def compare(left, comparison, right):
+	comparators = {
+		Comparison.EQ: lambda x, y: x == y,
+		Comparison.NE: lambda x, y: x != y,
+		Comparison.LT: lambda x, y: x < y,
+		Comparison.GT: lambda x, y: x > y,
+		Comparison.LT_EQ: lambda x, y: x <= y,
+		Comparison.GT_EQ: lambda x, y: x >= y
+	}
+	return comparators[comparison](left, right)
 
 root = Context(None, types={
 		'Any',
@@ -539,6 +563,7 @@ root = Context(None, types={
 		'ValueName',
 		'Boolean',
 		'Number',
+		'Comparison',
 		'Parameter',
 		'Element',
 	},
@@ -548,6 +573,25 @@ root = Context(None, types={
 		]),
 		'Sequence': Builtin('Sequence', 'Any', sequence, Handling.STANDALONE, parameters=[
 			Parameter('expressions', 'Any', repeatable=True)
+		]),
+		'For': Builtin('For', 'Any', Context.for_loop, handling=Handling.PASSTHROUGH, parameters=[
+			Parameter('count', 'Number'),
+			Parameter('value_name', 'ValueName', default_value='None'),
+			Parameter('expression', 'Any'),
+		]),
+		'ForEach': Builtin('ForEach', 'Any', Context.for_each_loop, handling=Handling.PASSTHROUGH, parameters=[
+			Parameter('values', 'Any', repeatable=True),
+			Parameter('value_name', 'ValueName'),
+			Parameter('expression', 'Any'),
+		]),
+		'While': Builtin('While', 'Any', Context.while_loop, handling=Handling.PASSTHROUGH, parameters=[
+			Parameter('condition', 'Boolean'),
+			Parameter('expression', 'Any'),
+		]),
+		'If': Builtin('If', 'Any', Context.if_branch, handling=Handling.PASSTHROUGH, parameters=[
+			Parameter('condition', 'Boolean'),
+			Parameter('consequent', 'Any'),
+			Parameter('alternative', 'Any', default_value='None'),
 		]),
 		'SetLocal': Builtin('SetLocal', 'None', Context.set_local, parameters=[
 			Parameter('name', 'ValueName'),
@@ -562,6 +606,15 @@ root = Context(None, types={
 		]),
 		'True': Literal('True', 'Boolean', True),
 		'False': Literal('False', 'Boolean', False),
+		'Not': Builtin('Not', 'Boolean', Context.logical_not, parameters=[
+			Parameter('value', 'Boolean'),
+		]),
+		'All': Builtin('All', 'Boolean', Context.logical_all, handling=Handling.PASSTHROUGH, parameters=[
+			Parameter('expressions', 'Boolean', repeatable='True'),
+		]), 
+		'Any': Builtin('Any', 'Boolean', Context.logical_any, handling=Handling.PASSTHROUGH, parameters=[
+			Parameter('expressions', 'Boolean', repeatable='True'),
+		]),
 		'None': Literal('None', 'none', None),
 		'Parameter': Builtin('Parameter', 'Parameter', Parameter.make, Handling.STANDALONE, Handling.UNWRAP, [
 			# rmf todo: default name based on index
@@ -579,10 +632,20 @@ root = Context(None, types={
 			# rmf todo: generics/polymorphism, this should match element_type
 			Parameter('code', 'Any', repeatable=True),
 		]),
-		'one': Literal('one', 'Number', 1),
 		'Sum': Builtin('Sum', 'Number', sum, Handling.STANDALONE, Handling.UNWRAP, [
 			Parameter('operands', 'Number', repeatable=True)
 		]),
+		'==': Literal('==', 'Comparison', Comparison.EQ),
+		'/=': Literal('/=', 'Comparison', Comparison.NE),
+		'<': Literal('<', 'Comparison', Comparison.LT),
+		'>': Literal('<', 'Comparison', Comparison.GT),
+		'<=': Literal('<=', 'Comparison', Comparison.LT_EQ),
+		'>=': Literal('>=', 'Comparison', Comparison.GT_EQ),
+		'Compare': Builtin('Compare', 'Boolean', compare, Handling.STANDALONE, Handling.UNWRAP, [
+			Parameter('left', 'Number'),
+			Parameter('comparison', 'Comparison', default_value='=='),
+			Parameter('right', 'Number'),
+			]),
 	})
 
 root.definitions['AddOne'] = Definition('AddOne', 'Number', [
@@ -590,7 +653,7 @@ root.definitions['AddOne'] = Definition('AddOne', 'Number', [
 	],
 	context=root,
 	code="""
-	Sum one Get value
+	Sum 1 Get value
 	""")
 
 # Testing
@@ -607,15 +670,19 @@ def main():
 	
 	ast = ParseNode.parse("""
 	SetLocal hi
-		Sum one one
+		Sum 1 1
 	SetLocal hi
 		AddOne Get hi
 	Define AddThree Number
 		Parameter value Number
-		Sum one one one Get value
+		Sum 3 Get value
 	SetLocal hi
 		AddThree Get hi
-	Get hi""")
+	If Any Compare 1 > 2 False
+		Get hi
+		Sum
+			-1
+			Get hi""")
 	# print ast
 	print ast
 	print ast.evaluate(root).value
