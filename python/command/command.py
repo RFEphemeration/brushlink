@@ -376,7 +376,6 @@ class EvalNode:
 				if success:
 					return True
 
-					
 		success = self.element.try_append_to_mapped_arguments(self.mapped_arguments, arg)
 		if success:
 			return True
@@ -394,7 +393,6 @@ class EvalNode:
 				raise EvaluationError("mapped_arguments of %s last arg is an empty list" % (self.element.name))
 		else:
 			return self.mapped_arguments[-1].get_last_argument()
-
 
 	@staticmethod
 	def from_parse_tree(context, parse_node):
@@ -420,7 +418,6 @@ class EvalNode:
 			if not success:
 				raise EvaluationError("incorrect argument")
 
-
 		for child in parse_node.children:
 			child_node = EvalNode.from_parse_tree(context, child)
 			success = root_node.element.try_append_to_mapped_arguments(root_node.mapped_arguments, child_node)
@@ -440,10 +437,7 @@ class EvalNode:
 		return EvalNode(element)
 
 
-
 # Context and builtins
-
-
 class Context:
 	def __init__(self, parent, values = None, definitions = None, types = None):
 		self.parent = parent
@@ -493,8 +487,8 @@ class Context:
 		eval_params = []
 		for param in parameters:
 			eval_params.append(param.evaluate(self).value)
-		sequence = EvalNode(self.get_definition('Sequence'), evaluator)
-		definition = Definition(eval_name, eval_type, eval_params, evaluator=sequence)
+		root_node = EvalNode(self.get_definition('Sequence'), [evaluator])
+		definition = Definition(eval_name, eval_type, eval_params, evaluator=root_node)
 		self.definitions[eval_name] = definition
 		# rmf todo: should this return the definition? or just nothing
 		return definition
@@ -583,27 +577,33 @@ root.definitions['AddOne'] = Definition('AddOne', 'Number', [
 	],
 	context=root,
 	code="""
-	Sum
-		Get
-			value
-		one
+	Sum one Get value
 	""")
 
 # Testing
 
 
 def main():
+	ast = ParseNode.parse("""
+	Define AddTwo Number
+		Parameter value Number
+		Sum one one Get value""")
+	print ast
+	ast.evaluate(root)
 	print root.definitions.keys()
+	
 	ast = ParseNode.parse("""
 	SetLocal hi
 		Sum one one
 	SetLocal hi
 		AddOne Get hi
-	Define AddTwo Number
+	Define AddThree Number
 		Parameter value Number
-		Sum one one Get value
+		Sum one one one Get value
+	SetLocal hi
+		AddTwo Get hi
 	Get hi""")
-	#print ast
+	# print ast
 	evaluator = EvalNode.from_parse_tree(root, ast)
 	print evaluator
 	print evaluator.evaluate(root).value
