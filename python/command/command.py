@@ -383,7 +383,7 @@ class EvalNode:
 
 		return False
 
-	def get_last_arg(self):
+	def get_last_argument(self):
 		if not self.mapped_arguments:
 			return self
 		elif isinstance(self.mapped_arguments[-1], list):
@@ -393,7 +393,7 @@ class EvalNode:
 				# what do we do here?
 				raise EvaluationError("mapped_arguments of %s last arg is an empty list" % (self.element.name))
 		else:
-			return self.mapped_arguments[-1].get_last_arg()
+			return self.mapped_arguments[-1].get_last_argument()
 
 
 	@staticmethod
@@ -410,7 +410,17 @@ class EvalNode:
 				if not success:
 					raise EvaluationError("Failed to append argument")
 
-		# rmf todo: map arguments to params, if param is of type name, are all names literals?
+		last_node = root_node.get_last_argument()
+		if last_node == root_node and parse_node.end_children:
+			raise EvaluationError("Element %s has end children but only one element on the line" % root_node.element.name)
+
+		for child in parse_node.end_children:
+			child_node = EvalNode.from_parse_tree(context, child)
+			success = last_node.element.try_append_to_mapped_arguments(last_node.mapped_arguments, child_node)
+			if not success:
+				raise EvaluationError("incorrect argument")
+
+
 		for child in parse_node.children:
 			child_node = EvalNode.from_parse_tree(context, child)
 			success = root_node.element.try_append_to_mapped_arguments(root_node.mapped_arguments, child_node)
@@ -587,20 +597,12 @@ def main():
 	ast = ParseNode.parse("""
 	SetLocal hi
 		Sum one one
-	SetLocal hi AddOne Get hi
-	Define
-		AddTwo
-		Number
-		Parameter
-			value
-			Number
-		Sum
-			Get
-				value
-			one
-			one
-	Get
-		hi""")
+	SetLocal hi
+		AddOne Get hi
+	Define AddTwo Number
+		Parameter value Number
+		Sum one one Get value
+	Get hi""")
 	#print ast
 	evaluator = EvalNode.from_parse_tree(root, ast)
 	print evaluator
