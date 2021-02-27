@@ -21,3 +21,6 @@ export_presets.cfg
 brushlink/brushlink.xcodeproj/project.pbxproj
 brushlink/brushlink.xcodeproj/project.xcworkspace/
 build/
+
+__pycache__/
+*.pyc

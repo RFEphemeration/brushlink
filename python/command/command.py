@@ -324,7 +324,6 @@ class EvalNode:
 		# rmf todo: this is going to modify mapped arguments, is that okay?
 		self.element.fill_defaults(context, self.mapped_arguments)
 		return self.element.evaluate(context, self.mapped_arguments)
-		#if isinstance(self.element, Element):
 
 	def append_argument(self, arg):
 		if self.mapped_arguments:
@@ -395,7 +394,7 @@ class EvalNode:
 		else:
 			try:
 				element = context.get_definition(name)
-			except:
+			except EvaluationError:
 				if context.is_known_type(name):
 					element = Literal(name, 'Type', name)
 				else:
@@ -647,49 +646,6 @@ root = Context(None, types={
 			Parameter('right', 'Number'),
 			]),
 	})
-
-root.definitions['AddOne'] = Definition('AddOne', 'Number', [
-		Parameter('value', 'Number')
-	],
-	context=root,
-	code="""
-	Sum 1 Get value
-	""")
-
-# Testing
-
-
-def main():
-	ast = ParseNode.parse("""
-	Define AddTwo Number
-		Parameter value Number
-		Sum one one Get value""")
-	print ast
-	ast.evaluate(root)
-	print root.definitions.keys()
-	
-	ast = ParseNode.parse("""
-	SetLocal hi
-		Sum 1 1
-	SetLocal hi
-		AddOne Get hi
-	Define AddThree Number
-		Parameter value Number
-		Sum 3 Get value
-	SetLocal hi
-		AddThree Get hi
-	If Any Compare 1 > 2 False
-		Get hi
-		Sum
-			-1
-			Get hi""")
-	# print ast
-	print ast
-	print ast.evaluate(root).value
-
-
-if __name__ == "__main__":
-	main()
 
 
 # todo:
