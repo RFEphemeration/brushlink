@@ -2,15 +2,28 @@ from command import *
 
 # Testing
 
+class Test():
+	def __init__(self, name, expected_value, code):
+		self.name = name
+		self.code = code
+		self.expected_value = expected_value
+		self.run()
 
-def main():
+	def run(self):
+		context = Context(root)
+		ast = ParseNode.parse(self.code)
+		result = ast.evaluate(context)
+		if result.value == self.expected_value:
+			print("Success: %s" % self.name)
+
+def workspace():
 	test = Context(root)
 	test.definitions['AddOne'] = Definition('AddOne', 'Number', [
 		Parameter('value', 'Number')
 	], context=test, code="""
 	Sum 1 Get value
 	""")
-
+	
 	ast = ParseNode.parse("""
 	Define AddTwo Number
 		Parameter value Number
@@ -36,6 +49,29 @@ def main():
 			Get hi""")
 	print(ast)
 	print(ast.evaluate(test).value)
+
+
+def main():
+	# workspace()
+
+	Test("Define and use", 2, """
+	Define AddOne Number
+		Parameter value Number
+		Sum 1 Get value
+	AddOne 1
+	""")
+
+	Test("Conditional", 1, """
+	If Any
+			Compare 1 > 2
+			True
+		1
+		0
+	""")
+
+	Test("Negative Numbers", 0, """
+	Sum 0 1 -1
+	""")
 
 
 if __name__ == "__main__":
