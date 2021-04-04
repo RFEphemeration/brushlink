@@ -26,7 +26,7 @@ class Screen():
 		self.wigits = wigits
 		self.exit_time = exit_time
 		self.exit_state = exit_state
-		self.elapsed_time = None
+		self.elapsed_time = 0.0
 		self.app = None
 
 	def on_enter(self):
@@ -34,7 +34,7 @@ class Screen():
 
 	def update(self, dt):
 		self.elapsed_time += dt
-		if self.exit_time and self.elapsed_time > self.exit_time:
+		if self.exit_time and self.elapsed_time >= self.exit_time:
 			app.change_state(self.exit_state)
 
 	def draw(self):
@@ -68,7 +68,16 @@ app = App(initial="title", screens=[
 			y=window.height - 40,
 			anchor_x='center',
 			anchor_y='center'),
-		])
+		]),
+	Screen("settings", [
+		pyglet.text.Label(
+			'Settings',
+			font_size=36,
+			x=window.width // 2,
+			y=window.height - 40,
+			anchor_x='center',
+			anchor_y='center'),
+		]),
 	])
 
 

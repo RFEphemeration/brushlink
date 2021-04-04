@@ -40,10 +40,6 @@ class Parameter:
 		# also generics
 		return self.element_type == element_type or self.element_type == 'Any' or element_type == 'Any'
 
-	@staticmethod
-	def make(name, element_type, default_value, repeatable):
-		return Parameter(name, element_type, default_value=default_value,repeatable=repeatable)
-
 
 class Element:
 	def __init__(self, name, element_type, parameters = None):
@@ -105,11 +101,15 @@ class Element:
 					unevaluated_arguments.append(None)
 
 			if unevaluated_arguments[param_index] == [] and param.repeatable and param.default_value:
-				default = context.get_definition(param.default_value)
-				unevaluated_arguments[param_index].append(EvalNode(default, []))
+				if isinstance(param.default_value, EvalNode):
+					unevaluated_arguments[param_index].append(param.default_value)
+				else:
+					raise EvaluationError("element %s parameter %s is not an EvalNode, has value %s" % (self.name, param.name, str(param.default_value)))
 			elif unevaluated_arguments[param_index] is None and (not param.repeatable) and param.default_value:
-				default = context.get_definition(param.default_value)
-				unevaluated_arguments[param_index] = EvalNode(default, [])
+				if isinstance(param.default_value, EvalNode):
+					unevaluated_arguments[param_index] = param.default_value
+				else:
+					raise EvaluationError("element %s parameter %s is not an EvalNode, has value %s" % (self.name, param.name, str(param.default_value)))
 
 		if len(unevaluated_arguments) != len(self.parameters):
 			raise EvaluationError("element %s has an incorrect number of parameters" % (self.name))
@@ -174,27 +174,30 @@ class Literal(Element):
 		else:
 			return Value(self.value, self.element_type)
 
+	def as_eval_node(self):
+		return EvalNode(self, [])
+
 
 class Handling:
 	# argument handling
-	PASSTHROUGH = 0
-	EVALUATE = 1
-	UNWRAP = 2
+	LAZY = "Lazy"
+	EVALUATE = "Evaluate"
+	UNWRAP = "Unwrap"
 
 	# use context
-	STANDALONE = 0
-	CONTEXT = 1
+	STANDALONE = "Standalone"
+	CONTEXTUAL = "Contextual"
 
 
 class Builtin(Element):
-	def __init__(self, name, element_type, func, use_context=Handling.CONTEXT, handling=Handling.EVALUATE, parameters=None):
+	def __init__(self, name, element_type, func, use_context=Handling.CONTEXTUAL, handling=Handling.EVALUATE, parameters=None):
 		Element.__init__(self, name, element_type, parameters)
 		self.func = func
 		self.use_context = use_context
 		self.handling = handling
 
 	def evaluate(self, context, unevaluated_arguments):
-		if self.handling == Handling.PASSTHROUGH:
+		if self.handling == Handling.LAZY:
 			args = unevaluated_arguments
 		else:
 			args = self.evaluate_arguments(context, unevaluated_arguments)
@@ -202,7 +205,7 @@ class Builtin(Element):
 		if self.handling == Handling.UNWRAP:
 			args = Element.unwrap_values(args)
 
-		if self.use_context == Handling.CONTEXT:
+		if self.use_context == Handling.CONTEXTUAL:
 			result = self.func(context, *args)
 		else:
 			result = self.func(*args)
@@ -268,7 +271,7 @@ class ParseNode:
 			indentation = len(line) - len(contents)
 			nodes.append(ParseNode(contents, indentation))
 
-		root_node = ParseNode("RootSequence", 0)
+		root_node = ParseNode("RootSequence", -1)
 		for node in nodes:
 			if node.contents == "":
 				continue
@@ -404,11 +407,19 @@ class EvalNode:
 
 # Context and builtins
 class Context:
-	def __init__(self, parent, values = None, definitions = None, types = None):
+	def __init__(self, parent, values = None, definitions = None, types = None, evaluations = None):
 		self.parent = parent
 		self.values = values if values is not None else {}
 		self.definitions = definitions if definitions is not None else {}
 		self.types = types if types is not None else {}
+		for evaluation in evaluations if evaluations is not None else []:
+			parsed = ParseNode.parse(evaluation[1])
+			element = parsed.evaluate(self).value
+			if isinstance(element, Literal):
+				element.value = evaluation[0]
+			elif isinstance(element, Builtin):
+				element.func = evaluation[0]
+			
 
 	# internal helpers
 
@@ -446,6 +457,16 @@ class Context:
 
 	# builtin functions
 
+	def literal(self, name, element_type):
+		element = Literal(name, element_type, None)
+		self.definitions[name] = element
+		return element
+
+	def builtin(self, name, element_type, use_context, arg_handling, parameters):
+		element = Builtin(name, element_type, None, use_context, arg_handling, parameters)
+		self.definitions[name] = element
+		return element
+
 	def define(self, name, element_type, parameters, evaluator):
 		eval_name = name.evaluate(self).value
 		eval_type = element_type.evaluate(self).value
@@ -453,12 +474,12 @@ class Context:
 		for param in parameters:
 			eval_params.append(param.evaluate(self).value)
 		root_node = EvalNode(self.get_definition('Sequence'), [evaluator])
-		definition = Definition(eval_name, eval_type, eval_params, evaluator=root_node)
-		self.definitions[eval_name] = definition
+		element = Definition(eval_name, eval_type, eval_params, evaluator=root_node)
+		self.definitions[eval_name] = element
 		# rmf todo: should this return the definition? or just nothing
-		return definition
+		return element
 
-	def set_local(self, name, value):
+	def set(self, name, value):
 		self.values[name.value] = value
 		return value
 
@@ -470,13 +491,19 @@ class Context:
 		return value
 
 	def get(self, name):
+		if name.value in self.values:
+			return self.values[name.value]
+		else:
+			raise EvaluationError("get failed, no value found with name %s" % (name.value))	
+
+	def get_global(self, name):
 		context = self
-		while context:
-			if name.value in context.values:
-				return context.values[name.value]
-			else:
-				context = context.parent
-		raise EvaluationError("get failed, no value found with name %s" % (name.value))
+		while context.parent:
+			context = context.parent
+		if name.value in context.values:
+			return context.values[name.value]
+		else:
+			raise EvaluationError("get failed, no value found with name %s" % (name.value))
 
 	def for_loop(self, count, index_name, expression):
 		value = Value(None, 'None')
@@ -527,6 +554,23 @@ class Context:
 		return Value(False, 'Boolean')
 
 
+def parameter(name, element_type, repeatable, default_value):
+	default_node = None
+	if default_value.value is None:
+		default_node = None
+	elif isinstance(default_value.value, EvalNode):
+		default_node = default_value.value
+	else:
+		default_node = EvalNode(Literal(
+			str(default_value.value),
+			default_value.type,
+			default_value.value), [])
+	return Parameter(name.value, element_type.value, default_value=default_node, repeatable=repeatable.value)
+
+
+def quote(node):
+	return Value(node, 'EvalNode')
+
 
 def element_sum(operand, operands):
 	return sum(operands, operand)
@@ -536,12 +580,12 @@ def sequence(expressions):
 	return expressions[-1]
 
 class Comparison:
-	EQ = 0
-	NE = 1
-	LT = 2
-	GT = 3
-	LT_EQ = 4
-	GT_EQ = 5
+	EQ = "Equal"
+	NE = "NotEqual"
+	LT = "Lesser"
+	GT = "Greater"
+	LT_EQ = "LesserOrEqual"
+	GT_EQ = "GreaterOrEqual"
 
 
 def compare(left, comparison, right):
@@ -557,7 +601,7 @@ def compare(left, comparison, right):
 
 root = Context(None, types={
 		'Any',
-		'None',
+		'NoneType',
 		'Type',
 		'ValueName',
 		'Boolean',
@@ -565,6 +609,9 @@ root = Context(None, types={
 		'Comparison',
 		'Parameter',
 		'Element',
+		'EvalNode',
+		'BuiltinContext',
+		'ArgumentHandling'
 	},
 	definitions={
 		'RootSequence': Builtin('RootSequence', 'Any', sequence, Handling.STANDALONE, parameters=[
@@ -573,79 +620,88 @@ root = Context(None, types={
 		'Sequence': Builtin('Sequence', 'Any', sequence, Handling.STANDALONE, parameters=[
 			Parameter('expressions', 'Any', repeatable=True)
 		]),
-		'For': Builtin('For', 'Any', Context.for_loop, handling=Handling.PASSTHROUGH, parameters=[
-			Parameter('count', 'Number'),
-			Parameter('value_name', 'ValueName', default_value='None'),
-			Parameter('expression', 'Any'),
-		]),
-		'ForEach': Builtin('ForEach', 'Any', Context.for_each_loop, handling=Handling.PASSTHROUGH, parameters=[
-			Parameter('values', 'Any', repeatable=True),
-			Parameter('value_name', 'ValueName'),
-			Parameter('expression', 'Any'),
-		]),
-		'While': Builtin('While', 'Any', Context.while_loop, handling=Handling.PASSTHROUGH, parameters=[
-			Parameter('condition', 'Boolean'),
-			Parameter('expression', 'Any'),
-		]),
-		'If': Builtin('If', 'Any', Context.if_branch, handling=Handling.PASSTHROUGH, parameters=[
-			Parameter('condition', 'Boolean'),
-			Parameter('consequent', 'Any'),
-			Parameter('alternative', 'Any', default_value='None'),
-		]),
-		'SetLocal': Builtin('SetLocal', 'None', Context.set_local, parameters=[
+		'Literal': Builtin('Literal', 'Element', Context.literal, handling=Handling.UNWRAP, parameters=[
 			Parameter('name', 'ValueName'),
-			Parameter('value', 'Any'),
-		]),
-		'SetGlobal': Builtin('SetGlobal', 'None', Context.set_global, parameters=[
-			Parameter('name', 'ValueName'),
-			Parameter('value', 'Any'),
-		]),
-		'Get': Builtin('Get', 'Any', Context.get, parameters=[
-			Parameter('name', 'ValueName'),
-		]),
-		'True': Literal('True', 'Boolean', True),
-		'False': Literal('False', 'Boolean', False),
-		'Not': Builtin('Not', 'Boolean', Context.logical_not, parameters=[
-			Parameter('value', 'Boolean'),
-		]),
-		'All': Builtin('All', 'Boolean', Context.logical_all, handling=Handling.PASSTHROUGH, parameters=[
-			Parameter('expressions', 'Boolean', repeatable='True'),
-		]), 
-		'Any': Builtin('Any', 'Boolean', Context.logical_any, handling=Handling.PASSTHROUGH, parameters=[
-			Parameter('expressions', 'Boolean', repeatable='True'),
-		]),
-		'None': Literal('None', 'none', None),
-		'Parameter': Builtin('Parameter', 'Parameter', Parameter.make, Handling.STANDALONE, Handling.UNWRAP, [
+			Parameter('element_type', 'Type'),
+			]),
+		'Parameter': Builtin('Parameter', 'Parameter', parameter, Handling.STANDALONE, Handling.EVALUATE, [
 			# rmf todo: default name based on index
 			Parameter('name', 'ValueName'),
 			# rmf todo: type disambiguation from definitions
 			Parameter('element_type', 'Type'),
-			# rmf todo: generics/polymorphism, this should match element_type
-			Parameter('default_value', 'Any', default_value='None'),
-			Parameter('repeatable', 'Boolean', default_value='False'),
+			Parameter('repeatable', 'Boolean', default_value=Literal('False', 'Boolean', False).as_eval_node()),
+			# rmf todo: generics/polymorphism, this should match element_type Optional<Element<$T>>
+			# can this just be required=false? what does default value of None do here?
+			Parameter('default_value', 'Any', default_value=Literal('None', 'NoneType', None).as_eval_node()),
 		]),
-		'Define': Builtin('Define', 'Element', Context.define, handling=Handling.PASSTHROUGH, parameters=[
+		'Builtin': Builtin('Builtin', 'Element', Context.builtin, handling=Handling.UNWRAP, parameters=[
+			Parameter('name', 'ValueName'),
+			Parameter('element_type', 'Type'),
+			Parameter('context', 'BuiltinContext', default_value=Literal('Contextual', 'BuiltinContext', Handling.CONTEXTUAL).as_eval_node()),
+			Parameter('handling', 'ArgumentHandling', default_value=Literal('Evaluate', 'ArgumentHandling', Handling.EVALUATE).as_eval_node()),
+			Parameter('parameters', 'Parameter', required=False, repeatable=True),
+			]),
+		'Define': Builtin('Define', 'Element', Context.define, handling=Handling.LAZY, parameters=[
 			Parameter('name', 'ValueName'),
 			Parameter('element_type', 'Type'),
 			Parameter('parameters', 'Parameter', required=False, repeatable=True),
 			# rmf todo: generics/polymorphism, this should match element_type
 			Parameter('code', 'Any', repeatable=True),
 		]),
-		'Sum': Builtin('Sum', 'Number', sum, Handling.STANDALONE, Handling.UNWRAP, [
-			Parameter('operands', 'Number', repeatable=True)
-		]),
-		'==': Literal('==', 'Comparison', Comparison.EQ),
-		'/=': Literal('/=', 'Comparison', Comparison.NE),
-		'<': Literal('<', 'Comparison', Comparison.LT),
-		'>': Literal('<', 'Comparison', Comparison.GT),
-		'<=': Literal('<=', 'Comparison', Comparison.LT_EQ),
-		'>=': Literal('>=', 'Comparison', Comparison.GT_EQ),
-		'Compare': Builtin('Compare', 'Boolean', compare, Handling.STANDALONE, Handling.UNWRAP, [
-			Parameter('left', 'Number'),
-			Parameter('comparison', 'Comparison', default_value='=='),
-			Parameter('right', 'Number'),
-			]),
-	})
+	},
+	evaluations=[
+		[Handling.STANDALONE, "Literal Standalone BuiltinContext"],
+		[Handling.CONTEXTUAL, "Literal Contextual BuiltinContext"],
+		[Handling.LAZY, "Literal Lazy ArgumentHandling"],
+		[Handling.EVALUATE, "Literal Evaluate ArgumentHandling"],
+		[Handling.UNWRAP, "Literal Unwrap ArgumentHandling"],
+		[None, "Literal None NoneType"],
+		[True, "Literal True Boolean"],
+		[False, "Literal False Boolean"],
+		[quote, """Builtin Quote Element Standalone Lazy
+	Parameter element Any
+		"""],
+		[Context.for_loop, """Builtin For Any Lazy
+	Parameter count Number
+	Parameter value_name ValueName False Quote None
+	Parameter expression Any"""],
+		[Context.for_each_loop, """Builtin ForEach Any Lazy
+	Parameter value_name ValueName
+	Parameter values Any True
+	Parameter expression Any"""],
+		[Context.while_loop, """Builtin While Any Lazy
+	Parameter condition Boolean
+	Parameter expression Any"""],
+		[Context.if_branch, """Builtin If Any Lazy
+	Parameter condition Boolean
+	Parameter consequent Any
+	Parameter alternative Any False Quote None"""],
+		[Context.set, """Builtin Set Any
+	Parameter name ValueName
+	Parameter value Any
+		"""],
+		[Context.set_global, """Builtin SetGlobal Any
+	Parameter name ValueName
+	Parameter value Any
+		"""],
+		[Context.get, "Builtin Get Any Parameter name ValueName"],
+		[Context.get_global, "Builtin GetGlobal Any Parameter name ValueName"],
+		[Context.logical_not, "Builtin Not Boolean Parameter expression Boolean"],
+		[Context.logical_all, "Builtin All Boolean Lazy Parameter expressions Boolean True"],
+		[Context.logical_any, "Builtin Some Boolean Lazy Parameter expressions Boolean True"],
+		[sum, "Builtin Sum Number Standalone Unwrap Parameter operands Number True"],
+		[Comparison.EQ, "Literal == Comparison"],
+		[Comparison.NE, "Literal /= Comparison"],
+		[Comparison.LT, "Literal < Comparison"],
+		[Comparison.GT, "Literal > Comparison"],
+		[Comparison.LT_EQ, "Literal <= Comparison"],
+		[Comparison.GT_EQ, "Literal >= Comparison"],
+		[compare, """Builtin Compare Boolean Standalone Unwrap
+	Parameter left Number
+	Parameter comparison Comparison
+	Parameter right Number
+		"""],
+	])
 
 
 # todo:
