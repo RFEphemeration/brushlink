@@ -1,0 +1,28 @@
+string literals
+	delimeters?
+	printf / templating?
+comments #
+skips | or _ perhaps
+
+named arguments
+
+valid next argument
+
+pure / impure functions
+	pure functions can only call other pure functions
+	set local isn't really pure, but doesn't break purity...
+
+const values
+
+aliased functions and types
+
+define types
+
+more complex types
+
+subtypes
+
+load modules, share loaded modules?
+
+lambda element
+# unevaluated element - this is quote, done
