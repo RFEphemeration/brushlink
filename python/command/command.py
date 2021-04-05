@@ -1,3 +1,5 @@
+import os
+
 # Elements
 class EvaluationError(Exception):
 	pass
@@ -424,9 +426,9 @@ class ModuleDictionary:
 			return self.modules[path]
 		try:
 			with open(path) as f:
-				self.modules[path] = Module(self, f.read())
+				self.modules[path] = Module(module_dictionary = self, code = f.read())
 				return self.modules[path]
-		except OSError:
+		except (OSError, FileNotFoundError):
 			raise EvaluationError("Could not find module with path " + path)
 		except EvaluationError as e:
 			raise EvaluationError("Parsing module failed at path " + path + "\n" + e.__str__())

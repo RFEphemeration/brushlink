@@ -3,6 +3,10 @@ from command import *
 # Testing
 
 class Test():
+	total = 0
+	success = 0
+	wrong = 0
+	error = 0
 	def __init__(self, name, expected_value, code):
 		self.name = name
 		self.code = code
@@ -10,11 +14,20 @@ class Test():
 		self.run()
 
 	def run(self):
+		Test.total += 1
 		context = Context()
 		ast = ParseNode.parse(self.code)
-		result = ast.evaluate(context)
-		if result.value == self.expected_value:
-			print("Success: %s" % self.name)
+		try:
+			result = ast.evaluate(context)
+			if result.value == self.expected_value:
+				print("Success: %s" % self.name)
+				Test.success += 1
+			else:
+				print("  Wrong: %s, Expected: %s, Got: %s" % (self.name, str(self.expected_value), result.__str__()))
+				Test.wrong += 1
+		except EvaluationError as e:
+			print("  Error: %s - %s" % (self.name, e.__str__()))
+			Test.error += 1
 
 def workspace():
 	test = Context()
@@ -73,6 +86,10 @@ If Some
 Sum 0 1 -1
 	""")
 
+	Test("Load Module", 2, """
+LoadModule ./command/test_data.burl
+	""")
+
 	skiptest = """
 ForEach
 	first
@@ -83,6 +100,10 @@ ForEach
 	SetLocal sum Get item Get sum
 	"""
 
+	if Test.success == Test.total:
+		print("All %i tests passed" % Test.total)
+	else:
+		print("Failure: Total: %i, Success: %i, Wrong: %i, Error: %i" % (Test.total, Test.success, Test.wrong, Test.error))
 
 if __name__ == "__main__":
 	main()
