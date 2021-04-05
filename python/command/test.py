@@ -10,14 +10,14 @@ class Test():
 		self.run()
 
 	def run(self):
-		context = Context(root)
+		context = Context()
 		ast = ParseNode.parse(self.code)
 		result = ast.evaluate(context)
 		if result.value == self.expected_value:
 			print("Success: %s" % self.name)
 
 def workspace():
-	test = Context(root)
+	test = Context()
 	test.definitions['AddOne'] = Definition('AddOne', 'Number', [
 		Parameter('value', 'Number')
 	], context=test, code="""

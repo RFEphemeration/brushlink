@@ -405,45 +405,89 @@ class EvalNode:
 		return EvalNode(element)
 
 
+class Module:
+	def __init__(self, module_dictionary = None, context = None, code = None):
+		self.context = context or Context(None, module_dictionary)
+		if code:
+			parsed = ParseNode.parse(code)
+			self.value = parsed.evaluate(self.context)
+		else:
+			self.value = Value(None, 'NoneType')
+
+
+class ModuleDictionary:
+	def __init__(self, modules = None):
+		self.modules = modules or {}
+
+	def load(self, path):
+		if path in self.modules:
+			return self.modules[path]
+		try:
+			with open(path) as f:
+				self.modules[path] = Module(self, f.read())
+				return self.modules[path]
+		except OSError:
+			raise EvaluationError("Could not find module with path " + path)
+		except EvaluationError as e:
+			raise EvaluationError("Parsing module failed at path " + path + "\n" + e.__str__())
+
+module_dictionary = ModuleDictionary()
+
 # Context and builtins
 class Context:
-	def __init__(self, parent, values = None, definitions = None, types = None, evaluations = None):
+	def __init__(self, parent = None, module_dictionary = module_dictionary, values = None, definitions = None, types = None, evaluations = None):
 		self.parent = parent
-		self.values = values if values is not None else {}
-		self.definitions = definitions if definitions is not None else {}
-		self.types = types if types is not None else {}
-		for evaluation in evaluations if evaluations is not None else []:
+		self.values = values or {}
+		self.definitions = definitions or {}
+		self.types = types or {}
+		if module_dictionary:
+			self.module_dictionary = module_dictionary
+		elif parent:
+			self.module_dictionary = parent.module_dictionary
+		else:
+			raise EvaluationError("Context requires either a parent or a module_dictionary")
+		self.module_references = {}
+		if 'core' in self.module_dictionary.modules:
+			self.module_references['core'] = self.module_dictionary.modules['core']
+
+		for evaluation in evaluations or []:
 			parsed = ParseNode.parse(evaluation[1])
 			element = parsed.evaluate(self).value
 			if isinstance(element, Literal):
 				element.value = evaluation[0]
 			elif isinstance(element, Builtin):
 				element.func = evaluation[0]
-			
 
 	# internal helpers
 
-	def get_definition(self, name):
+	def navigate_parents_and_modules(self, func):
 		context = self
 		while context:
-			if name in context.definitions:
-				return context.definitions[name]
+			result = func(context)
+			if result:
+				return result
 			else:
+				# should we do modules of only ourselves, or all parents, too?
+				# what about modules of modules?
+				for loaded_name in self.module_references:
+					module_context = self.module_references[loaded_name].context
+					result = module_context.navigate_parents_and_modules(func)
+					if result:
+						return result
 				context = context.parent
+		return None
+
+	def get_definition(self, name):
+		value = self.navigate_parents_and_modules(lambda context : context.definitions.get(name, None))
+		if value:
+			return value
 		raise EvaluationError("get failed, no definition found with name %s" % (name))
 
 	def is_known_type(self, name):
-		context = self
-		while context:
-			if name in context.types:
-				return True
-			else:
-				context = context.parent
-		return False
+		return self.navigate_parents_and_modules(lambda context : name in context.types)
 
 	def get_symbol_type(self, name):
-		context = self
-		while context:
+		def get_type(context):
 			if name in context.types:
 				return 'Type'
 			elif name in context.definitions:
@@ -451,9 +495,13 @@ class Context:
 			elif name in context.values:
 				return 'ValueName'
 			else:
-				context = context.parent
-		# assume unrecognized symbols are new value names, does this hold?
-		return 'ValueName'
+				return None
+		symbol_type = self.navigate_parents_and_modules(get_type);
+		if symbol_type:
+			return symbol_type
+		else:
+			# assume unrecognized symbols are new value names, does this hold?
+			return 'ValueName'
 
 	# builtin functions
 
@@ -478,6 +526,13 @@ class Context:
 		self.definitions[eval_name] = element
 		# rmf todo: should this return the definition? or just nothing
 		return element
+
+	def load_module(self, path, name):
+		name = name or os.path.splitext(os.path.basename(path))
+		if name in self.module_references:
+			raise EvaluationError("Cannot load module with name " + name + ", another module with this name already exists")
+		self.module_references[name] = self.module_dictionary.load(path)
+		return self.module_references[name].value
 
 	def set(self, name, value):
 		self.values[name.value] = value
@@ -599,7 +654,7 @@ def compare(left, comparison, right):
 	}
 	return comparators[comparison](left, right)
 
-root = Context(None, types={
+core = Context(types={
 		'Any',
 		'NoneType',
 		'Type',
@@ -661,9 +716,14 @@ root = Context(None, types={
 		[quote, """Builtin Quote Element Standalone Lazy
 	Parameter element Any
 		"""],
+		# replace valuename with string literal
+		[Context.load_module, """Builtin LoadModule Any Unwrap
+	Parameter path ValueName
+	Parameter name ValueName Quote None
+		"""],
 		[Context.for_loop, """Builtin For Any Lazy
 	Parameter count Number
-	Parameter value_name ValueName False Quote None
+	Parameter value_name ValueName Quote None
 	Parameter expression Any"""],
 		[Context.for_each_loop, """Builtin ForEach Any Lazy
 	Parameter value_name ValueName
@@ -675,7 +735,7 @@ root = Context(None, types={
 		[Context.if_branch, """Builtin If Any Lazy
 	Parameter condition Boolean
 	Parameter consequent Any
-	Parameter alternative Any False Quote None"""],
+	Parameter alternative Any Quote None"""],
 		[Context.set, """Builtin Set Any
 	Parameter name ValueName
 	Parameter value Any
@@ -702,6 +762,8 @@ root = Context(None, types={
 	Parameter right Number
 		"""],
 	])
+
+module_dictionary.modules["core"] = Module(context = core)
 
 
 # todo:
