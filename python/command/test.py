@@ -76,8 +76,8 @@ AddOne 1
 
 	Test("Conditional", 1, """
 If Some
-		Compare 1 > 2
-		True
+		False
+		Compare 1 < 2
 	1
 	0
 	""")
@@ -86,8 +86,15 @@ If Some
 Sum 0 1 -1
 	""")
 
-	Test("Load Module", 2, """
+	Test("Load Module Value", 2, """
 LoadModule ./command/test_data.burl
+	""")
+
+	Test("Load Module Use Defines", 3, """
+LoadModule ./command/test_data.burl
+Sum
+	Two
+	1
 	""")
 
 	skiptest = """
