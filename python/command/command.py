@@ -157,6 +157,7 @@ class UnboundSymbol(Element):
 				self.element_type = self.binding.element_type
 			else:
 				# ValueName or Type
+				# this is inefficient when might be passed in an element defined literal anyway
 				self.binding = Literal(self.name, symbol_type, self.name)
 				self.element_type = symbol_type
 
@@ -408,49 +409,58 @@ class EvalNode:
 
 
 class Module:
-	def __init__(self, module_dictionary = None, context = None, code = None):
-		self.context = context or Context(None, module_dictionary)
+	def __init__(self, context = None, code = None):
+		if not code and not Context:
+			raise EvaluationError("Modules require either an existing context or code to evaluate, or both")
+		self.context = context or Context()
 		if code:
 			parsed = ParseNode.parse(code)
 			self.value = parsed.evaluate(self.context)
 		else:
 			self.value = Value(None, 'NoneType')
 
+core = None
 
 class ModuleDictionary:
+	__instance = None
+
+	@staticmethod
+	def getInstance():
+		if not ModuleDictionary.__instance:
+			ModuleDictionary.__instance = ModuleDictionary()
+		return ModuleDictionary.__instance
+
 	def __init__(self, modules = None):
-		self.modules = modules or {}
+		if modules is not None:
+			self.modules = modules
+		elif core is not None:
+			self.modules = {'core': Module(context = core)}
+		else:
+			self.modules = {}
 
 	def load(self, path):
 		if path in self.modules:
 			return self.modules[path]
 		try:
 			with open(path) as f:
-				self.modules[path] = Module(module_dictionary = self, code = f.read())
+				self.modules[path] = Module(code = f.read())
 				return self.modules[path]
 		except (OSError, FileNotFoundError):
 			raise EvaluationError("Could not find module with path " + path)
 		except EvaluationError as e:
 			raise EvaluationError("Parsing module failed at path " + path + "\n" + e.__str__())
 
-module_dictionary = ModuleDictionary()
-
 # Context and builtins
 class Context:
-	def __init__(self, parent = None, module_dictionary = module_dictionary, values = None, definitions = None, types = None, evaluations = None):
+	def __init__(self, parent = None, values = None, definitions = None, types = None, evaluations = None):
 		self.parent = parent
 		self.values = values or {}
 		self.definitions = definitions or {}
 		self.types = types or {}
-		if module_dictionary:
-			self.module_dictionary = module_dictionary
-		elif parent:
-			self.module_dictionary = parent.module_dictionary
-		else:
-			raise EvaluationError("Context requires either a parent or a module_dictionary")
 		self.module_references = {}
-		if 'core' in self.module_dictionary.modules:
-			self.module_references['core'] = self.module_dictionary.modules['core']
+
+		if self.parent is None and 'core' in ModuleDictionary.getInstance().modules:
+			self.module_references['core'] = ModuleDictionary.getInstance().modules['core']
 
 		for evaluation in evaluations or []:
 			parsed = ParseNode.parse(evaluation[1])
@@ -462,6 +472,12 @@ class Context:
 
 	# internal helpers
 
+	def merge(self, context):
+		self.values = self.values | context.values
+		self.definitions = self.definitions | context.definitions
+		self.types = self.types | context.types
+		self.module_references = self.module_references | context.module_references
+
 	def navigate_parents_and_modules(self, func):
 		context = self
 		while context:
@@ -471,8 +487,8 @@ class Context:
 			else:
 				# should we do modules of only ourselves, or all parents, too?
 				# what about modules of modules?
-				for loaded_name in self.module_references:
-					module_context = self.module_references[loaded_name].context
+				for loaded_name in context.module_references:
+					module_context = context.module_references[loaded_name].context
 					result = module_context.navigate_parents_and_modules(func)
 					if result:
 						return result
@@ -533,7 +549,7 @@ class Context:
 		name = name or os.path.splitext(os.path.basename(path))
 		if name in self.module_references:
 			raise EvaluationError("Cannot load module with name " + name + ", another module with this name already exists")
-		self.module_references[name] = self.module_dictionary.load(path)
+		self.module_references[name] = ModuleDictionary.getInstance().load(path)
 		return self.module_references[name].value
 
 	def set(self, name, value):
@@ -662,25 +678,19 @@ core = Context(types={
 		'Type',
 		'ValueName',
 		'Boolean',
-		'Number',
-		'Comparison',
 		'Parameter',
 		'Element',
-		'EvalNode',
-		'BuiltinContext',
-		'ArgumentHandling'
+		# this is only for quote, I'd like to move those things to reflection
+		# consider instead a nested None literal
+		'EvalNode', 
 	},
-	definitions={
+	definitions = {
 		'RootSequence': Builtin('RootSequence', 'Any', sequence, Handling.STANDALONE, parameters=[
 			Parameter('expressions', 'Any', repeatable=True)
 		]),
 		'Sequence': Builtin('Sequence', 'Any', sequence, Handling.STANDALONE, parameters=[
 			Parameter('expressions', 'Any', repeatable=True)
 		]),
-		'Literal': Builtin('Literal', 'Element', Context.literal, handling=Handling.UNWRAP, parameters=[
-			Parameter('name', 'ValueName'),
-			Parameter('element_type', 'Type'),
-			]),
 		'Parameter': Builtin('Parameter', 'Parameter', parameter, Handling.STANDALONE, Handling.EVALUATE, [
 			# rmf todo: default name based on index
 			Parameter('name', 'ValueName'),
@@ -691,13 +701,6 @@ core = Context(types={
 			# can this just be required=false? what does default value of None do here?
 			Parameter('default_value', 'Any', default_value=Literal('None', 'NoneType', None).as_eval_node()),
 		]),
-		'Builtin': Builtin('Builtin', 'Element', Context.builtin, handling=Handling.UNWRAP, parameters=[
-			Parameter('name', 'ValueName'),
-			Parameter('element_type', 'Type'),
-			Parameter('context', 'BuiltinContext', default_value=Literal('Contextual', 'BuiltinContext', Handling.CONTEXTUAL).as_eval_node()),
-			Parameter('handling', 'ArgumentHandling', default_value=Literal('Evaluate', 'ArgumentHandling', Handling.EVALUATE).as_eval_node()),
-			Parameter('parameters', 'Parameter', required=False, repeatable=True),
-			]),
 		'Define': Builtin('Define', 'Element', Context.define, handling=Handling.LAZY, parameters=[
 			Parameter('name', 'ValueName'),
 			Parameter('element_type', 'Type'),
@@ -705,6 +708,39 @@ core = Context(types={
 			# rmf todo: generics/polymorphism, this should match element_type
 			Parameter('code', 'Any', repeatable=True),
 		]),
+		'Quote': Builtin('Quote', 'EvalNode', quote, Handling.STANDALONE, Handling.LAZY, [
+			Parameter('element', 'Any'),
+		]),
+		'LoadModule': Builtin('LoadModule', 'Any', Context.load_module, handling=Handling.UNWRAP, parameters=[
+			# maybe path should be a string literal
+			# and maybe you just need one of the two
+			Parameter('path', 'ValueName'),
+			Parameter('name', 'ValueName', default_value=Literal('None', 'NoneType', None).as_eval_node()),
+		]),
+	},
+	# no evaluations on first pass because we don't have builtin tools yet
+	evaluations = []
+)
+
+ModuleDictionary.getInstance().modules['core'] = Module(context=core)
+builtin_tools = Context(
+	types={
+		'BuiltinContext',
+		'ArgumentHandling',
+	},
+	definitions={
+		'Literal': Builtin('Literal', 'Element', Context.literal, handling=Handling.UNWRAP, parameters=[
+			Parameter('name', 'ValueName'),
+			Parameter('element_type', 'Type'),
+			]),
+
+		'Builtin': Builtin('Builtin', 'Element', Context.builtin, handling=Handling.UNWRAP, parameters=[
+			Parameter('name', 'ValueName'),
+			Parameter('element_type', 'Type'),
+			Parameter('context', 'BuiltinContext', default_value=Literal('Contextual', 'BuiltinContext', Handling.CONTEXTUAL).as_eval_node()),
+			Parameter('handling', 'ArgumentHandling', default_value=Literal('Evaluate', 'ArgumentHandling', Handling.EVALUATE).as_eval_node()),
+			Parameter('parameters', 'Parameter', required=False, repeatable=True),
+			]),
 	},
 	evaluations=[
 		[Handling.STANDALONE, "Literal Standalone BuiltinContext"],
@@ -712,17 +748,28 @@ core = Context(types={
 		[Handling.LAZY, "Literal Lazy ArgumentHandling"],
 		[Handling.EVALUATE, "Literal Evaluate ArgumentHandling"],
 		[Handling.UNWRAP, "Literal Unwrap ArgumentHandling"],
+	],
+)
+
+# by using builtin tools as a parent, but not adding it to the module dictionary,
+# and then merging the result, we can use builtin tools at init evaluation time without exposing it
+# to the runtime
+core.merge(Context(
+	parent=builtin_tools,
+	types={
+		'Number',
+		'Comparison',
+	},
+	evaluations=[
 		[None, "Literal None NoneType"],
 		[True, "Literal True Boolean"],
 		[False, "Literal False Boolean"],
-		[quote, """Builtin Quote Element Standalone Lazy
-	Parameter element Any
-		"""],
-		# replace valuename with string literal
-		[Context.load_module, """Builtin LoadModule Any Unwrap
-	Parameter path ValueName
-	Parameter name ValueName Quote None
-		"""],
+		[Comparison.EQ, "Literal == Comparison"],
+		[Comparison.NE, "Literal /= Comparison"],
+		[Comparison.LT, "Literal < Comparison"],
+		[Comparison.GT, "Literal > Comparison"],
+		[Comparison.LT_EQ, "Literal <= Comparison"],
+		[Comparison.GT_EQ, "Literal >= Comparison"],
 		[Context.for_loop, """Builtin For Any Lazy
 	Parameter count Number
 	Parameter value_name ValueName Quote None
@@ -752,27 +799,10 @@ core = Context(types={
 		[Context.logical_all, "Builtin All Boolean Lazy Parameter expressions Boolean True"],
 		[Context.logical_any, "Builtin Some Boolean Lazy Parameter expressions Boolean True"],
 		[sum, "Builtin Sum Number Standalone Unwrap Parameter operands Number True"],
-		[Comparison.EQ, "Literal == Comparison"],
-		[Comparison.NE, "Literal /= Comparison"],
-		[Comparison.LT, "Literal < Comparison"],
-		[Comparison.GT, "Literal > Comparison"],
-		[Comparison.LT_EQ, "Literal <= Comparison"],
-		[Comparison.GT_EQ, "Literal >= Comparison"],
 		[compare, """Builtin Compare Boolean Standalone Unwrap
 	Parameter left Number
 	Parameter comparison Comparison
 	Parameter right Number
 		"""],
-	])
-
-module_dictionary.modules["core"] = Module(context = core)
-
-
-# todo:
-"""
-you can't use anything as a value name after it has been defined as a definition or type
-is that okay?
-
-
-"""
-
+	],
+))
