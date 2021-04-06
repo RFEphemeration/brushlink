@@ -372,7 +372,7 @@ class EvalNode:
 			else:
 				success = root_node.append_argument(node)
 				if not success:
-					raise EvaluationError("Failed to append argument")
+					raise EvaluationError("Failed to append argument %s to %s" % (name, root_node.element.name))
 
 		last_node = root_node.get_last_argument()
 		if last_node == root_node and parse_node.end_children:
@@ -382,13 +382,13 @@ class EvalNode:
 			child_node = EvalNode.from_parse_tree(context, child)
 			success = last_node.element.try_append_to_mapped_arguments(last_node.mapped_arguments, child_node)
 			if not success:
-				raise EvaluationError("incorrect argument")
+				raise EvaluationError("incorrect argument %s for %s" % (child_node.element.name, last_node.element.name))
 
 		for child in parse_node.children:
 			child_node = EvalNode.from_parse_tree(context, child)
 			success = root_node.element.try_append_to_mapped_arguments(root_node.mapped_arguments, child_node)
 			if not success:
-				raise EvaluationError("incorrect argument")
+				raise EvaluationError("incorrect argument %s for %s" % (child_node.element.name, last_node.element.name))
 		return root_node
 
 	@staticmethod
@@ -636,7 +636,7 @@ def parameter(name, element_type, repeatable, default_value):
 	else:
 		default_node = EvalNode(Literal(
 			str(default_value.value),
-			default_value.type,
+			default_value.element_type,
 			default_value.value), [])
 	return Parameter(name.value, element_type.value, default_value=default_node, repeatable=repeatable.value)
 
@@ -651,6 +651,7 @@ def element_sum(operand, operands):
 
 def sequence(expressions):	
 	return expressions[-1]
+
 
 class Comparison:
 	EQ = "Equal"
@@ -723,6 +724,7 @@ core = Context(types={
 )
 
 ModuleDictionary.getInstance().modules['core'] = Module(context=core)
+
 builtin_tools = Context(
 	types={
 		'BuiltinContext',
@@ -737,7 +739,7 @@ builtin_tools = Context(
 		'Builtin': Builtin('Builtin', 'Element', Context.builtin, handling=Handling.UNWRAP, parameters=[
 			Parameter('name', 'ValueName'),
 			Parameter('element_type', 'Type'),
-			Parameter('context', 'BuiltinContext', default_value=Literal('Contextual', 'BuiltinContext', Handling.CONTEXTUAL).as_eval_node()),
+			Parameter('context', 'BuiltinContext', default_value=Literal('Contextual', 'BuiltinContext', Handling.STANDALONE).as_eval_node()),
 			Parameter('handling', 'ArgumentHandling', default_value=Literal('Evaluate', 'ArgumentHandling', Handling.EVALUATE).as_eval_node()),
 			Parameter('parameters', 'Parameter', required=False, repeatable=True),
 			]),
@@ -770,39 +772,72 @@ core.merge(Context(
 		[Comparison.GT, "Literal > Comparison"],
 		[Comparison.LT_EQ, "Literal <= Comparison"],
 		[Comparison.GT_EQ, "Literal >= Comparison"],
-		[Context.for_loop, """Builtin For Any Lazy
+		[Context.for_loop, """Builtin For Any Contextual Lazy 
 	Parameter count Number
 	Parameter value_name ValueName Quote None
 	Parameter expression Any"""],
-		[Context.for_each_loop, """Builtin ForEach Any Lazy
+		[Context.for_each_loop, """Builtin ForEach Any Contextual Lazy
 	Parameter value_name ValueName
 	Parameter values Any True
 	Parameter expression Any"""],
-		[Context.while_loop, """Builtin While Any Lazy
+		[Context.while_loop, """Builtin While Any Contextual Lazy
 	Parameter condition Boolean
 	Parameter expression Any"""],
-		[Context.if_branch, """Builtin If Any Lazy
+		[Context.if_branch, """Builtin If Any Contextual Lazy
 	Parameter condition Boolean
 	Parameter consequent Any
 	Parameter alternative Any Quote None"""],
-		[Context.set, """Builtin Set Any
+		[Context.set, """Builtin Set Any Contextual
 	Parameter name ValueName
 	Parameter value Any
 		"""],
-		[Context.set_global, """Builtin SetGlobal Any
+		[Context.set_global, """Builtin SetGlobal Any Contextual
 	Parameter name ValueName
 	Parameter value Any
 		"""],
-		[Context.get, "Builtin Get Any Parameter name ValueName"],
-		[Context.get_global, "Builtin GetGlobal Any Parameter name ValueName"],
-		[Context.logical_not, "Builtin Not Boolean Parameter expression Boolean"],
-		[Context.logical_all, "Builtin All Boolean Lazy Parameter expressions Boolean True"],
-		[Context.logical_any, "Builtin Some Boolean Lazy Parameter expressions Boolean True"],
-		[sum, "Builtin Sum Number Standalone Unwrap Parameter operands Number True"],
-		[compare, """Builtin Compare Boolean Standalone Unwrap
+		[Context.get, "Builtin Get Any Contextual Parameter name ValueName"],
+		[Context.get_global, "Builtin GetGlobal Any Contextual Parameter name ValueName"],
+		[Context.logical_not, "Builtin Not Boolean Contextual Parameter expression Boolean"],
+		[Context.logical_all, "Builtin All Boolean Contextual Lazy Parameter expressions Boolean True"],
+		[Context.logical_any, "Builtin Some Boolean Contextual Lazy Parameter expressions Boolean True"],
+		[sum, "Builtin Sum Number Unwrap Parameter operands Number True"],
+		[compare, """Builtin Compare Boolean Unwrap
 	Parameter left Number
 	Parameter comparison Comparison
 	Parameter right Number
 		"""],
+	],
+))
+
+ModuleDictionary.getInstance().modules['collections'] = Module(context=Context(
+	parent=builtin_tools,
+	types={
+		'HashSet',
+	},
+	evaluations=[
+		[frozenset(), "Literal HashSet.Empty HashSet"],
+		[frozenset, "Builtin HashSet.Make HashSet Parameter values Any True"],
+		[len, "Builtin HashSet.Count HashSet Unwrap Parameter set HashSet"],
+		[frozenset.union, """Builtin HashSet.Union HashSet Unwrap
+	Parameter a HashSet
+	Parameter b HashSet"""],
+		[frozenset.intersection, """Builtin HashSet.Intersect HashSet Unwrap
+	Parameter a HashSet
+	Parameter b HashSet"""],
+		[frozenset.difference, """Builtin HashSet.Difference HashSet Unwrap
+	Parameter a HashSet
+	Parameter b HashSet"""],
+		[frozenset.symmetric_difference, """Builtin HashSet.SymDifference HashSet Unwrap
+	Parameter a HashSet
+	Parameter b HashSet"""],
+		[frozenset.isdisjoint, """Builtin HashSet.Disjoint Boolean Unwrap
+	Parameter a HashSet
+	Parameter b HashSet"""],
+		[frozenset.issubset, """Builtin HashSet.Subset Boolean Unwrap
+	Parameter a HashSet
+	Parameter b HashSet"""],
+		[frozenset.issuperset, """Builtin HashSet.Superset Boolean Unwrap
+	Parameter a HashSet
+	Parameter b HashSet"""],
 	],
 ))

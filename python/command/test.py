@@ -97,6 +97,22 @@ Sum
 	1
 	""")
 
+	Test("Collections", frozenset(), """
+LoadModule collections
+HashSet.Empty
+""")
+
+	Test("Collection compare", True, """
+LoadModule collections
+HashSet.Disjoint
+	HashSet.Make
+		0
+		1
+	HashSet.Make
+		2
+		3
+""")
+
 	skiptest = """
 ForEach
 	first
