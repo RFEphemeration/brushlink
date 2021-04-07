@@ -97,7 +97,7 @@ Sum
 	1
 	""")
 
-	Test("Collections", frozenset(), """
+	Test("Collections empty set", frozenset(), """
 LoadModule collections
 HashSet.Empty
 """)
@@ -111,6 +111,17 @@ HashSet.Disjoint
 	HashSet.Make
 		2
 		3
+""")
+
+	Test("Composition AllTypes", 3, """
+LoadModule composition
+HashSet.Count
+	HashSet.Intersect
+		AllTypes
+		HashSet.Make
+			Type
+			Any
+			Boolean
 """)
 
 	skiptest = """

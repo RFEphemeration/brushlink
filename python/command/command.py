@@ -5,21 +5,36 @@ class EvaluationError(Exception):
 	pass
 
 
-class Value:
-	def __init__(self, value, element_type):
+class Value(tuple):
+	def __new__(cls, value, element_type):
 		if isinstance(value, Value):
 			raise EvaluationError("value is being nested, was %s, adding type %s" % (value, element_type))
-		self.value = value
-		self.element_type = element_type
+		return tuple.__new__(cls, (value, element_type))
+
+	@property
+	def value(self):
+		return self[0]
+
+	@property
+	def element_type(self):
+		return self[1]
 
 	def __str__(self):
 		if self.value is None:
-			return "(None): " + self.element_type
+			return "None : " + self.element_type
 		else:
-			return str(self.value) + ": " + self.element_type
+			return str(self.value) + " : " + self.element_type
 
 	def __repr__(self):
 		return self.__str__()
+
+	# not sure if these are necessary, or if inheriting from tuple is sufficient
+
+	def __setattr__(self, *ignored):
+		raise NotImplementedError
+
+	def __delattr__(self, *ignored):
+		raise NotImplementedError
 
 
 class Parameter:
@@ -409,7 +424,8 @@ class EvalNode:
 
 
 class Module:
-	def __init__(self, context = None, code = None):
+	def __init__(self, name, context = None, code = None):
+		self.name = name
 		if not code and not Context:
 			raise EvaluationError("Modules require either an existing context or code to evaluate, or both")
 		self.context = context or Context()
@@ -418,6 +434,7 @@ class Module:
 			self.value = parsed.evaluate(self.context)
 		else:
 			self.value = Value(None, 'NoneType')
+
 
 core = None
 
@@ -434,7 +451,7 @@ class ModuleDictionary:
 		if modules is not None:
 			self.modules = modules
 		elif core is not None:
-			self.modules = {'core': Module(context = core)}
+			self.modules = {'core': Module('core', context = core)}
 		else:
 			self.modules = {}
 
@@ -443,7 +460,7 @@ class ModuleDictionary:
 			return self.modules[path]
 		try:
 			with open(path) as f:
-				self.modules[path] = Module(code = f.read())
+				self.modules[path] = Module(path, code = f.read())
 				return self.modules[path]
 		except (OSError, FileNotFoundError):
 			raise EvaluationError("Could not find module with path " + path)
@@ -452,15 +469,21 @@ class ModuleDictionary:
 
 # Context and builtins
 class Context:
-	def __init__(self, parent = None, values = None, definitions = None, types = None, evaluations = None):
-		self.parent = parent
+	def __init__(self, parent = None, values = None, definitions = None, types = None, evaluations = None, modules = [], temp_modules = [], temp_parent = None):
+		self.parent = temp_parent or parent
 		self.values = values or {}
 		self.definitions = definitions or {}
-		self.types = types or {}
+		self.types = types or set()
 		self.module_references = {}
 
 		if self.parent is None and 'core' in ModuleDictionary.getInstance().modules:
 			self.module_references['core'] = ModuleDictionary.getInstance().modules['core']
+
+		for module in temp_modules:
+			self.module_references[module] = ModuleDictionary.getInstance().load(module)
+
+		for module in modules:
+			self.module_references[module] = ModuleDictionary.getInstance().load(module)
 
 		for evaluation in evaluations or []:
 			parsed = ParseNode.parse(evaluation[1])
@@ -470,6 +493,12 @@ class Context:
 			elif isinstance(element, Builtin):
 				element.func = evaluation[0]
 
+		for module in temp_modules:
+			del self.module_references[module]
+
+		if temp_parent:
+			self.parent = parent
+
 	# internal helpers
 
 	def merge(self, context):
@@ -478,7 +507,8 @@ class Context:
 		self.types = self.types | context.types
 		self.module_references = self.module_references | context.module_references
 
-	def navigate_parents_and_modules(self, func):
+	def navigate_parents_and_modules(self, func, checked_modules = None):
+		checked_modules = checked_modules or set()
 		context = self
 		while context:
 			result = func(context)
@@ -488,8 +518,11 @@ class Context:
 				# should we do modules of only ourselves, or all parents, too?
 				# what about modules of modules?
 				for loaded_name in context.module_references:
-					module_context = context.module_references[loaded_name].context
-					result = module_context.navigate_parents_and_modules(func)
+					module = context.module_references[loaded_name]
+					if module.name in checked_modules:
+						continue
+					checked_modules.add(module.name)
+					result = module.context.navigate_parents_and_modules(func, checked_modules)
 					if result:
 						return result
 				context = context.parent
@@ -546,7 +579,11 @@ class Context:
 		return element
 
 	def load_module(self, path, name):
-		name = name or os.path.splitext(os.path.basename(path))
+		if not name:
+			name = os.path.basename(path)
+			if name.endswith('.burl'):
+				name = name[:-5]
+		name = name or os.path.splitext()
 		if name in self.module_references:
 			raise EvaluationError("Cannot load module with name " + name + ", another module with this name already exists")
 		self.module_references[name] = ModuleDictionary.getInstance().load(path)
@@ -625,6 +662,45 @@ class Context:
 			if expr.evaluate(self).value:
 				return Value(True, 'Boolean')
 		return Value(False, 'Boolean')
+
+	# composition tools
+
+	def all_types(self):
+		types = set()
+		def merge_types(context):
+			nonlocal types
+			for t in context.types:
+				types.add(Value(t, 'Type'))
+			return False # navigate to full depth
+		self.navigate_parents_and_modules(merge_types)
+		return frozenset(types)
+
+	def definitions_of_type(self, element_type):
+		definitions = set()
+		def merge_definitions(context):
+			nonlocal definitions
+			# what to do about name conflicts?
+			for name in context.definitions:
+				# do we want elements that a parameter of type would accept?
+				if context.definitions[name].element_type == element_type.value:
+					# what is the type here? symbol name?
+					definitions.add(Value(name, 'ValueName'))
+			return False # navigate to full depth
+		self.navigate_parents_and_modules(merge_definitions)
+		return frozenset(definitions)
+
+	def values_of_type(self, element_type):
+		values = {}
+		def merge_values(context):
+			nonlocal values
+			# what to do about name conflicts?
+			for name in context.values:
+				# do we want elements that a parameter of type would accept?
+				if context.values[name].element_type == element_type.value:
+					values.add(Value(name, 'ValueName'))
+			return False # navigate to full depth
+		self.navigate_parents_and_modules(merge_values)
+		return frozenset(values)
 
 
 def parameter(name, element_type, repeatable, default_value):
@@ -723,7 +799,7 @@ core = Context(types={
 	evaluations = []
 )
 
-ModuleDictionary.getInstance().modules['core'] = Module(context=core)
+ModuleDictionary.getInstance().modules['core'] = Module('core', context=core)
 
 builtin_tools = Context(
 	types={
@@ -735,7 +811,6 @@ builtin_tools = Context(
 			Parameter('name', 'ValueName'),
 			Parameter('element_type', 'Type'),
 			]),
-
 		'Builtin': Builtin('Builtin', 'Element', Context.builtin, handling=Handling.UNWRAP, parameters=[
 			Parameter('name', 'ValueName'),
 			Parameter('element_type', 'Type'),
@@ -757,7 +832,7 @@ builtin_tools = Context(
 # and then merging the result, we can use builtin tools at init evaluation time without exposing it
 # to the runtime
 core.merge(Context(
-	parent=builtin_tools,
+	temp_parent=builtin_tools,
 	types={
 		'Number',
 		'Comparison',
@@ -809,15 +884,15 @@ core.merge(Context(
 	],
 ))
 
-ModuleDictionary.getInstance().modules['collections'] = Module(context=Context(
-	parent=builtin_tools,
+ModuleDictionary.getInstance().modules['collections'] = Module('collections', context=Context(
+	temp_parent=builtin_tools,
 	types={
 		'HashSet',
 	},
 	evaluations=[
 		[frozenset(), "Literal HashSet.Empty HashSet"],
 		[frozenset, "Builtin HashSet.Make HashSet Parameter values Any True"],
-		[len, "Builtin HashSet.Count HashSet Unwrap Parameter set HashSet"],
+		[len, "Builtin HashSet.Count Number Unwrap Parameter set HashSet"],
 		[frozenset.union, """Builtin HashSet.Union HashSet Unwrap
 	Parameter a HashSet
 	Parameter b HashSet"""],
@@ -839,5 +914,18 @@ ModuleDictionary.getInstance().modules['collections'] = Module(context=Context(
 		[frozenset.issuperset, """Builtin HashSet.Superset Boolean Unwrap
 	Parameter a HashSet
 	Parameter b HashSet"""],
+	],
+))
+
+
+ModuleDictionary.getInstance().modules['composition'] = Module('composition', context=Context(
+	temp_parent=builtin_tools,
+	modules=['collections'],
+	types={},
+	evaluations=[
+		[Context.all_types, "Builtin AllTypes HashSet Contextual"],
+		[Context.definitions_of_type, "Builtin DefinitionsOfType HashSet Contextual Parameter type Type"],
+		[Context.values_of_type, "Builtin ValuesOfType HashSet Contextual Parameter type Type"],
+
 	],
 ))

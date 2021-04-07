@@ -2,7 +2,7 @@ from command import *
 
 
 def main():
-	repl = Context(root)
+	repl = Context()
 	first_prompt = ": "
 	second_prompt = "| "
 	lines = []
