@@ -21,9 +21,9 @@ class Value(tuple):
 
 	def __str__(self):
 		if self.value is None:
-			return "None : " + self.element_type
+			return self.element_type + ": None"
 		else:
-			return str(self.value) + " : " + self.element_type
+			return self.element_type + ": " +str(self.value)
 
 	def __repr__(self):
 		return self.__str__()
@@ -199,7 +199,7 @@ class Literal(Element):
 class Handling:
 	# argument handling
 	LAZY = "Lazy"
-	EVALUATE = "Evaluate"
+	EAGER = "Eager"
 	UNWRAP = "Unwrap"
 
 	# use context
@@ -208,7 +208,7 @@ class Handling:
 
 
 class Builtin(Element):
-	def __init__(self, name, element_type, func, use_context=Handling.CONTEXTUAL, handling=Handling.EVALUATE, parameters=None):
+	def __init__(self, name, element_type, func, use_context=Handling.CONTEXTUAL, handling=Handling.EAGER, parameters=None):
 		Element.__init__(self, name, element_type, parameters)
 		self.func = func
 		self.use_context = use_context
@@ -324,6 +324,7 @@ class ParseNode:
 
 
 class EvalNode:
+	# consider using an immutable data structure like Tuple(element, frozenmap)
 	def __init__(self, element, mapped_arguments = None):
 		self.element = element
 		self.mapped_arguments = mapped_arguments if mapped_arguments is not None else []
@@ -387,7 +388,10 @@ class EvalNode:
 			else:
 				success = root_node.append_argument(node)
 				if not success:
-					raise EvaluationError("Failed to append argument %s to %s" % (name, root_node.element.name))
+					if isinstance(root_node.element, UnboundSymbol):
+						raise EvaluationError("Failed to append argument %s to unbound symbol %s. Are you missing a module load?" % (name, root_node.element.name))
+					else:
+						raise EvaluationError("Failed to append argument %s to %s" % (name, root_node.element.name))
 
 		last_node = root_node.get_last_argument()
 		if last_node == root_node and parse_node.end_children:
@@ -702,6 +706,30 @@ class Context:
 		self.navigate_parents_and_modules(merge_values)
 		return frozenset(values)
 
+	def evaluate(self, node):
+		if node.element_type == 'EvaluationError':
+			return node
+		try:
+			value = node.value.evaluate(self)
+			if isinstance(value, Value):
+				return value
+			else:
+				return Value(value, node.value.element.element_type)
+		except EvaluationError as e:
+			return Value(e, 'EvaluationError')
+
+	def append_argument(self, tree, arg):
+		# this modifies the argument, which is not ideal
+		try:
+			success = tree.value.append_argument(arg.value)
+			if success:
+				return Value(tree.value, 'EvalNode')
+			else:
+				return Value('Could not append argument %s to %s' % (
+					arg.value.element.name, tree.value.element.name), 'EvaluationError')
+		except EvaluationError as e:
+			return Value(e, 'EvaluationError')
+
 
 def parameter(name, element_type, repeatable, default_value):
 	default_node = None
@@ -755,7 +783,7 @@ core = Context(types={
 		'Type',
 		'ValueName',
 		'Boolean',
-		'Parameter',
+		'ParameterType',
 		'Element',
 		# this is only for quote, I'd like to move those things to reflection
 		# consider instead a nested None literal
@@ -768,7 +796,7 @@ core = Context(types={
 		'Sequence': Builtin('Sequence', 'Any', sequence, Handling.STANDALONE, parameters=[
 			Parameter('expressions', 'Any', repeatable=True)
 		]),
-		'Parameter': Builtin('Parameter', 'Parameter', parameter, Handling.STANDALONE, Handling.EVALUATE, [
+		'Parameter': Builtin('Parameter', 'ParameterType', parameter, Handling.STANDALONE, Handling.EAGER, [
 			# rmf todo: default name based on index
 			Parameter('name', 'ValueName'),
 			# rmf todo: type disambiguation from definitions
@@ -781,7 +809,7 @@ core = Context(types={
 		'Define': Builtin('Define', 'Element', Context.define, handling=Handling.LAZY, parameters=[
 			Parameter('name', 'ValueName'),
 			Parameter('element_type', 'Type'),
-			Parameter('parameters', 'Parameter', required=False, repeatable=True),
+			Parameter('parameters', 'ParameterType', required=False, repeatable=True),
 			# rmf todo: generics/polymorphism, this should match element_type
 			Parameter('code', 'Any', repeatable=True),
 		]),
@@ -815,15 +843,15 @@ builtin_tools = Context(
 			Parameter('name', 'ValueName'),
 			Parameter('element_type', 'Type'),
 			Parameter('context', 'BuiltinContext', default_value=Literal('Contextual', 'BuiltinContext', Handling.STANDALONE).as_eval_node()),
-			Parameter('handling', 'ArgumentHandling', default_value=Literal('Evaluate', 'ArgumentHandling', Handling.EVALUATE).as_eval_node()),
-			Parameter('parameters', 'Parameter', required=False, repeatable=True),
+			Parameter('handling', 'ArgumentHandling', default_value=Literal('Eager', 'ArgumentHandling', Handling.EAGER).as_eval_node()),
+			Parameter('parameters', 'ParameterType', required=False, repeatable=True),
 			]),
 	},
 	evaluations=[
 		[Handling.STANDALONE, "Literal Standalone BuiltinContext"],
 		[Handling.CONTEXTUAL, "Literal Contextual BuiltinContext"],
 		[Handling.LAZY, "Literal Lazy ArgumentHandling"],
-		[Handling.EVALUATE, "Literal Evaluate ArgumentHandling"],
+		[Handling.EAGER, "Literal Eager ArgumentHandling"],
 		[Handling.UNWRAP, "Literal Unwrap ArgumentHandling"],
 	],
 )
@@ -921,11 +949,16 @@ ModuleDictionary.getInstance().modules['collections'] = Module('collections', co
 ModuleDictionary.getInstance().modules['composition'] = Module('composition', context=Context(
 	temp_parent=builtin_tools,
 	modules=['collections'],
-	types={},
+	types={
+		'EvaluationError',
+	},
 	evaluations=[
 		[Context.all_types, "Builtin AllTypes HashSet Contextual"],
 		[Context.definitions_of_type, "Builtin DefinitionsOfType HashSet Contextual Parameter type Type"],
 		[Context.values_of_type, "Builtin ValuesOfType HashSet Contextual Parameter type Type"],
-
+		[Context.evaluate, "Builtin Evaluate Any Contextual Parameter node EvalNode"],
+		[Context.append_argument, """Builtin AppendArgument EvalNode Contextual
+	Parameter root_node EvalNode
+	Parameter argument EvalNode"""],
 	],
 ))

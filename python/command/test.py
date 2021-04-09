@@ -124,6 +124,23 @@ HashSet.Count
 			Boolean
 """)
 
+	Test("Composition Evaluate", 3, """
+LoadModule composition
+Set x 3
+Set get_x Quote Get x
+Evaluate Get get_x
+""")
+
+	Test("Composition AppendArgument", 3, """
+LoadModule composition
+Set x 3
+Set get Quote Get
+Evaluate
+	AppendArgument
+		Get get
+		Quote x
+""")
+
 	skiptest = """
 ForEach
 	first
