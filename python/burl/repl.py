@@ -1,7 +1,8 @@
-from command import *
+from burl.language import Context
+from burl.parser import ParseNode
 
 
-def main():
+def run_repl():
 	repl = Context()
 	first_prompt = ": "
 	second_prompt = "| "
@@ -36,4 +37,4 @@ def main():
 				lines = []
 
 if __name__ == "__main__":
-	main()
+	run_repl()

@@ -1,4 +1,5 @@
-from command import *
+from burl.language import Context, EvaluationError
+from burl.parser import ParseNode
 
 # Testing
 
@@ -64,7 +65,7 @@ If Some Compare 1 > 2 False
 	print(ast.evaluate(test).value)
 
 
-def main():
+def run_tests():
 	# workspace()
 
 	Test("Define and use", 2, """
@@ -87,11 +88,11 @@ Sum 0 1 -1
 	""")
 
 	Test("Load Module Value", 2, """
-LoadModule ./command/test_data.burl
+LoadModule ./burl/test_data.burl
 	""")
 
 	Test("Load Module Use Defines", 3, """
-LoadModule ./command/test_data.burl
+LoadModule ./burl/test_data.burl
 Sum
 	Two
 	1
@@ -157,4 +158,4 @@ ForEach
 		print("Failure: Total: %i, Success: %i, Wrong: %i, Error: %i" % (Test.total, Test.success, Test.wrong, Test.error))
 
 if __name__ == "__main__":
-	main()
+	run_tests()
