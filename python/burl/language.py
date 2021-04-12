@@ -125,7 +125,7 @@ class EvalNode:
 	# consider using an immutable data structure like Tuple(element, frozenmap)
 	def __init__(self, element, mapped_arguments = None):
 		self.element = element
-		self.mapped_arguments = mapped_arguments if mapped_arguments is not None else []
+		self.mapped_arguments = mapped_arguments or []
 
 	def __str__(self, indentation = 0):
 		output = "   " * indentation + self.element.name
@@ -162,6 +162,42 @@ class EvalNode:
 
 		return False
 
+	def insert_argument(self, arg, arg_index, sub_index):
+		# do we also need to skill all params of most recent child? probably
+		if arg_index < 0 or arg_index >= len(self.element.parameters):
+			raise EvaluationError("InsertArgument %s at element %s parameter %i is out of range" % (arg.element.name, self.element.name, arg_index))
+		for param_index in range(len(self.mapped_arguments), arg_index):
+			# consider allowing empty required arguments while composing
+			self.skip_param(param_index)
+		param = self.element.parameters[arg_index]
+		if not param.accepts(arg.element.element_type):
+			raise EvaluationError("InsertArgument %s %s is of the incorrect type, expected %s got %s" (self.element.name, arg.element.name, param.element_type, arg.element.element_type))
+
+		existing_arg_count = len(self.mapped_arguments)
+		if existing_arg_count < arg_index:
+			# consider another error class for implementation errors
+			raise EvaluationError("InsertArgument skip param failed")
+
+		if not param.repeatable:
+			if sub_index is not None:
+				raise EvaluationError("InsertArgument %s %s has a sub_index for a non-repeatable parameter, %i" % (self.element.name, arg.element.name, arg_index));
+			
+			if existing_arg_count == arg_index:
+				self.mapped_arguments.append(arg)
+			else:
+				# do we have any cleanup to do around the previous argument?
+				self.mapped_arguments[arg_index] = arg
+		else:
+			if existing_arg_count == arg_index:
+				self.mapped_arguments.append([arg])
+			else:
+				sub_args = self.mapped_arguments[arg_index]
+				if len(sub_args) <= sub_index or sub_index == None:
+					sub_args.append(arg)
+				else:
+					# do we have any cleanup to do around the previous argument?
+					sub_args[sub_index] = arg
+
 	def get_last_argument(self):
 		if not self.mapped_arguments:
 			return self
@@ -192,20 +228,36 @@ class EvalNode:
 					else:
 						self.mapped_arguments.append([next_argument])
 				return True
-			if param.required:
-				raise EvaluationError("element %s parameter %s has an argument of incorrect type. expects %s, got %s." % (
-						self.element.name, param.name, param.element_type,
-						next_argument.element.element_type))
-			else:
-				if param.repeatable:
-					self.mapped_arguments.append([])
-				else:
-					# rmf todo: should we evaluate default values yet?
-					self.mapped_arguments.append(None)
+			self.skip_param(param_index)
 
 		# we may have modified mapped_arguments by filling in default values
 		# this should be alright, but will need updating with an undo feature
 		return False
+
+	def skip_param(self, param_index):
+		if param_index < 0 or param_index >= len(self.element.parameters):
+			# invalid param index
+			return
+		param = self.element.parameters[param_index]
+		if len(self.mapped_arguments) > param_index:
+			# this is already filled
+			return
+		if self.mapped_arguments:
+			last_arg = self.mapped_arguments[-1]
+			# skip all remaining open parameters of the most recent argument
+			if last_arg:
+				last_arg.skip_param(len(last_arg.element.parameters)-1)
+		if len(self.mapped_arguments) < param_index:
+			# must fill all preceeding defaults, recursing should be okay here
+			self.fill_default(self, param_index - 1)
+		if param.required:
+			raise EvaluationError("element %s parameter %s is required, but being skipped" % (
+						self.element.name, param.name))
+		# consider putting defaults in here now
+		if param.repeatable:
+			self.mapped_arguments.append([])
+		else:
+			self.mapped_arguments.append(None)
 
 
 class Module:

@@ -142,6 +142,16 @@ Evaluate
 		Quote x
 """)
 
+	Test("Composition CursorInsert", 3, """
+LoadModule composition
+Set x 3
+Set get_x Quote Get
+InsertArgument
+	Cursor.Make Get get_x
+	Quote x
+Evaluate Get get_x
+""")
+
 	skiptest = """
 ForEach
 	first
