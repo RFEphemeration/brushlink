@@ -61,7 +61,7 @@ def evaluate(context, node):
 def append_argument(tree, arg):
 	# this modifies the argument, which is not ideal
 	try:
-		success = tree.value.append_argument(arg.value)
+		(success, skips_remaining) = tree.value.append_argument(arg.value, 0)
 		if success:
 			return Value(tree.value, 'EvalNode')
 		else:
@@ -85,7 +85,7 @@ class Cursor:
 			self.child = self.child.extend_child_to_open_parameter()
 			if self.child:
 				# our existing child still has an open parameter
-				return
+				return self
 		if not self.node:
 			return self # this is an open parameter
 		if not self.node.element.parameters:
@@ -131,14 +131,10 @@ class Cursor:
 		while cursor.parent:
 			cursor = cursor.parent
 		return cursor
-					
-	"""
-	def get_at_path(self):
-		node = self.root_node
 
-		for step in self.path:
-			if 
-	"""
+	def update_node(self, param_index, sub_index):
+		self.child = None
+
 
 	# exposed functions
 
@@ -194,6 +190,6 @@ ModuleDictionary.instance().add_module(Module('composition', context=make_contex
 		[Cursor.make, """Builtin Cursor.Make Cursor Standalone Unwrap Parameter tree EvalNode"""],
 		[Cursor.insert_argument, """Builtin InsertArgument Cursor Standalone Unwrap
 	Parameter cursor Cursor
-	Parameter arg EvalNode"""]
+	Parameter arg EvalNode"""],
 	],
 )))

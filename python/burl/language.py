@@ -145,22 +145,23 @@ class EvalNode:
 		self.element.fill_defaults(context, self.mapped_arguments)
 		return self.element.evaluate(context, self.mapped_arguments)
 
-	def append_argument(self, arg):
+	def append_argument(self, arg, skip_count):
+		skips_remaining = skip_count
 		if self.mapped_arguments:
 			if not isinstance(self.mapped_arguments[-1], list):
-				success = self.mapped_arguments[-1].append_argument(arg)
+				(success, skips_remaining) = self.mapped_arguments[-1].append_argument(arg, skips_remaining)
 				if success:
-					return True
+					return (True, 0)
 			elif self.mapped_arguments[-1]:
-				success = self.mapped_arguments[-1][-1].append_argument(arg)
+				(success, skips_remaining) = self.mapped_arguments[-1][-1].append_argument(arg, skips_remaining)
 				if success:
-					return True
+					return (True, 0)
 
-		success = self.try_append_to_mapped_arguments(arg)
+		(success, skips_remaining) = self.try_append_to_mapped_arguments(arg, skips_remaining)
 		if success:
-			return True
+			return (True, 0)
 
-		return False
+		return (False, skips_remaining)
 
 	def insert_argument(self, arg, arg_index, sub_index):
 		# do we also need to skill all params of most recent child? probably
@@ -210,7 +211,7 @@ class EvalNode:
 		else:
 			return self.mapped_arguments[-1].get_last_argument()
 
-	def try_append_to_mapped_arguments(self, next_argument):
+	def try_append_to_mapped_arguments(self, next_argument, skips_remaining):
 		""" using True, False as Accept, Continue. exceptions are errors """
 		param_index = len(self.mapped_arguments)
 		if self.mapped_arguments and isinstance(self.mapped_arguments[-1], list):
@@ -219,7 +220,7 @@ class EvalNode:
 		for param_index in range(param_index, len(self.element.parameters)):
 			param = self.element.parameters[param_index]
 			# rmf todo: how to deal with unbound names here?
-			if param.accepts(next_argument.element.element_type):
+			if param.accepts(next_argument.element.element_type) and skips_remaining <= 0:
 				if not param.repeatable:
 					self.mapped_arguments.append(next_argument)
 				else:
@@ -227,12 +228,13 @@ class EvalNode:
 						self.mapped_arguments[param_index].append(next_argument)
 					else:
 						self.mapped_arguments.append([next_argument])
-				return True
+				return (True, 0)
+			skips_remaining -= 1
 			self.skip_param(param_index)
 
 		# we may have modified mapped_arguments by filling in default values
 		# this should be alright, but will need updating with an undo feature
-		return False
+		return (False, skips_remaining)
 
 	def skip_param(self, param_index):
 		if param_index < 0 or param_index >= len(self.element.parameters):

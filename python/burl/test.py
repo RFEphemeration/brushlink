@@ -1,5 +1,6 @@
 from burl.language import Context, EvaluationError
 from burl.parser import ParseNode
+import burl.core
 
 # Testing
 
@@ -97,6 +98,19 @@ Sum
 	Two
 	1
 	""")
+
+	Test("Core Lambda", 3, """
+Set x 2
+Set add_one Lambda
+		Parameter x Number
+		Skip
+		Sum
+			Get x
+			1
+EvaluateElement
+	Get add_one
+	Get x
+""")
 
 	Test("Collections empty set", frozenset(), """
 LoadModule collections

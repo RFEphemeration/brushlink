@@ -2,16 +2,13 @@ import os
 
 from burl.language import Value, Parameter, Context, Module, ModuleDictionary, Literal, EvaluationError, EvalNode, Element
 from burl.builtin import Builtin, builtin_tools, make_context, Handling
-from burl.parser import ParseNode
+from burl.parser import ParseNode, Skip
 
 
 class Definition(Element):
-	def __init__(self, name, element_type, parameters, context=None, evaluator=None):
+	def __init__(self, name, element_type, parameters, evaluator):
 		Element.__init__(self, name, element_type, parameters)
-		self.evaluator = evaluator	
-		if not evaluator:
-			# self.evaluator = EvalNode(Literal('None', 'None', None))
-			raise Exception("Definitions require an evaluator")
+		self.evaluator = evaluator
 
 	def evaluate(self, context, unevaluated_arguments):
 		args = self.evaluate_arguments(context, unevaluated_arguments)
@@ -21,22 +18,40 @@ class Definition(Element):
 		child_context = Context(context, values=values)
 		return self.evaluator.evaluate(child_context)
 
+	@staticmethod
+	def define(context, name, element_type, parameters, evaluator):
+		eval_name = name.evaluate(context).value
+		eval_type = element_type.evaluate(context).value
+		eval_params = []
+		for param in parameters:
+			eval_params.append(param.evaluate(context).value)
+		root_node = EvalNode(context.get_definition('Sequence'), [evaluator])
+		element = Definition(eval_name, eval_type, eval_params, root_node)
+		context.definitions[eval_name] = element
+		# rmf todo: should this return the definition? or just nothing
+		return element
 
-def define(self, name, element_type, parameters, evaluator):
-	eval_name = name.evaluate(self).value
-	eval_type = element_type.evaluate(self).value
-	eval_params = []
-	for param in parameters:
-		eval_params.append(param.evaluate(self).value)
-	root_node = EvalNode(self.get_definition('Sequence'), [evaluator])
-	element = Definition(eval_name, eval_type, eval_params, evaluator=root_node)
-	self.definitions[eval_name] = element
-	# rmf todo: should this return the definition? or just nothing
-	return element
+	@staticmethod
+	def make_lambda(context, parameters, evaluators):
+		eval_params = []
+		for param in parameters:
+			eval_params.append(param.evaluate(context).value)
+		element_type = evaluators[-1].element.element_type
+		if len(evaluators) == 1:
+			root_node = evaluators[0]
+		else:
+			root_node = EvalNode(context.get_definition('Sequence'), evaluators)
+
+		return Definition("Lambda", element_type, eval_params, root_node)
 
 
 def quote(node):
 	return Value(node, 'EvalNode')
+
+
+def evaluate_element(context, element, args):
+	eval_element = element.evaluate(context).value
+	return eval_element.evaluate(context, args)
 
 
 def sequence(expressions):	
@@ -57,26 +72,26 @@ def parameter(name, element_type, repeatable, default_value):
 	return Parameter(name.value, element_type.value, default_value=default_node, repeatable=repeatable.value)
 
 
-def load_module(self, path, name):
+def load_module(context, path, name):
 	if not name:
 		name = os.path.basename(path)
 		if name.endswith('.burl'):
 			name = name[:-5]
 	name = name or os.path.splitext()
-	if name in self.module_references:
+	if name in context.module_references:
 		raise EvaluationError("Cannot load module with name " + name + ", another module with this name already exists")
 
 	module = ModuleDictionary.instance().get_module(path)
 	if module:
-		self.module_references[name] = module
+		context.module_references[name] = module
 		return module.value
 	try:
 		with open(path) as f:
-			context = Context()
-			value = ParseNode.parse(f.read()).evaluate(context)
-			module = Module(path, context = context, value = value)
+			module_context = Context()
+			value = ParseNode.parse(f.read()).evaluate(module_context)
+			module = Module(path, context = module_context, value = value)
 			ModuleDictionary.instance().add_module(module)
-			self.module_references[path] = module
+			context.module_references[path] = module
 			return module.value
 	except (OSError, FileNotFoundError):
 		raise EvaluationError("Could not find module with path " + path)
@@ -192,10 +207,7 @@ ModuleDictionary.instance().add_module(Module('core', context=make_context(
 			# can this just be required=false? what does default value of None do here?
 			Parameter('default_value', 'Any', default_value=Literal('None', 'NoneType', None).as_eval_node()),
 		]),
-		'Quote': Builtin('Quote', 'EvalNode', quote, Handling.STANDALONE, Handling.LAZY, [
-			Parameter('element', 'Any'),
-		]),
-		'Define': Builtin('Define', 'Element', define, handling=Handling.LAZY, parameters=[
+		'Define': Builtin('Define', 'Element', Definition.define, handling=Handling.LAZY, parameters=[
 			Parameter('name', 'ValueName'),
 			Parameter('element_type', 'Type'),
 			Parameter('parameters', 'ParameterType', required=False, repeatable=True),
@@ -208,6 +220,7 @@ ModuleDictionary.instance().add_module(Module('core', context=make_context(
 			Parameter('path', 'ValueName'),
 			Parameter('name', 'ValueName', default_value=Literal('None', 'NoneType', None).as_eval_node()),
 		]),
+		'Skip': Skip(),
 	},
 	evaluations=[
 		[None, "Literal None NoneType"],
@@ -219,6 +232,13 @@ ModuleDictionary.instance().add_module(Module('core', context=make_context(
 	Parameter name ValueName
 	Parameter value Any
 		"""],
+		[quote, "Builtin Quote EvalNode Standalone Lazy Parameter element Any"],
+		[Definition.make_lambda, """Builtin Lambda Element Contextual Lazy
+	Parameter parameters ParameterType True
+	Parameter evaluator Any True"""],
+		[evaluate_element, """Builtin EvaluateElement Any Contextual Lazy
+	Parameter element Element
+	Parameter args Any True"""], #todo make arg types parameterize on the element's parameters
 		[True, "Literal True Boolean"],
 		[False, "Literal False Boolean"],
 		[Context.get, "Builtin Get Any Contextual Parameter name ValueName"],
