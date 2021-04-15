@@ -172,7 +172,7 @@ class EvalNode:
 			self.skip_param(param_index)
 		param = self.element.parameters[arg_index]
 		if not param.accepts(arg.element.element_type):
-			raise EvaluationError("InsertArgument %s %s is of the incorrect type, expected %s got %s" (self.element.name, arg.element.name, param.element_type, arg.element.element_type))
+			raise EvaluationError("InsertArgument %s %s is of the incorrect type, expected %s got %s" % (self.element.name, arg.element.name, param.element_type, arg.element.element_type))
 
 		existing_arg_count = len(self.mapped_arguments)
 		if existing_arg_count < arg_index:
@@ -214,13 +214,15 @@ class EvalNode:
 	def try_append_to_mapped_arguments(self, next_argument, skips_remaining):
 		""" using True, False as Accept, Continue. exceptions are errors """
 		param_index = len(self.mapped_arguments)
-		if self.mapped_arguments and isinstance(self.mapped_arguments[-1], list):
+		# if the last arg is an empty list, it was skipped, don't revisit it
+		if self.mapped_arguments and isinstance(self.mapped_arguments[-1], list) and self.mapped_arguments[-1]:
 			param_index -= 1
 
 		for param_index in range(param_index, len(self.element.parameters)):
 			param = self.element.parameters[param_index]
 			# rmf todo: how to deal with unbound names here?
-			if param.accepts(next_argument.element.element_type) and skips_remaining <= 0:
+			acceptable = param.accepts(next_argument.element.element_type)
+			if acceptable and skips_remaining <= 0:
 				if not param.repeatable:
 					self.mapped_arguments.append(next_argument)
 				else:
@@ -229,7 +231,8 @@ class EvalNode:
 					else:
 						self.mapped_arguments.append([next_argument])
 				return (True, 0)
-			skips_remaining -= 1
+			elif acceptable and skips_remaining > 0:
+				skips_remaining -= 1
 			self.skip_param(param_index)
 
 		# we may have modified mapped_arguments by filling in default values
@@ -248,6 +251,8 @@ class EvalNode:
 			last_arg = self.mapped_arguments[-1]
 			# skip all remaining open parameters of the most recent argument
 			if last_arg:
+				if isinstance(last_arg, list):
+					last_arg = last_arg[-1]
 				last_arg.skip_param(len(last_arg.element.parameters)-1)
 		if len(self.mapped_arguments) < param_index:
 			# must fill all preceeding defaults, recursing should be okay here

@@ -105,7 +105,6 @@ Set y_outer 1
 Set add_plus_one Lambda
 		Parameter x Number
 		y
-		Skip
 		Sum
 			Get x
 			Get y
