@@ -5,6 +5,24 @@ from burl.builtin import Builtin, builtin_tools, make_context, Handling
 from burl.parser import ParseNode, Skip
 
 
+class OneOf(Parameter):
+	def __init__(self, options):
+		Parameter.__init__(
+			self,
+			options[0].name,
+			options[0].element_type,
+			next((p.default_value for p in options if p.default_value is not None), None),
+			all(p.required for p in options),
+			any(p.repeatable for p in options))
+		self.options = options;
+
+	def accepts(self, element_type):
+		for p in self.options:
+			if p.accepts(element_type):
+				return True
+		return False
+
+
 class Definition(Element):
 	def __init__(self, name, element_type, parameters, evaluator):
 		Element.__init__(self, name, element_type, parameters)
@@ -35,7 +53,11 @@ class Definition(Element):
 	def make_lambda(context, parameters, evaluators):
 		eval_params = []
 		for param in parameters:
-			eval_params.append(param.evaluate(context).value)
+			eval_param = param.evaluate(context)
+			if eval_param.element_type == "ParameterType":
+				eval_params.append(eval_param.value)
+			elif eval_param.element_type == "ValueName":
+				eval_params.append(Parameter(eval_param.value, "Any"))
 		element_type = evaluators[-1].element.element_type
 		if len(evaluators) == 1:
 			root_node = evaluators[0]
@@ -232,9 +254,12 @@ ModuleDictionary.instance().add_module(Module('core', context=make_context(
 	Parameter name ValueName
 	Parameter value Any
 		"""],
+		[OneOf, "Builtin OneOf ParameterType Standalone Unwrap Parameter options ParameterType True"],
 		[quote, "Builtin Quote EvalNode Standalone Lazy Parameter element Any"],
 		[Definition.make_lambda, """Builtin Lambda Element Contextual Lazy
-	Parameter parameters ParameterType True
+	OneOf
+		Parameter parameters ParameterType True
+		Parameter names ValueName True
 	Parameter evaluator Any True"""],
 		[evaluate_element, """Builtin EvaluateElement Any Contextual Lazy
 	Parameter element Element

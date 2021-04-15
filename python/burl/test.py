@@ -99,17 +99,21 @@ Sum
 	1
 	""")
 
-	Test("Core Lambda", 3, """
-Set x 2
-Set add_one Lambda
+	Test("Core Lambda", 4, """
+Set x_outer 2
+Set y_outer 1
+Set add_plus_one Lambda
 		Parameter x Number
+		y
 		Skip
 		Sum
 			Get x
+			Get y
 			1
 EvaluateElement
-	Get add_one
-	Get x
+	Get add_plus_one
+	Get x_outer
+	Get y_outer
 """)
 
 	Test("Collections empty set", frozenset(), """
