@@ -101,6 +101,8 @@ def load_module(context, path, name):
 			name = name[:-5]
 	name = name or os.path.splitext()
 	if name in context.module_references:
+		if name == 'core':
+			return context.module_references['core']
 		raise EvaluationError("Cannot load module with name " + name + ", another module with this name already exists")
 
 	module = ModuleDictionary.instance().get_module(path)
