@@ -353,7 +353,7 @@ class Context:
 		value = self.navigate_parents_and_modules(lambda context : context.definitions.get(name, None))
 		if value:
 			return value
-		raise EvaluationError("get failed, no definition found with name %s" % (name))
+		raise EvaluationError("No definition found with name %s" % (name))
 
 	def is_known_type(self, name):
 		return self.navigate_parents_and_modules(lambda context : name in context.types)

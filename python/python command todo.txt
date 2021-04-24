@@ -22,7 +22,9 @@ more complex types
 
 subtypes
 
-load modules, share loaded modules?
+# load modules, share loaded modules?
 
-lambda element
+# lambda element
 # unevaluated element - this is quote, done
+
+keyword parameters and elements for syntactic sugar: (if) else
