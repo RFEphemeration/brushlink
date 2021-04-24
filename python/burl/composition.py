@@ -31,7 +31,7 @@ def definitions_of_type(current_context, element_type):
 
 
 def values_of_type(current_context, element_type):
-	values = {}
+	values = set()
 
 	def merge_values(context):
 		nonlocal values
@@ -70,6 +70,7 @@ def append_argument(tree, arg):
 	except EvaluationError as e:
 		return Value(e, 'EvaluationError')
 
+
 class Cursor:
 	def __init__(self, node:EvalNode, parent=None, param_index:int=None, sub_index:int=None):
 		self.node = node
@@ -89,7 +90,7 @@ class Cursor:
 		if not self.node:
 			return self # this is an open parameter
 		if not self.node.element.parameters:
-			return None
+			return None # this has no parameters
 
 		args = self.node.mapped_arguments
 		child_node = None
@@ -125,6 +126,7 @@ class Cursor:
 			self.sub_index = 0
 
 		self.child = Cursor(None, parent=self, param_index=len(args), sub_index=sub_index)
+		return self
 
 	def get_root(self):
 		cursor = self
@@ -134,7 +136,6 @@ class Cursor:
 
 	def update_node(self, param_index, sub_index):
 		self.child = None
-
 
 	# exposed functions
 
@@ -154,7 +155,6 @@ class Cursor:
 
 		self.get_root().extend_child_to_open_parameter()
 		return self
-
 
 	def get_allowed_argument_types(self):
 		if self.child:
@@ -180,7 +180,6 @@ class Cursor:
 
 	def delete_branch(self):
 		pass
-
 
 
 ModuleDictionary.instance().add_module(Module('composition', context=make_context(

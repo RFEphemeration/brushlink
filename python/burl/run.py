@@ -123,5 +123,10 @@ def run_compose():
 				repl.parse_eval("Cursor.InsertArgument Get cursor Quote Get " + line)
 			elif active_tab.value == "ValueName":
 				repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
+			elif active_tab.value == "Type":
+				if repl.is_known_type(line):
+					repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
+				else:
+					print("Uknown Type " + line)
 		except EvaluationError as e:
 			print("EvaluationError: " + e.__str__())
