@@ -31,5 +31,8 @@ ModuleDictionary.instance().add_module(Module('collections', context=make_contex
 		[frozenset.issuperset, """Builtin HashSet.Superset Boolean Unwrap
 	Parameter a HashSet
 	Parameter b HashSet"""],
+		[lambda s, i: i in s, """Builtin HashSet.Contains Boolean Unwrap
+	Parameter a HashSet
+	Parameter b Any"""],
 	],
 )))

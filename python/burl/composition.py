@@ -63,7 +63,7 @@ def append_argument(tree, arg):
 	try:
 		(success, skips_remaining) = tree.value.append_argument(arg.value, 0)
 		if success:
-			return Value(tree.value, 'EvalNode')
+			return tree
 		else:
 			return Value('Could not append argument %s to %s' % (
 				arg.value.element.name, tree.value.element.name), 'EvaluationError')
@@ -119,10 +119,10 @@ class Cursor:
 			return None
 
 		sub_index = None
-		if self.node.element.parameters[param_index].repeatable:
+		if self.node.element.parameters[self.param_index].repeatable:
 			# should we append an empty list already?
 			# or keep sub_index at None?
-			sub_index = 0
+			self.sub_index = 0
 
 		self.child = Cursor(None, parent=self, param_index=len(args), sub_index=sub_index)
 
@@ -147,13 +147,24 @@ class Cursor:
 	def insert_argument(self, node):
 		if self.child:
 			self.child.insert_argument(node)
-			return
+			return self
 		self.node = node
 		if self.parent:
 			self.parent.node.insert_argument(self.node, self.param_index, self.sub_index)
 
 		self.get_root().extend_child_to_open_parameter()
+		return self
 
+
+	def get_allowed_argument_types(self):
+		if self.child:
+			return self.child.get_allowed_argument_types()
+
+		if self.node or not self.parent:
+			return Value(None, "NoneType")
+
+		# should we do anything about Any?
+		return frozenset([Value(self.parent.node.element.parameters[self.param_index].element_type, "Type")])
 
 	def prev_node(self):
 		pass
@@ -184,12 +195,24 @@ ModuleDictionary.instance().add_module(Module('composition', context=make_contex
 		[definitions_of_type, "Builtin DefinitionsOfType HashSet Contextual Parameter type Type"],
 		[values_of_type, "Builtin ValuesOfType HashSet Contextual Parameter type Type"],
 		[evaluate, "Builtin Evaluate Any Contextual Parameter node EvalNode"],
-		[append_argument, """Builtin AppendArgument EvalNode Standalone
+		[append_argument, """Builtin AppendArgument EvalNode
 	Parameter tree EvalNode
 	Parameter argument EvalNode"""],
-		[Cursor.make, """Builtin Cursor.Make Cursor Standalone Unwrap Parameter tree EvalNode"""],
-		[Cursor.insert_argument, """Builtin InsertArgument Cursor Standalone Unwrap
+		[Cursor.make, """Builtin Cursor.Make Cursor Unwrap Parameter tree EvalNode"""],
+		[lambda c: c.node, """Builtin Cursor.GetEvalNode EvalNode Unwrap Parameter cursor Cursor"""],
+		[Cursor.insert_argument, """Builtin Cursor.InsertArgument Cursor Unwrap
 	Parameter cursor Cursor
 	Parameter arg EvalNode"""],
+		[Cursor.get_allowed_argument_types, """Builtin Cursor.GetAllowedArgumentTypes HashSet Unwrap
+	Parameter cursor Cursor"""],
+		[None, """Define Cursor.NextAllowingType Cursor
+	Parameter cursor Cursor
+	Parameter type Type
+	Skip
+	While Not HashSet.Contains
+			Cursor.GetAllowedArgumentTypes Get cursor
+			Get type
+		Cursor.InsertArgument Get cursor Quote Skip # should use move_next instead of insert skip
+	Get cursor"""],
 	],
 )))

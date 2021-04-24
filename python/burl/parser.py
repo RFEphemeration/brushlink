@@ -91,7 +91,7 @@ class ParseNode:
 					raise EvaluationError("Parser encountered Skips before any elements")
 				evaluated_children.append(child_evaluator.evaluate(context))
 			return evaluated_children[-1]
-		else:	
+		else:
 			(evaluator, skips) = self.to_eval_node(context)
 			if skips > 0:
 				raise EvaluationError("Parser encountered Skips before any elements")
@@ -102,6 +102,8 @@ class ParseNode:
 		pre_skip_count = 0
 		skip_count = 0
 		for name in str.split(self.contents):
+			if name.startswith("#"):
+				break
 			if not name:
 				continue
 			node = ParseNode.try_bind(context, name)
@@ -169,3 +171,8 @@ class ParseNode:
 				else:
 					element = UnboundSymbol(name)
 		return EvalNode(element)
+
+def context_parse_eval(self, code):
+	return ParseNode.parse(code).evaluate(self)
+
+Context.parse_eval = context_parse_eval

@@ -243,8 +243,7 @@ ModuleDictionary.instance().add_module(Module('core', context=make_context(
 			# and maybe you just need one of the two
 			Parameter('path', 'ValueName'),
 			Parameter('name', 'ValueName', default_value=Literal('None', 'NoneType', None).as_eval_node()),
-		]),
-		'Skip': Skip(),
+		])
 	},
 	evaluations=[
 		[None, "Literal None NoneType"],

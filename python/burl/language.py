@@ -309,7 +309,7 @@ class ModuleDictionary:
 
 # Context and builtins
 class Context:
-	def __init__(self, parent=None, values=None, definitions=None, types=None, load_core=None):
+	def __init__(self, parent=None, values=None, definitions=None, types=None, load_core=True):
 		if load_core is None:
 			load_core = parent is None
 		self.parent = parent
