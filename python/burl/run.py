@@ -107,7 +107,10 @@ def run_compose():
 				value = repl.parse_eval("Evaluate Cursor.GetEvalNode Get cursor")
 				print(value)
 			elif line == "Skip":
-				repl.parse_eval("Cursor.InsertArgument Get cursor Quote Skip")
+				success = cursor.value.next_node()
+				if not success:
+					print("Cursor could not skip")
+
 			elif line.startswith("Tab "):
 				tab = Value(line.split()[-1], "Type")
 				if options.value is None or (
@@ -128,5 +131,7 @@ def run_compose():
 					repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
 				else:
 					print("Uknown Type " + line)
+			elif active_tab.value == "Number":
+				repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
 		except EvaluationError as e:
 			print("EvaluationError: " + e.__str__())

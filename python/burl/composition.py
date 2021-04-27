@@ -170,7 +170,25 @@ class Cursor:
 		pass
 
 	def next_node(self):
-		pass
+		if self.child:
+			if self.child.next_node():
+				return True
+			else:
+				raise EvaluationError("Cursor next child is unimplemented")
+
+		if not self.parent:
+			return False
+
+		try:
+			if not self.node:
+				self.parent.node.skip_param(self.param_index)
+			self.param_index += 1
+			self.sub_index = None
+			self.node = None
+			return True
+		except EvaluationError as e:
+			return False
+
 
 	def move_up(self):
 		pass
