@@ -79,6 +79,49 @@ class Cursor:
 		self.sub_index = sub_index
 		self.child = None
 
+	def __str__(self, indentation = 0):
+		prefix = "   " * indentation
+		if not self.child:
+			if self.node:
+				return prefix + "[" + self.node.element.name + "]"
+			else:
+				if self.parent and self.param_index is not None:
+					param = self.parent.node.element.parameters[self.param_index]
+					return prefix + "[" + param.name + ": " + param.element_type + "]"
+				else:
+					return prefix + "[_]"
+		
+		output = prefix + self.node.element.name
+		prefix += "   "
+
+		if not self.node:
+			raise EvaluationError("Cursor with child has no node...")
+
+		for p in range(len(self.node.element.parameters)):
+			param = self.node.element.parameters[p]
+			if self.child and p == self.child.param_index:
+				if self.child.sub_index:
+					for s in range(len(self.node.mapped_arguments[p])):
+						if s == self.child.sub_index:
+							output += "\n" + self.child.__str__(indentation + 1)
+						else:
+							output += "\n" + self.node.mapped_arguments[p][s].__str__(indentation + 1)
+				else:
+					output += "\n" + self.child.__str__(indentation + 1)
+			elif p >= len(self.node.mapped_arguments):
+				output += "\n" + prefix + "(" + param.name + ": " + param.element_type + ")"
+			else:
+				if isinstance(self.node.mapped_arguments[p], list):
+					for sub_arg in self.node.mapped_arguments[p]:
+						output += "\n" + sub_arg.__str__(indentation + 1)
+				else:
+					output += "\n" + self.node.mapped_arguments[p].__str__(indentation + 1)
+
+		return output
+
+	def __repr__(self):
+		return self.__str__()
+
 	# internal helpers
 
 	def extend_child_to_open_parameter(self):

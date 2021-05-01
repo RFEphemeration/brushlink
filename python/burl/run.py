@@ -59,6 +59,7 @@ def run_compose():
 	cursor = None
 	active_tab = None
 	tabs = frozenset()
+	force_update_active_tab = False
 	while True:
 		if cursor is None:
 			cursor = repl.parse_eval("Set cursor Cursor.Make Quote Sequence")
@@ -74,9 +75,13 @@ def run_compose():
 			value_names = []
 		else:
 			print("Allowed Types: " + " ".join([o.value for o in options.value]))
-			if active_tab != "Any" and options.value is not None and active_tab not in options.value and Value('Any', 'Type') not in options.value:
+			if force_update_active_tab or (active_tab != "Any"
+					and options.value is not None
+					and active_tab not in options.value
+					and Value('Any', 'Type') not in options.value):
 				active_tab = next(iter(options.value))
 				repl.set(Value("active_tab", "ValueName"), active_tab)
+				force_update_active_tab = False
 
 			elements = repl.parse_eval("DefinitionsOfType Get active_tab")
 			elements = [e.value for e in elements.value]
@@ -84,7 +89,7 @@ def run_compose():
 			value_names = [n.value for n in value_names.value]
 
 		print("### Command ###")
-		print(cursor.value.node)
+		print(cursor.value)
 
 		print("### Tabs ###")
 		print(" ".join(tabs))
@@ -106,8 +111,10 @@ def run_compose():
 			if line == "Evaluate":
 				value = repl.parse_eval("Evaluate Cursor.GetEvalNode Get cursor")
 				print(value)
+				force_update_active_tab = True
 			elif line == "Skip":
 				success = cursor.value.next_node()
+				force_update_active_tab = True
 				if not success:
 					print("Cursor could not skip")
 
@@ -116,22 +123,29 @@ def run_compose():
 				if options.value is None or (
 					tab not in options.value and Value("Any", "Type") not in options.value):
 					print("Cursor does not allow values of type %s" % tab.value)
+				elif repl.is_known_type(tab.value):
+						active_tab = tab
+						repl.set(Value("active_tab", "ValueName"), active_tab)
 				else:
-					active_tab = tab
-					repl.set(Value("active_tab", "ValueName"), active_tab)
+					print("Uknown Type " + tab.value + " has no elements")
 
 			elif line in elements:
 				repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
+				force_update_active_tab = True
 			elif line in value_names:
 				repl.parse_eval("Cursor.InsertArgument Get cursor Quote Get " + line)
+				force_update_active_tab = True
 			elif active_tab.value == "ValueName":
 				repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
+				force_update_active_tab = True
 			elif active_tab.value == "Type":
 				if repl.is_known_type(line):
 					repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
+					force_update_active_tab = True
 				else:
 					print("Uknown Type " + line)
 			elif active_tab.value == "Number":
 				repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
+				force_update_active_tab = True
 		except EvaluationError as e:
 			print("EvaluationError: " + e.__str__())
