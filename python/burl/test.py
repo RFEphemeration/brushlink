@@ -10,19 +10,24 @@ class Test():
 	success = 0
 	wrong = 0
 	error = 0
-	def __init__(self, name, expected_value, code):
+	def __init__(self, name, expected_value, code=None, func=None):
 		self.name = name
 		self.code = code
+		self.func = func
 		self.expected_value = expected_value
 		self.run()
 
 	def run(self):
 		Test.total += 1
 		context = Context()
-		ast = ParseNode.parse(self.code)
+		
 		try:
-			result = ast.evaluate(context)
-			if result.value == self.expected_value:
+			if self.code:
+				ast = ParseNode.parse(self.code)
+				result = ast.evaluate(context)
+			else:
+				result = self.func()
+			if result and result.value == self.expected_value:
 				print("Success: %s" % self.name)
 				Test.success += 1
 			else:
@@ -170,7 +175,7 @@ Cursor.InsertArgument
 Evaluate Get get_x
 """)
 
-	compose_value = run_compose([
+	Test("RunCompose Define Three", 3, func=lambda : run_compose([
 		"Tab Element",
 		"Define",
 		"Three",
@@ -182,11 +187,7 @@ Evaluate Get get_x
 		"Tab Number",
 		"Three",
 		"Evaluate",
-		])
-	if compose_value is None or compose_value.value is not 3:
-		Test("RunCompose Define Three", 3, "None")
-	else:
-		Test("RunCompose Define Three", 3, "3")
+	]))
 
 	skiptest = """
 ForEach
