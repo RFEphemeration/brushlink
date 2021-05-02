@@ -72,7 +72,8 @@ def append_argument(tree, arg):
 
 
 class Cursor:
-	def __init__(self, node:EvalNode, parent=None, param_index:int=None, sub_index:int=None):
+	# this is getting messy, consider re-writing as path and node instead of chain
+	def __init__(self, node:EvalNode, parent = None, param_index: int = None, sub_index: int = None):
 		self.node = node
 		self.parent = parent
 		self.param_index = param_index
@@ -99,20 +100,24 @@ class Cursor:
 
 		for p in range(len(self.node.element.parameters)):
 			param = self.node.element.parameters[p]
-			if p >= len(self.node.mapped_arguments):
-				output += "\n" + prefix + "(" + param.name + ": " + param.element_type + ")"
-			elif self.child and p == self.child.param_index:
-				if isinstance(self.node.mapped_arguments[p], list):
+			is_child = self.child and p == self.child.param_index
+			has_arg = p < len(self.node.mapped_arguments)
+			if is_child:
+				if has_arg and param.repeatable:
 					subs = self.node.mapped_arguments[p]
+					found_child = False
 					for s in range(len(subs)):
-						if s == self.child.sub_index:
+						if s == self.child.sub_index or (s == 0 and self.child.sub_index is None):
 							output += "\n" + self.child.__str__(indentation + 1)
+							found_child = True
 						else:
 							output += "\n" + subs[s].__str__(indentation + 1)
-					if self.child.sub_index is not None and self.child.sub_index >= len(subs):
+					if not found_child:
 						output += "\n" + self.child.__str__(indentation + 1)
 				else:
 					output += "\n" + self.child.__str__(indentation + 1)
+			elif not has_arg:
+				output += "\n" + prefix + "(" + param.name + ": " + param.element_type + ")"
 			else:
 				if isinstance(self.node.mapped_arguments[p], list):
 					if self.node.mapped_arguments[p]:
