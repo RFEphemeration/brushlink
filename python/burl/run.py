@@ -117,7 +117,7 @@ def run_compose():
 				except EvaluationError as e:
 					print(e)
 			elif line == "Skip":
-				success = cursor.value.next_node()
+				success = cursor.value.increment_path_to_open_parameter(force_one=True)
 				force_update_active_tab = True
 				if not success:
 					print("Cursor could not skip")

@@ -1,4 +1,4 @@
-from burl.language import Context, Module, ModuleDictionary, EvaluationError, Value, EvalNode
+from burl.language import Context, Module, ModuleDictionary, EvaluationError, Value, EvalNode, Parameter
 from burl.builtin import builtin_tools, make_context
 
 
@@ -72,188 +72,164 @@ def append_argument(tree, arg):
 
 
 class Cursor:
+	class PathNode:
+		def __init__(self, node:EvalNode, index:int):
+			self.node = node
+			self.index = index
+
+		@property
+		def param(self):
+			if not self.node or len(self.node.element.parameters) <= self.index:
+				return None
+			return self.node.element.parameters[self.index]
+
+		@property
+		def arg(self):
+			if not self.node or not self.node.mapped_arguments or len(self.node.mapped_arguments) <= self.index:
+				return None
+			if isinstance(self.node.mapped_arguments[self.index], list):
+				if not self.node.mapped_arguments[self.index]:
+					return None # should we return a previous one?
+				else:
+					return self.node.mapped_arguments[self.index][-1]
+
+			# should we return a previous one? if the last is none?
+			return self.node.mapped_arguments[self.index]
+
 	# this is getting messy, consider re-writing as path and node instead of chain
-	def __init__(self, node:EvalNode, parent = None, param_index: int = None, sub_index: int = None):
+	def __init__(self, node:EvalNode, path:list = None):
 		self.node = node
-		self.parent = parent
-		self.param_index = param_index
-		self.sub_index = sub_index
-		self.child = None
+		self.path = path or []
 
-	def __str__(self, indentation = 0):
-		prefix = "   " * indentation
-		if not self.child:
-			if self.node:
-				return prefix + "[" + self.node.element.name + "]"
-			else:
-				if self.parent and self.param_index is not None:
-					param = self.parent.node.element.parameters[self.param_index]
-					return prefix + "[" + param.name + ": " + param.element_type + "]"
-				else:
-					return prefix + "[_]"
-		
-		output = prefix + self.node.element.name
-		prefix += "   "
-
+	def __str__(self,):
 		if not self.node:
-			raise EvaluationError("Cursor with child has no node...")
-
-		for p in range(len(self.node.element.parameters)):
-			param = self.node.element.parameters[p]
-			is_child = self.child and p == self.child.param_index
-			has_arg = p < len(self.node.mapped_arguments)
-			if is_child:
-				if has_arg and param.repeatable:
-					subs = self.node.mapped_arguments[p]
-					found_child = False
-					for s in range(len(subs)):
-						if s == self.child.sub_index or (s == 0 and self.child.sub_index is None):
-							output += "\n" + self.child.__str__(indentation + 1)
-							found_child = True
-						else:
-							output += "\n" + subs[s].__str__(indentation + 1)
-					if not found_child:
-						output += "\n" + self.child.__str__(indentation + 1)
-				else:
-					output += "\n" + self.child.__str__(indentation + 1)
-			elif not has_arg:
-				output += "\n" + prefix + "(" + param.name + ": " + param.element_type + ")"
-			else:
-				if isinstance(self.node.mapped_arguments[p], list):
-					if self.node.mapped_arguments[p]:
-						for sub_arg in self.node.mapped_arguments[p]:
-							output += "\n" + sub_arg.__str__(indentation + 1)
+			return "[_:Any]"
+		output = ""
+		loc = None
+		if self.path:
+			loc = self.path[-1].param
+		
+		visit_stack = [(0, self.node)]
+		while visit_stack:
+			(ind, visit) = visit_stack.pop()
+			if isinstance(visit, EvalNode):
+				node = visit
+				output += "\n" + ("   " * ind) + node.element.name
+				# visiting in reverse order to visit 0th parameter first
+				for p in range(len(node.element.parameters) - 1, -1, -1):
+					param = node.element.parameters[p]
+					has_arg = (p < len(node.mapped_arguments)
+						and node.mapped_arguments[p] is not None
+						and node.mapped_arguments[p] != [])
+					if has_arg and param.repeatable:
+						visit_stack.append((ind + 1, param))
+						for c in range(len(node.mapped_arguments[p]) - 1, -1, -1):
+							visit_stack.append((ind + 1, node.mapped_arguments[p][c]))
+					elif has_arg:
+						# todo: cursor on element, not just after
+						visit_stack.append((ind + 1, node.mapped_arguments[p]))
 					else:
-						output += "\n" + prefix + "(" + param.name + ": " + param.element_type + ")"
-				else:
-					output += "\n" + self.node.mapped_arguments[p].__str__(indentation + 1)
+						visit_stack.append((ind + 1, param))
 
-		return output
+			elif isinstance(visit, Parameter):
+				param = visit
+				# this relies on ref compare which doesn't feel great
+				if loc is not None and loc == param:
+					output += "\n%s[%s:%s]" % ("   " * ind, loc.name, loc.element_type)
+				else:
+					output += "\n%s(%s:%s)" % ("   " * ind, param.name, param.element_type)
+		# remove first \n
+		return output[1:]
+
 
 	def __repr__(self):
 		return self.__str__()
 
 	# internal helpers
 
-	def extend_child_to_open_parameter(self):
-		if self.child:
-			self.child = self.child.extend_child_to_open_parameter()
-			if self.child:
-				# our existing child still has an open parameter
-				return self
+	def increment_path_to_open_parameter(self, force_one:bool=False):
 		if not self.node:
-			return self # this is an open parameter
-		if not self.node.element.parameters:
-			return None # this has no parameters
-
-		args = self.node.mapped_arguments
-		child_node = None
-		index = 0
-		sub_index = None
-		if args:
-			index = len(args)-1
-			child_node = args[-1]
-			if isinstance(args[-1], list):
-				if not args[-1]: # empty list
-					child_node = None
-					sub_index = 0
-				else:
-					child_node = args[-1][-1]
-					sub_index = len(args[-1])-1
-
-		child = Cursor(child_node, parent=self, param_index=index, sub_index=sub_index)
-		self.child = child.extend_child_to_open_parameter()
-		if self.child:
-			# the last argument has an open parameter child
+			self.path = []
 			return self
+		if not self.path:
+			if not self.node.element.parameters:
+				self.path = []
+				return self
+			else:
+				self.path.append(Cursor.PathNode(self.node, 0))
+		elif force_one:
+			self.next_node()
 
-		if args and isinstance(args[-1], list) and args[-1]:
-			sub_index = len(args[-1])
-			self.child = Cursor(None, parent=self, param_index=index, sub_index=sub_index)
-			return self
+		while self.path:
+			tip = self.path[-1]
+			is_open = tip.param.repeatable or len(tip.node.mapped_arguments) <= tip.index
+			if is_open:
+				break
+			self.next_node()
 
-		# the last argument has no open parameters
-		index = len(args)
-		sub_index = None
-		if index > 0 and self.node.element.parameters[index - 1].repeatable:
-			# should we append an empty list already?
-			# or keep sub_index at None?
-			index -= 1
-			sub_index = None
-
-		if index >= len(self.node.element.parameters):
-			# there are no more available parameters
-			return None
-
-		self.child = Cursor(None, parent=self, param_index=index, sub_index=sub_index)
 		return self
-
-	def get_root(self):
-		cursor = self
-		while cursor.parent:
-			cursor = cursor.parent
-		return cursor
-
-	def update_node(self, param_index, sub_index):
-		self.child = None
 
 	# exposed functions
 
 	@staticmethod
 	def make(node):
 		root = Cursor(node)
-		root.extend_child_to_open_parameter()
+		root.increment_path_to_open_parameter()
 		return root
 
 	def insert_argument(self, node):
-		if self.child:
-			self.child.insert_argument(node)
-			return self
-		self.node = node
-		if self.parent:
-			self.parent.node.insert_argument(self.node, self.param_index, self.sub_index)
+		if not self.node or not self.path:
+			self.node = node
+			self.path = []
+		elif self.path:
+			tip = self.path[-1]
+			tip.node.insert_argument(node, tip.index, sub_index=None)
+			# this is either if we inserted an arg to a repeatable param
+			# or inserted a more complext tree than a single element
+			while tip.arg and tip.arg.element.parameters:
+				self.path.append(Cursor.PathNode(tip.arg, 0))
+				tip = self.path[-1]
 
-		self.get_root().extend_child_to_open_parameter()
+		self.increment_path_to_open_parameter()
 		return self
 
 	def get_allowed_argument_types(self):
-		if self.child:
-			return self.child.get_allowed_argument_types()
-
-		if self.node or not self.parent:
+		if not self.node:
+			return frozenset([Value("Any", "Type")])
+		elif not self.path:
 			return Value(None, "NoneType")
 
-		# should we do anything about Any?
-		return frozenset([Value(self.parent.node.element.parameters[self.param_index].element_type, "Type")])
+		tip = self.path[-1]
+		return frozenset([Value(tip.param.element_type, "Type")])
 
 	def prev_node(self):
 		pass
 
 	def next_node(self):
-		if self.child:
-			if self.child.next_node():
-				return True
-			else:
-				raise EvaluationError("Cursor next child is unimplemented")
-
-		if not self.parent:
+		if not self.path:
 			return False
-
-		try:
-			if not self.node:
-				self.parent.node.skip_param(self.param_index)
-			self.param_index += 1
-			self.sub_index = None
-			self.node = None
+		tip = self.path[-1]
+		if len(tip.node.element.parameters) - 1 > tip.index:
+			tip.node.skip_param(tip.index)
+			tip.index += 1
 			return True
-		except EvaluationError as e:
-			return False
 
+		self.path.pop()
+		if not self.path:
+			return True
+		tip = self.path[-1]
+		if tip.param.repeatable:
+			return True
+		else:
+			return self.next_node()
 
-	def move_up(self):
-		pass
+	def prev_indent(self):
+		if self.path:
+			self.path.pop()
+			return True
+		return False
 
-	def move_down(self):
+	def next_indent(self):
 		pass
 
 	def delete_branch(self):
