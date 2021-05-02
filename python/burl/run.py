@@ -109,9 +109,13 @@ def run_compose():
 			if line == "Exit":
 				break
 			if line == "Evaluate":
-				value = repl.parse_eval("Evaluate Cursor.GetEvalNode Get cursor")
-				print(value)
-				force_update_active_tab = True
+				try:
+					value = repl.parse_eval("Evaluate Cursor.GetEvalNode Get cursor")
+					print(value)
+					cursor = None
+					force_update_active_tab = True
+				except EvaluationError as e:
+					print(e)
 			elif line == "Skip":
 				success = cursor.value.next_node()
 				force_update_active_tab = True

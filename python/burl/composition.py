@@ -99,21 +99,27 @@ class Cursor:
 
 		for p in range(len(self.node.element.parameters)):
 			param = self.node.element.parameters[p]
-			if self.child and p == self.child.param_index:
-				if self.child.sub_index:
-					for s in range(len(self.node.mapped_arguments[p])):
+			if p >= len(self.node.mapped_arguments):
+				output += "\n" + prefix + "(" + param.name + ": " + param.element_type + ")"
+			elif self.child and p == self.child.param_index:
+				if isinstance(self.node.mapped_arguments[p], list):
+					subs = self.node.mapped_arguments[p]
+					for s in range(len(subs)):
 						if s == self.child.sub_index:
 							output += "\n" + self.child.__str__(indentation + 1)
 						else:
-							output += "\n" + self.node.mapped_arguments[p][s].__str__(indentation + 1)
+							output += "\n" + subs[s].__str__(indentation + 1)
+					if self.child.sub_index is not None and self.child.sub_index >= len(subs):
+						output += "\n" + self.child.__str__(indentation + 1)
 				else:
 					output += "\n" + self.child.__str__(indentation + 1)
-			elif p >= len(self.node.mapped_arguments):
-				output += "\n" + prefix + "(" + param.name + ": " + param.element_type + ")"
 			else:
 				if isinstance(self.node.mapped_arguments[p], list):
-					for sub_arg in self.node.mapped_arguments[p]:
-						output += "\n" + sub_arg.__str__(indentation + 1)
+					if self.node.mapped_arguments[p]:
+						for sub_arg in self.node.mapped_arguments[p]:
+							output += "\n" + sub_arg.__str__(indentation + 1)
+					else:
+						output += "\n" + prefix + "(" + param.name + ": " + param.element_type + ")"
 				else:
 					output += "\n" + self.node.mapped_arguments[p].__str__(indentation + 1)
 
@@ -143,7 +149,7 @@ class Cursor:
 			index = len(args)-1
 			child_node = args[-1]
 			if isinstance(args[-1], list):
-				if not args[-1]:
+				if not args[-1]: # empty list
 					child_node = None
 					sub_index = 0
 				else:
@@ -156,19 +162,25 @@ class Cursor:
 			# the last argument has an open parameter child
 			return self
 
-		# the last argument has no open parameters
+		if args and isinstance(args[-1], list) and args[-1]:
+			sub_index = len(args[-1])
+			self.child = Cursor(None, parent=self, param_index=index, sub_index=sub_index)
+			return self
 
-		if len(self.node.mapped_arguments) >= len(self.node.element.parameters):
+		# the last argument has no open parameters
+		index = len(args)
+		sub_index = None
+		if index > 0 and self.node.element.parameters[index - 1].repeatable:
+			# should we append an empty list already?
+			# or keep sub_index at None?
+			index -= 1
+			sub_index = None
+
+		if index >= len(self.node.element.parameters):
 			# there are no more available parameters
 			return None
 
-		sub_index = None
-		if self.node.element.parameters[self.param_index].repeatable:
-			# should we append an empty list already?
-			# or keep sub_index at None?
-			self.sub_index = 0
-
-		self.child = Cursor(None, parent=self, param_index=len(args), sub_index=sub_index)
+		self.child = Cursor(None, parent=self, param_index=index, sub_index=sub_index)
 		return self
 
 	def get_root(self):

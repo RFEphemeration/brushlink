@@ -193,7 +193,7 @@ class EvalNode:
 				self.mapped_arguments.append([arg])
 			else:
 				sub_args = self.mapped_arguments[arg_index]
-				if len(sub_args) <= sub_index or sub_index == None:
+				if sub_index is None or len(sub_args) <= sub_index:
 					sub_args.append(arg)
 				else:
 					# do we have any cleanup to do around the previous argument?
