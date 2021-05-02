@@ -6,7 +6,7 @@ skips | or _ perhaps
 
 named arguments
 
-valid next argument
+# valid next argument
 
 pure / impure functions
 	pure functions can only call other pure functions
@@ -27,4 +27,4 @@ subtypes
 # lambda element
 # unevaluated element - this is quote, done
 
-keyword parameters and elements for syntactic sugar: (if) else
+keyword parameters and elements for syntactic sugar: (if) else - or are these do-able with named arguments?

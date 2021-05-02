@@ -197,9 +197,11 @@ class Cursor:
 		if not self.node:
 			return frozenset([Value("Any", "Type")])
 		elif not self.path:
-			return Value(None, "NoneType")
+			return frozenset()
 
 		tip = self.path[-1]
+		if tip.arg and not tip.param.repeatable:
+			return frozenset()
 		return frozenset([Value(tip.param.element_type, "Type")])
 
 	def prev_node(self):
@@ -251,13 +253,14 @@ ModuleDictionary.instance().add_module(Module('composition', context=make_contex
 		[append_argument, """Builtin AppendArgument EvalNode
 	Parameter tree EvalNode
 	Parameter argument EvalNode"""],
-		[Cursor.make, """Builtin Cursor.Make Cursor Unwrap Parameter tree EvalNode"""],
-		[lambda c: c.node, """Builtin Cursor.GetEvalNode EvalNode Unwrap Parameter cursor Cursor"""],
+		[Cursor.make, "Builtin Cursor.Make Cursor Unwrap Parameter tree EvalNode"],
+		[lambda c: c.node, "Builtin Cursor.GetEvalNode EvalNode Unwrap Parameter cursor Cursor"],
 		[Cursor.insert_argument, """Builtin Cursor.InsertArgument Cursor Unwrap
 	Parameter cursor Cursor
 	Parameter arg EvalNode"""],
 		[Cursor.get_allowed_argument_types, """Builtin Cursor.GetAllowedArgumentTypes HashSet Unwrap
 	Parameter cursor Cursor"""],
+		[Cursor.next_node, "Builtin Cursor.NextNode Cursor Unwrap Parameter cursor Cursor"],
 		[None, """Define Cursor.NextAllowingType Cursor
 	Parameter cursor Cursor
 	Parameter type Type
@@ -265,7 +268,7 @@ ModuleDictionary.instance().add_module(Module('composition', context=make_contex
 	While Not HashSet.Contains
 			Cursor.GetAllowedArgumentTypes Get cursor
 			Get type
-		Cursor.InsertArgument Get cursor Quote Skip # should use move_next instead of insert skip
+		Cursor.NextNode Get cursor
 	Get cursor"""],
 	],
 )))

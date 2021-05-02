@@ -51,7 +51,7 @@ def run_repl():
 				lines = []
 
 
-def run_compose():
+def run_compose(compose_lines=None):
 	# todo: can we split cursor and active_tab into their own context separate from the cursor evaluation?
 	repl = Context()
 	ParseNode.parse("LoadModule composition").evaluate(repl)
@@ -60,6 +60,11 @@ def run_compose():
 	active_tab = None
 	tabs = frozenset()
 	force_update_active_tab = False
+	line_index = 0
+	def maybe_print(s):
+		if compose_lines is None or len(compose_lines) < line_index:
+			print(s)
+	value = None
 	while True:
 		if cursor is None:
 			cursor = repl.parse_eval("Set cursor Cursor.Make Quote Sequence")
@@ -70,11 +75,11 @@ def run_compose():
 
 		options = repl.parse_eval("Cursor.GetAllowedArgumentTypes Get cursor")
 		if not options.value: # None or empty frozenset
-			print("No open parameter at cursor");
+			maybe_print("No open parameter at cursor");
 			elements = []
 			value_names = []
 		else:
-			print("Allowed Types: " + " ".join([o.value for o in options.value]))
+			maybe_print("Allowed Types: " + " ".join([o.value for o in options.value]))
 			if force_update_active_tab or (active_tab != "Any"
 					and options.value is not None
 					and active_tab not in options.value
@@ -88,50 +93,55 @@ def run_compose():
 			value_names = repl.parse_eval("ValuesOfType Get active_tab")
 			value_names = [n.value for n in value_names.value]
 
-		print("### Command ###")
-		print(cursor.value)
+		maybe_print("### Meta ###")
+		maybe_print("   Exit Evaluate Skip Tab <type>")
 
-		print("### Tabs ###")
-		print(" ".join(tabs))
-
-		print("### Meta ###")
-		print("Exit Evaluate Skip Tab <type>")
+		maybe_print("### Tabs ###")
+		maybe_print("   " + " ".join(tabs))
 
 		if options.value:
-			print("### Elements (%s) ###" % active_tab.value)
-			print(" ".join(elements))
+			if elements:
+				maybe_print("### Elements (%s) ###" % active_tab.value)
+				maybe_print("   " + " ".join(elements))
+			if value_names:
+				maybe_print("### Values (%s) ###" % active_tab.value)
+				maybe_print("   " + " ".join(value_names))
 
-			print("### Values (%s) ###" % active_tab.value)
-			print(" ".join(value_names))
+		maybe_print("### Command ###")
+		maybe_print(cursor.value)
 
 		try:
-			line = input(prompt)
+			if compose_lines is not None and len(compose_lines) > line_index:
+				line = compose_lines[line_index]
+				line_index += 1
+			else:
+				line = input(prompt)
 			if line == "Exit":
 				break
 			if line == "Evaluate":
 				try:
 					value = repl.parse_eval("Evaluate Cursor.GetEvalNode Get cursor")
-					print(value)
+					maybe_print(value)
 					cursor = None
 					force_update_active_tab = True
 				except EvaluationError as e:
-					print(e)
+					maybe_print(e)
 			elif line == "Skip":
 				success = cursor.value.increment_path_to_open_parameter(force_one=True)
 				force_update_active_tab = True
 				if not success:
-					print("Cursor could not skip")
+					maybe_print("Cursor could not skip")
 
 			elif line.startswith("Tab "):
 				tab = Value(line.split()[-1], "Type")
 				if options.value is None or (
 					tab not in options.value and Value("Any", "Type") not in options.value):
-					print("Cursor does not allow values of type %s" % tab.value)
+					maybe_print("Cursor does not allow values of type %s" % tab.value)
 				elif repl.is_known_type(tab.value):
 						active_tab = tab
 						repl.set(Value("active_tab", "ValueName"), active_tab)
 				else:
-					print("Uknown Type " + tab.value + " has no elements")
+					maybe_print("Uknown Type " + tab.value + " has no elements")
 
 			elif line in elements:
 				repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
@@ -147,9 +157,12 @@ def run_compose():
 					repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
 					force_update_active_tab = True
 				else:
-					print("Uknown Type " + line)
+					maybe_print("Uknown Type " + line)
 			elif active_tab.value == "Number":
 				repl.parse_eval("Cursor.InsertArgument Get cursor Quote " + line)
 				force_update_active_tab = True
 		except EvaluationError as e:
 			print("EvaluationError: " + e.__str__())
+
+		if compose_lines is not None and line_index == len(compose_lines):
+			return value

@@ -1,5 +1,6 @@
 from burl.language import Context, EvaluationError
 from burl.parser import ParseNode
+from burl.run import run_compose
 import burl.core
 
 # Testing
@@ -168,6 +169,24 @@ Cursor.InsertArgument
 	Quote x
 Evaluate Get get_x
 """)
+
+	compose_value = run_compose([
+		"Tab Element",
+		"Define",
+		"Three",
+		"Number",
+		"Skip",
+		"Tab Number",
+		"3",
+		"Evaluate",
+		"Tab Number",
+		"Three",
+		"Evaluate",
+		])
+	if compose_value is None or compose_value.value is not 3:
+		Test("RunCompose Define Three", 3, "None")
+	else:
+		Test("RunCompose Define Three", 3, "3")
 
 	skiptest = """
 ForEach
