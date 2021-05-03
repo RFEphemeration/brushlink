@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 
 class Board:
 	def __init__(self, area, spawns):
@@ -52,7 +54,7 @@ class Unit:
 
 		if not self.command_queue:
 			self.pending = None
-
+		# todo: sanitize action steps so that units don't break the rules
 		return self.pending or return ActionStep("Idle")
 
 
@@ -87,16 +89,40 @@ class Match:
 		# todo order-independent movement and stat updates
 		for unit in self.units:
 			while not unit.pending_action and unit.command_queue:
-				action = unit.update_pending()
-				if action:
-					if action.action_type not in action_phases:
-						action_phases[action.action_type] = []
-					action_phases[action.action_type].append((action, unit))
+				action_step = unit.update_pending()
+				if action_step:
+					if action_step.action_type not in action_phases:
+						action_phases[action_step.action_type] = []
+					action_phases[action_step.action_type].append((action_step, unit))
 
-		energy_deltas = {}
-		for phase in ["Heal", "Reproduce", "Attack", "Move"]:
-			for (action, unit) in action_phases[phase]:
+		energy_deltas = defaultdict(int)
+		new_positions = {}
+		for action_type in ["Heal", "Reproduce", "Attack", "Move"]:
+			for (action_step, unit) in action_phases[action_type]:
+				action_settings = unit.actions[action_step.action_type]
+				# todo: also check cooldown
+				if unit.energy < action_settings.cost:
+					# can't perform this action
+					# should we give feedback to unit about what happened?
+					continue
+				took_action = False
+				if action_type == "Attack":
+					energy_deltas[action_step.target_unit] -= action_settings.magnitude
+					took_action = True
+				elif action_type == "Heal":
+					energy_deltas[action_step.target_unit] += action_settings.magnitude
+					took_action = True
+				elif action_type == "Move":
+					# how to handle priority here for trying to move to the same place? favor older units?
+					if action_step.target_position not in self.positions and not in new_positions
+						new_positions[action_step.target_position] = unit.unit_id
+						took_action = True
+				elif action_type == "Reproduce":
+					pass
 
+				if took_action:
+					# todo: cooldowns
+					energy_deltas[unit.unit_id] -= action_settings.cost
 
 			del action_phases[phase]
 
