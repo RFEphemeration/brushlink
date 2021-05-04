@@ -1,23 +1,21 @@
 from collections import defaultdict
 
 
-class Board:
-	def __init__(self, area, spawns):
-		self.area = area
-		self.spawns = spawns
-
 class ActionSettings:
-	def __init__(self, cost, magnitude, duration, cooldown):
+	ActionTypes = ["Idle", "Complete", "Move", "Attack", "Heal", "Reproduce"]
+	def __init__(self, action_type, cost, magnitude, duration, cooldown):
+		self.action_type = action_type
 		self.cost = cost
 		self.magnitude = magnitude
 		self.duration = duration
 		self.cooldown = cooldown
+		# todo: target_types, valid offsets
+
 
 class ActionStep:
-	# Idle, Complete, Move, Attack, Heal, Reproduce
-	def __init__(self, action_type, target_position = None, target_unit = None):
+	def __init__(self, action_type, target_offset = None, target_unit = None):
 		self.action_type = action_type
-		self.target_position = target_position
+		self.target_offset = target_offset
 		self.target_unit = target_unit
 
 
@@ -44,6 +42,11 @@ class Unit:
 		self.pending = None
 		self.command_queue = []
 		self.burl_context = Context() # todo: make this reference player's context as parent
+		self.evaluator = ParseNode.parse("""EvaluateElement $command $unit_id $player_id""").to_eval_node(self.burl_context, builtin_nodes={
+				"$command": EvalNode(Literal(None, "NoneType")),
+				"$unit_id": EvalNode(Literal(unit_id, "UnitID")),
+				"$player_id": EvalNode(Literal(player_id, "PlayerID"))
+			})
 
 	def update_pending(self):
 		while self.command_queue and (self.pending is None or self.pending.action_type == "Complete"):
@@ -58,17 +61,46 @@ class Unit:
 		return self.pending or return ActionStep("Idle")
 
 
+class Player:
+	GREEN_CHECKER = 0
+	PURPLE_STRIPE = 1
+	COLORS = [GREEN_CHECKER, PURPLE_STRIPE]
+	def __init__(self, player_id, spawn_location, color):
+		self.player_id = player_id
+		self.camera_center = spawn_location
+		self.color = color
+
+
+class Board:
+	TileTypes = ["Void", "Ground"]
+
+	def __init__(self, area, spawns):
+		self.area = area
+		self.spawns = spawns
+		self.bounds = ((0, 0),(len(area), len(area[0])))
+
+	def is_pathable(self, position):
+		return position[0] >= self.bounds[0][0] and position[0] <= self.bounds[1][0] and \
+			position[1] >= self.bounds[0][1] and position[1] <= self.bounds[1][1] and \
+			self.area[position[0]][position[1]]
+
+
 class Match:
-	def __init__(self, board, players, unit_data, starting_units, update_rate):
+	def __init__(self, board, players, unit_data, starting_units, update_dt):
 		self.board = board
 		self.players = players
 		self.unit_data = unit_data
-		self.update_rate = update_rate
+		self.update_dt = update_dt
 		self.starting_units = starting_units
 		self.next_unit_id = 0
 		self.update_count = 0
 		self.units = {}
+		self.deleted_units = []
 		self.positions = {}
+		self.seconds_to_ticks = {}
+		for unit_type in self.unit_data:
+			recharge_seconds = self.unit_data[unit_type].recharge_rate[1]
+			self.seconds_to_ticks[recharge_seconds] = round(recharge_seconds / update_dt)
 
 	def setup(self):
 		for player, spawn in zip(self.players, self.board.spanws):
@@ -84,10 +116,12 @@ class Match:
 		self.next_unit_id += 1
 
 	def update(self):
+		self.deleted_units.clear()
 		self.update_count += 1
 		action_phases = {}
 		# todo order-independent movement and stat updates
-		for unit in self.units:
+		for unit_id in self.units:
+			unit = self.units[unit_id]
 			while not unit.pending_action and unit.command_queue:
 				action_step = unit.update_pending()
 				if action_step:
@@ -124,6 +158,18 @@ class Match:
 					# todo: cooldowns
 					energy_deltas[unit.unit_id] -= action_settings.cost
 
-			del action_phases[phase]
+		for unit_id in self.units:
+			unit = self.units[unit_id]
+			# performance: consider lifting this outside of the loop, or keept different sets for different ticks
+			if self.update_count % self.seconds_to_ticks[unit.settings.recharge_rate[1]]:
+				energy_deltas += unit.settings.recharge_rate[0]
+
+		for unit_id in energy_deltas:
+			delta = energy_deltas[unit_id]
+			unit = self.units[unit_id]
+			unit.energy = max(0, min(unit.energy + delta, unit.settings.max_energy))
+			
+
+
 
 

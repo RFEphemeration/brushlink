@@ -1,4 +1,5 @@
 import pyglet
+from game import Match
 
 class App():
 	def __init__(self, initial, screens):
@@ -40,6 +41,21 @@ class Screen():
 	def draw(self):
 		for wigit in self.wigits:
 			wigit.draw()
+
+
+class MatchScreen():
+	def __init__(self, match, player_id):
+		self.match = match
+		self.player_id = player_id
+
+	def draw(self):
+		glPushMatrix()
+		camera_center = self.match.players[self.player_id].camera_center
+		glTranslatef(camera_center[0], camera_center[1])
+
+		self.match.draw(self.player_id)
+
+		glPopMatrix()
 
 window = pyglet.window.Window()
 

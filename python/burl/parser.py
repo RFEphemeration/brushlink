@@ -97,7 +97,7 @@ class ParseNode:
 				raise EvaluationError("Parser encountered Skips before any elements")
 			return evaluator.evaluate(context)
 
-	def to_eval_node(self, context):
+	def to_eval_node(self, context, builtin_nodes = {}):
 		root_node = None
 		pre_skip_count = 0
 		skip_count = 0
@@ -106,7 +106,11 @@ class ParseNode:
 				break
 			if not name:
 				continue
-			node = ParseNode.try_bind(context, name)
+			if name in builtin_nodes:
+				node = builtin_nodes[name]
+			else:
+				node = ParseNode.try_bind(context, name)
+			
 			if not root_node:
 				if isinstance(node.element, Skip):
 					pre_skip_count += 1
