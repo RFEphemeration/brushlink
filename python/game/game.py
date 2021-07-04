@@ -1,5 +1,5 @@
 from collections import defaultdict
-
+from enum import Enum
 
 class ActionSettings:
 	ActionTypes = ["Idle", "Complete", "Move", "Attack", "Heal", "Reproduce"]
@@ -48,6 +48,15 @@ class Unit:
 				"$player_id": EvalNode(Literal(player_id, "PlayerID"))
 			})
 
+	@property
+	def x(self):
+		return self.position[0]
+
+	@property
+	def y(self):
+		return self.position[1]
+	
+
 	def update_pending(self):
 		while self.command_queue and (self.pending is None or self.pending.action_type == "Complete"):
 			self.command_queue = self.command_queue[1:]
@@ -60,15 +69,38 @@ class Unit:
 		# todo: sanitize action steps so that units don't break the rules
 		return self.pending or return ActionStep("Idle")
 
+class Color(Enum):
+	GREEN_CHECKER = 0
+	PURPLE_STRIPE = 1
+
+
+Position = namedtuple('Position', ('x', 'y'))
 
 class Player:
 	GREEN_CHECKER = 0
 	PURPLE_STRIPE = 1
 	COLORS = [GREEN_CHECKER, PURPLE_STRIPE]
-	def __init__(self, player_id, spawn_location, color):
+	def __init__(self, player_id, spawn_location, color, board_bounds):
 		self.player_id = player_id
 		self.camera_center = spawn_location
 		self.color = color
+		self.vision_grid = [[0 for x in range(board_bounds[1][1])] for x in range(board_bounds[1][0])]
+
+	@lru_cache(5)
+	@staticmethod
+	def visible_positions(board_bounds, camera_bounds):
+		positions = []
+
+		for x in range(camera_bounds[0][0], camera_bounds[1][0] + 1, 1):
+			if x < board_bounds[0][0] or x > board_bounds[1][0]:
+				continue
+			for y in range(camera_bounds[0][1], camera_bounds[1][1] + 1, 1):
+				if y < board_bounds[0][1] or y > board_bounds[1][1]:
+					continue
+
+class Tile(Enum):
+	Void
+	Ground
 
 
 class Board:
@@ -77,12 +109,12 @@ class Board:
 	def __init__(self, area, spawns):
 		self.area = area
 		self.spawns = spawns
-		self.bounds = ((0, 0),(len(area), len(area[0])))
+		self.size = Position(len(area), len(area[0]))
 
 	def is_pathable(self, position):
-		return position[0] >= self.bounds[0][0] and position[0] <= self.bounds[1][0] and \
-			position[1] >= self.bounds[0][1] and position[1] <= self.bounds[1][1] and \
-			self.area[position[0]][position[1]]
+		return position[0] >= 0 and position[0] < self.size[0] and \
+			position[1] >= 0 and position[1] < self.size[0] and \
+			self.area[position[0]][position[1]] = Tile.Ground
 
 
 class Match:

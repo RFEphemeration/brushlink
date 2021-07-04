@@ -27,4 +27,13 @@ subtypes
 # lambda element
 # unevaluated element - this is quote, done
 
-keyword parameters and elements for syntactic sugar: (if) else - or are these do-able with named arguments?
+keyword parameters and elements for syntactic sugar: (if) else - or are these do-able with named arguments? [] for list construction...
+
+
+overloading
+	would allow things like shared name for type literal and constructor function
+	ambiguous placeholders and resolution might be a little tricky to implement
+	ambiguity might last for more than one more input, requiring nested ambiguities
+		could generate warnings/errors if this is the case and require resolution, at least to start
+
+infix operators
