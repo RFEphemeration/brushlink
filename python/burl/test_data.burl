@@ -1,3 +1,12 @@
+Set sum 0
+For i 0 10
+	Set sum
+		Sum
+			Get sum
+			i
+
+Get sum
+
 Define Two Number
 	Sum
 		1

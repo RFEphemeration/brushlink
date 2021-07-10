@@ -259,7 +259,7 @@ ModuleDictionary.instance().add_module(Module('core', context=make_context(
 		[quote, "Builtin Quote EvalNode Standalone Lazy Parameter element Any"],
 		[Definition.make_lambda, """Builtin Lambda Element Contextual Lazy
 	OneOf
-		Parameter parameters ParameterType True
+		Parameter parameters ParameterType True Quote None
 		Parameter names ValueName True
 	Parameter evaluator Any True"""],
 		[evaluate_element, """Builtin EvaluateElement Any Contextual Lazy

@@ -66,6 +66,7 @@ def run_compose(compose_lines=None):
 			print(s)
 	value = None
 	while True:
+		print(chr(27) + "[2J" + chr(27) + "[H", end="")
 		if cursor is None:
 			cursor = repl.parse_eval("Set cursor Cursor.Make Quote Sequence")
 			active_tab = Value("Any", "Type")
@@ -75,7 +76,7 @@ def run_compose(compose_lines=None):
 
 		options = repl.parse_eval("Cursor.GetAllowedArgumentTypes Get cursor")
 		if not options.value: # None or empty frozenset
-			maybe_print("No open parameter at cursor");
+			maybe_print("No open parameter at cursor")
 			elements = []
 			value_names = []
 		else:
@@ -94,7 +95,7 @@ def run_compose(compose_lines=None):
 			value_names = [n.value for n in value_names.value]
 
 		maybe_print("### Meta ###")
-		maybe_print("   Exit Evaluate Skip Tab <type>")
+		maybe_print("   Exit Eval Skip Tab <type>")
 
 		maybe_print("### Tabs ###")
 		maybe_print("   " + " ".join(tabs))
@@ -118,7 +119,7 @@ def run_compose(compose_lines=None):
 				line = input(prompt)
 			if line == "Exit":
 				break
-			if line == "Evaluate":
+			if line == "Eval":
 				try:
 					value = repl.parse_eval("Evaluate Cursor.GetEvalNode Get cursor")
 					maybe_print(value)
