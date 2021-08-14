@@ -7,6 +7,14 @@ import plotly.express as px
 import plotly.io as pio
 import pandas as pd
 
+
+'''
+ideas:
+
+one negative consequence of this is that analogous/interchangeable units will have significant downward pressure on their costs. This could perhaps be mitigated by coming up with a metric of interchangeability (how likely are these cards to be used with the same other cards) and distributing the weighted cost between them by an additional proportion.
+
+'''
+
 wallet_initial = 100.0
 total_unit_cost = 500.0
 total_units = 50

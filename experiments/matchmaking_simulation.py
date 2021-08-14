@@ -1,6 +1,13 @@
 from __future__ import print_function, division
 from random import seed, randint, uniform
 
+
+'''
+ideas:
+
+separate player rank and deck rank into two axes
+'''
+
 player_count = 100
 opponent_offset_range = 5
 
