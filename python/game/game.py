@@ -1,5 +1,6 @@
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from enum import Enum
+from functools import lru_cache
 
 class ActionSettings:
 	ActionTypes = ["Idle", "Complete", "Move", "Attack", "Heal", "Reproduce"]
@@ -67,7 +68,7 @@ class Unit:
 		if not self.command_queue:
 			self.pending = None
 		# todo: sanitize action steps so that units don't break the rules
-		return self.pending or return ActionStep("Idle")
+		return self.pending or ActionStep("Idle")
 
 class Color(Enum):
 	GREEN_CHECKER = 0
@@ -86,8 +87,8 @@ class Player:
 		self.color = color
 		self.vision_grid = [[0 for x in range(board_bounds[1][1])] for x in range(board_bounds[1][0])]
 
-	@lru_cache(5)
 	@staticmethod
+	@lru_cache(5)
 	def visible_positions(board_bounds, camera_bounds):
 		positions = []
 
@@ -97,10 +98,12 @@ class Player:
 			for y in range(camera_bounds[0][1], camera_bounds[1][1] + 1, 1):
 				if y < board_bounds[0][1] or y > board_bounds[1][1]:
 					continue
+				positions.append(Position(x, y));
+		return positions
 
 class Tile(Enum):
-	Void
-	Ground
+	Void = 0
+	Ground = 1
 
 
 class Board:
@@ -114,7 +117,7 @@ class Board:
 	def is_pathable(self, position):
 		return position[0] >= 0 and position[0] < self.size[0] and \
 			position[1] >= 0 and position[1] < self.size[0] and \
-			self.area[position[0]][position[1]] = Tile.Ground
+			self.area[position[0]][position[1]] == Tile.Ground
 
 
 class Match:
@@ -180,7 +183,8 @@ class Match:
 					took_action = True
 				elif action_type == "Move":
 					# how to handle priority here for trying to move to the same place? favor older units?
-					if action_step.target_position not in self.positions and not in new_positions
+					if action_step.target_position not in self.positions \
+					and action_step.target_position not in new_positions:
 						new_positions[action_step.target_position] = unit.unit_id
 						took_action = True
 				elif action_type == "Reproduce":
