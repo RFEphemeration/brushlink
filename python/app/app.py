@@ -1,6 +1,7 @@
 import os
 import pyglet
 from game import Match
+from app.ui import *
 
 pyglet.resource.path = [os.path.dirname(__file__) + '/resources/']
 pyglet.resource.reindex()
@@ -37,6 +38,11 @@ class App():
 		if screen.name == self.current_screen:
 			screen.on_enter()
 
+	def update_window_size(self, size):
+		window_calc = ComputedSize(0, 0, size[0], size[1])
+		for screen in self.screens:
+			self.screens[screen].update_window_size(window_calc)
+
 
 class Screen():
 	def __init__(self, name, wigits, exit_time = None, on_exit = None):
@@ -70,6 +76,11 @@ class Screen():
 			if getattr(wigit, 'on_mouse_press', None):
 				wigit.on_mouse_press(x, y, buttons, modifiers)
 
+	def update_window_size(self, window_calc):
+		for wigit in self.wigits:
+			if getattr(wigit, 'update_size', None):
+				wigit.update_size(window_calc, window_calc)
+
 
 class MatchScreen():
 	def __init__(self, match, player_id):
@@ -87,13 +98,17 @@ class MatchScreen():
 
 
 class Popup(pyglet.gui.WidgetBase):
-	def __init__(self, name, wigits, x, y, color=(100,100,100), width=400, height=600, active=False):
-		self.background = pyglet.shapes.Rectangle(x=x, y=y, width=width, height=height, color=color)
-		self.background.anchor_x = width // 2;
-		self.background.anchor_y = height // 2;
+	def __init__(self, name, wigits,
+			box=Box(vert=(0,"px"),hor=(0,"px"),width=(20,"vw"), height=(40,"vh")),
+			color=(100,100,100),
+			enabled=False):
+		super().__init__(0,0,0,0)
+		self.enabled = enabled
+
+		self.box = box
+		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
 		self.name = name
 		self.wigits = wigits
-		self.active = active
 
 	def draw(self):
 		if not self.active:
@@ -115,14 +130,24 @@ class Popup(pyglet.gui.WidgetBase):
 	def hide(self):
 		self.active = False
 
+	def update_size(self, window_calc, parent_calc):
+		old_size = self.box.calculated
+		size = self.box.calculate(window_calc, parent_calc)
+		if size == old_size:
+			return
+		size.update_widget(self)
+		size.update_other(self.background)
+		for wigit in self.wigits:
+			if getattr(wigit, 'update_size', None):
+				wigit.update_size(window_calc, size)
+
 
 class Button(pyglet.gui.WidgetBase):
-	def __init__(self, label, x, y, on_press,font_size = 18, color=(155,155,255), width=200, height=40):
-		super().__init__(x - width // 2, y - height // 2, width, height);
-		self.background = pyglet.shapes.Rectangle(x=x, y=y, width=width, height=height, color=color)
-		self.background.anchor_x = width // 2;
-		self.background.anchor_y = height // 2;
-		self.label = pyglet.text.Label(label, font_size, x=x, y=y, anchor_x='center', anchor_y='center');
+	def __init__(self, label, box, on_press, font_size = 18, color=(155,155,255)):
+		self.box = box
+		super().__init__(0,0,0,0);
+		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
+		self.label = pyglet.text.Label(label, font_size, x=0, y=0, anchor_x='center', anchor_y='center');
 		self.on_press = on_press
 		self.app = None
 
@@ -136,6 +161,18 @@ class Button(pyglet.gui.WidgetBase):
 	def draw(self):
 		self.background.draw()
 		self.label.draw()
+
+	def update_size(self, window_calc, parent_calc):
+		old_size = self.box.calculated
+		size = self.box.calculate(window_calc, parent_calc)
+		if size == old_size:
+			return
+
+		size.update_widget(self)
+		size.update_other(self.label)
+		size.update_other(self.background)
+		self.background.anchor_x = self.background.width // 2;
+		self.background.anchor_y = self.background.height // 2;
 
 
 window = pyglet.window.Window(fullscreen=True)
@@ -172,18 +209,15 @@ def init_screens(app):
 			anchor_y='center'),
 		Button(
 			"settings",
-			x=window.width // 2,
-			y=window.height - 100,
+			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: b.app.change_state('settings')),
 		Button(
 			"play",
-			x=window.width // 2,
-			y=window.height - 150,
+			box=Box(hor=(0,"px"),vert=(50,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: b.app.change_state('game')),
 		Button(
 			"exit",
-			x=window.width // 2,
-			y=window.height - 200,
+			box=Box(hor=(0,"px"),vert=(0,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: b.app.change_state('exit')),
 		]))
 	app.add_screen(Screen('settings', [
@@ -196,22 +230,20 @@ def init_screens(app):
 			anchor_y='center'),
 		Button(
 			'back',
-			x=window.width // 2,
-			y=window.height - 100,
+			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: b.app.change_state('main')),
 		]))
 	game_menu = Popup('menu', [
 		Button(
-			"menu",
-			x=window.width - 130,
-			y=50,
-			on_press=lambda b: b.screen.show_popup('menu')),
-		])
+			"resume",
+			box=Box(bottom=(20,"px"),right=(20,"px"),width=(200,"px"),height=(40,"px")),
+			on_press=lambda b: b.screen.hide_popup('menu')),
+		],
+		box=Box(hor=(0,"px"),vert=(0,"px"),width=(400,"px"),height=(300,"px")))
 	app.add_screen(Screen('game', [
 		Button(
 			"menu",
-			x=window.width - 130,
-			y=50,
+			box=Box(bottom=(20,"px"),right=(20,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: b.screen.show_popup('menu')),
 		]))
 	app.add_screen(Screen('exit', [],
@@ -220,6 +252,8 @@ def init_screens(app):
 	))
 
 init_screens(app)
+
+app.update_window_size(window.get_size())
 
 @window.event
 def on_draw():
