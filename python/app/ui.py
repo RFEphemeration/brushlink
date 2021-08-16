@@ -2,6 +2,7 @@ from collections import namedtuple
 from typing import NamedTuple
 from functools import reduce
 from enum import Enum
+import pyglet
 
 class BoxUnit(Enum):
 	px = 0 # pixels
@@ -114,22 +115,105 @@ class Box():
 		if self.left:
 			x = calc['left']
 		elif self.right:
-			x = parent_calc.x + parent_calc.width - calc['right'] - width
+			x = parent_calc.width - calc['right'] - width
 		elif self.horizontal:
-			x = calc['horizontal'] + parent_calc.x + (parent_calc.width // 2)
+			x = calc['horizontal'] + parent_calc.x + (parent_calc.width / 2) - width / 2
 
 		x += parent_calc.x
 
 		if self.bottom:
 			y = calc['bottom']
 		elif self.top:
-			y = parent_calc.y + parent_calc.height - calc['top'] - height
+			y = parent_calc.height - calc['top'] - height
 		elif self.vertical:
-			y = calc['vertical'] + parent_calc.y + (parent_calc.height // 2)
+			y = calc['vertical'] + parent_calc.y + (parent_calc.height / 2) - height / 2
 
 		y += parent_calc.y
 
 		self.calculated = ComputedSize(x, y, width, height)
 
 		return self.calculated
+
+
+class Panel(pyglet.gui.WidgetBase):
+	def __init__(self, wigits,
+			name=None,
+			box=Box(vert=(0,"px"),hor=(0,"px"),width=(20,"vw"), height=(40,"vh")),
+			color=(100,100,100),
+			enabled=True):
+		super().__init__(0,0,0,0)
+		self.enabled = enabled
+
+		self.box = box
+		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
+		self.name = name
+		self.wigits = wigits
+
+	def draw(self):
+		if not self.enabled:
+			return
+		self.background.draw()
+		for wigit in self.wigits:
+			wigit.draw()
+
+	def on_mouse_press(self, x, y, buttons, modifiers):
+		if not self.enabled:
+			return
+		for wigit in self.wigits:
+			if getattr(wigit, 'on_mouse_press', None):
+				wigit.on_mouse_press(x, y, buttons, modifiers)
+
+	def show(self):
+		self.enabled = True
+
+	def hide(self):
+		self.enabled = False
+
+	def update_size(self, window_calc, parent_calc):
+		old_size = self.box.calculated
+		size = self.box.calculate(window_calc, parent_calc)
+		if size == old_size:
+			return
+		size.update_widget(self)
+		size.update_other(self.background, centered=True)
+		self.background.anchor_x = self.background.width / 2
+		self.background.anchor_y = self.background.height / 2
+		for wigit in self.wigits:
+			if getattr(wigit, 'update_size', None):
+				wigit.update_size(window_calc, size)
+
+
+class Button(pyglet.gui.WidgetBase):
+	def __init__(self, label, box, on_press, font_size = 18, color=(155,155,255)):
+		self.box = box
+		super().__init__(0,0,0,0);
+		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
+		self.label = pyglet.text.Label(text=label, font_size=font_size, x=0, y=0, anchor_x='center', anchor_y='center');
+		self.on_press = on_press
+		self.app = None
+
+	def on_mouse_press(self, x, y, buttons, modifiers):
+		if self._check_hit(x, y):
+			self.on_press(self)
+
+	def set_app(self, app):
+		self.app = app
+
+	def draw(self):
+		self.background.draw()
+		self.label.draw()
+
+	def update_size(self, window_calc, parent_calc):
+		old_size = self.box.calculated
+		size = self.box.calculate(window_calc, parent_calc)
+		#if size == old_size:
+		#	return
+
+		size.update_widget(self)
+		size.update_other(self.label)
+		self.label.y = self.label.y - (self.label.font_size / 2)
+		size.update_other(self.background, centered = False)
+		#self.background.anchor_x = self.background.width / 2;
+		#self.background.anchor_y = self.background.height / 2;
+
 

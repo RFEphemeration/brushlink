@@ -19,6 +19,12 @@ class App():
 		self.current_screen = target
 		self.screens[self.current_screen].on_enter();
 
+	def show_popup(self, name):
+		self.screens[self.current_screen].show_popup(name)
+
+	def hide_popup(self, name):
+		self.screens[self.current_screen].hide_popup(name)
+
 	def update(self, dt):
 		self.elapsed_time += dt
 		self.screens[self.current_screen].update(dt)
@@ -81,6 +87,21 @@ class Screen():
 			if getattr(wigit, 'update_size', None):
 				wigit.update_size(window_calc, window_calc)
 
+	def show_popup(self, name):
+		for wigit in self.wigits:
+			if getattr(wigit, 'name', None) == name:
+				wigit.enabled = True
+				break
+
+	def hide_popup(self, name):
+		for wigit in self.wigits:
+			if getattr(wigit, 'name', None) == name:
+				wigit.enabled = False
+				break
+
+	def hide_popup(self, name):
+		self.screens[self.current_screen].hide_popup(name)
+
 
 class MatchScreen():
 	def __init__(self, match, player_id):
@@ -97,90 +118,20 @@ class MatchScreen():
 		glPopMatrix()
 
 
-class Popup(pyglet.gui.WidgetBase):
-	def __init__(self, name, wigits,
-			box=Box(vert=(0,"px"),hor=(0,"px"),width=(20,"vw"), height=(40,"vh")),
-			color=(100,100,100),
-			enabled=False):
-		super().__init__(0,0,0,0)
-		self.enabled = enabled
-
-		self.box = box
-		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
-		self.name = name
-		self.wigits = wigits
-
-	def draw(self):
-		if not self.active:
-			return
-		self.background.draw()
-		for wigit in self.wigits:
-			wigit.draw()
-
-	def on_mouse_press(self, x, y, buttons, modifiers):
-		if not self.active:
-			return
-		for wigit in self.wigits:
-			if getattr(wigit, 'on_mouse_press', None):
-				wigit.on_mouse_press(x, y, buttons, modifiers)
-
-	def show(self):
-		self.active = True
-
-	def hide(self):
-		self.active = False
-
-	def update_size(self, window_calc, parent_calc):
-		old_size = self.box.calculated
-		size = self.box.calculate(window_calc, parent_calc)
-		if size == old_size:
-			return
-		size.update_widget(self)
-		size.update_other(self.background)
-		for wigit in self.wigits:
-			if getattr(wigit, 'update_size', None):
-				wigit.update_size(window_calc, size)
-
-
-class Button(pyglet.gui.WidgetBase):
-	def __init__(self, label, box, on_press, font_size = 18, color=(155,155,255)):
-		self.box = box
-		super().__init__(0,0,0,0);
-		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
-		self.label = pyglet.text.Label(label, font_size, x=0, y=0, anchor_x='center', anchor_y='center');
-		self.on_press = on_press
-		self.app = None
-
-	def on_mouse_press(self, x, y, buttons, modifiers):
-		if self._check_hit(x, y):
-			self.on_press(self)
-
-	def set_app(self, app):
-		self.app = app
-
-	def draw(self):
-		self.background.draw()
-		self.label.draw()
-
-	def update_size(self, window_calc, parent_calc):
-		old_size = self.box.calculated
-		size = self.box.calculate(window_calc, parent_calc)
-		if size == old_size:
-			return
-
-		size.update_widget(self)
-		size.update_other(self.label)
-		size.update_other(self.background)
-		self.background.anchor_x = self.background.width // 2;
-		self.background.anchor_y = self.background.height // 2;
-
-
 window = pyglet.window.Window(fullscreen=True)
 
 app = App(initial='title')
 
 def init_screens(app):
 	screens = {}
+	app.add_screen(Screen('layout_test', [
+		Panel(
+			box=Box(top=(10,"px"),left=(10,"px"),bottom=(10,"px"), right=(10,"px")),
+			wigits = [
+				Panel([], color=(100,50,50),
+					box=Box(hor=(0,"px"),vert=(0,"px"),height=(200,"px"), width=(200,"px")))
+			])
+		]))
 	app.add_screen(Screen('title', [
 		pyglet.text.Label(
 			'BrushLink',
@@ -233,18 +184,19 @@ def init_screens(app):
 			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: b.app.change_state('main')),
 		]))
-	game_menu = Popup('menu', [
+	game_menu = Panel(name='menu', enabled=False, wigits=[
 		Button(
 			"resume",
 			box=Box(bottom=(20,"px"),right=(20,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: b.screen.hide_popup('menu')),
+			on_press=lambda b: game_menu.hide()),
 		],
 		box=Box(hor=(0,"px"),vert=(0,"px"),width=(400,"px"),height=(300,"px")))
 	app.add_screen(Screen('game', [
+		game_menu,
 		Button(
 			"menu",
 			box=Box(bottom=(20,"px"),right=(20,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: b.screen.show_popup('menu')),
+			on_press=lambda b: game_menu.show()),
 		]))
 	app.add_screen(Screen('exit', [],
 		exit_time=0.0,
