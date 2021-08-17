@@ -7,30 +7,32 @@ pyglet.resource.path = [os.path.dirname(__file__) + '/resources/']
 pyglet.resource.reindex()
 
 class App():
-	def __init__(self, initial):
+	def __init__(self):
 		self.screens = {}
 		self.elapsed_time = 0.0
-		self.current_screen = initial
+		self.current_screen = None
+		self.window_size = (0,0,0,0)
 
 	def draw(self):
-		self.screens[self.current_screen].draw()
+		self.current_screen.draw()
 
 	def change_state(self, target):
-		self.current_screen = target
-		self.screens[self.current_screen].on_enter();
+		self.current_screen = self.screens[target](self)
+		self.current_screen.update_window_size(self.window_size)
+		self.current_screen.enter()
 
 	def show_popup(self, name):
-		self.screens[self.current_screen].show_popup(name)
+		self.current_screen.show_popup(name)
 
 	def hide_popup(self, name):
-		self.screens[self.current_screen].hide_popup(name)
+		self.current_screen.hide_popup(name)
 
 	def update(self, dt):
 		self.elapsed_time += dt
-		self.screens[self.current_screen].update(dt)
+		self.current_screen.update(dt)
 
 	def on_mouse_press(self, x, y, buttons, modifiers):
-		self.screens[self.current_screen].on_mouse_press(x, y, buttons, modifiers)
+		self.current_screen.on_mouse_press(x, y, buttons, modifiers)
 
 	def exit(self):
 		pyglet.app.exit()
@@ -38,39 +40,32 @@ class App():
 	def delete_screens(self):
 		self.screens = {}
 
-	def add_screen(self, screen):
-		self.screens[screen.name] = screen
-		screen.set_app(self)
-		if screen.name == self.current_screen:
-			screen.on_enter()
+	def add_screen(self, name, constructor):
+		self.screens[name] = constructor
 
 	def update_window_size(self, size):
-		window_calc = ComputedSize(0, 0, size[0], size[1])
-		for screen in self.screens:
-			self.screens[screen].update_window_size(window_calc)
+		self.window_size = ComputedSize(0, 0, size[0], size[1])
+		if self.current_screen is not None:
+			self.current_screen.update_window_size(self.window_size)
 
 
 class Screen():
-	def __init__(self, name, wigits, exit_time = None, on_exit = None):
+	def __init__(self, name, wigits, app=None, exit_time=None, on_exit=None, on_enter=None):
 		self.name = name
 		self.wigits = wigits
 		self.exit_time = exit_time
 		self.on_exit = on_exit
+		self.on_enter = on_enter
 		self.elapsed_time = 0.0
-		self.app = None
 
-	def set_app(self, app):
-		self.app = app
-		for wigit in self.wigits:
-			if getattr(wigit, 'set_app', None):
-				wigit.set_app(app)
-
-	def on_enter(self):
+	def enter(self):
 		self.elapsed_time = 0.0
+		if self.on_enter is not None:
+			self.on_enter(self)
 
 	def update(self, dt):
 		self.elapsed_time += dt
-		if self.exit_time is not None and self.elapsed_time >= self.exit_time:
+		if self.on_exit is not None and self.exit_time is not None and self.elapsed_time >= self.exit_time:
 			self.on_exit(self)
 
 	def draw(self):
@@ -100,7 +95,7 @@ class Screen():
 				break
 
 	def hide_popup(self, name):
-		self.screens[self.current_screen].hide_popup(name)
+		self.current_screen.hide_popup(name)
 
 
 class MatchScreen():
@@ -117,104 +112,3 @@ class MatchScreen():
 
 		glPopMatrix()
 
-
-window = pyglet.window.Window(fullscreen=True)
-
-app = App(initial='title')
-
-def init_screens(app):
-	screens = {}
-	app.add_screen(Screen('layout_test', [
-		Panel(
-			box=Box(top=(10,"px"),left=(10,"px"),bottom=(10,"px"), right=(10,"px")),
-			wigits = [
-				Panel([], color=(100,50,50),
-					box=Box(hor=(0,"px"),vert=(0,"px"),height=(200,"px"), width=(200,"px")))
-			])
-		]))
-	app.add_screen(Screen('title', [
-		pyglet.text.Label(
-			'BrushLink',
-			font_size=36,
-			x=window.width // 2,
-			y=window.height // 2 + 40,
-			anchor_x='center',
-			anchor_y='center'),
-		pyglet.text.Label(
-			'by ephemeration games',
-			font_size=24,
-			x=window.width // 2,
-			y=window.height // 2 - 20,
-			anchor_x='center',
-			anchor_y='center'),
-		],
-		exit_time=0.5,
-		on_exit=lambda s: s.app.change_state('main')))
-	app.add_screen(Screen('main', [
-		pyglet.text.Label(
-			'BrushLink',
-			font_size=36,
-			x=window.width // 2,
-			y=window.height - 40,
-			anchor_x='center',
-			anchor_y='center'),
-		Button(
-			"settings",
-			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: b.app.change_state('settings')),
-		Button(
-			"play",
-			box=Box(hor=(0,"px"),vert=(50,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: b.app.change_state('game')),
-		Button(
-			"exit",
-			box=Box(hor=(0,"px"),vert=(0,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: b.app.change_state('exit')),
-		]))
-	app.add_screen(Screen('settings', [
-		pyglet.text.Label(
-			"Settings",
-			font_size=36,
-			x=window.width // 2,
-			y=window.height - 40,
-			anchor_x='center',
-			anchor_y='center'),
-		Button(
-			'back',
-			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: b.app.change_state('main')),
-		]))
-	game_menu = Panel(name='menu', enabled=False, wigits=[
-		Button(
-			"resume",
-			box=Box(bottom=(20,"px"),right=(20,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: game_menu.hide()),
-		],
-		box=Box(hor=(0,"px"),vert=(0,"px"),width=(400,"px"),height=(300,"px")))
-	app.add_screen(Screen('game', [
-		game_menu,
-		Button(
-			"menu",
-			box=Box(bottom=(20,"px"),right=(20,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: game_menu.show()),
-		]))
-	app.add_screen(Screen('exit', [],
-		exit_time=0.0,
-		on_exit=lambda s: s.app.exit()
-	))
-
-init_screens(app)
-
-app.update_window_size(window.get_size())
-
-@window.event
-def on_draw():
-	window.clear()
-	app.draw()
-
-@window.event
-def on_mouse_press(x, y, buttons, modifiers):
-	app.on_mouse_press(x, y, buttons, modifiers)
-
-pyglet.clock.schedule_interval(app.update, 1.0/12.0)
-pyglet.app.run()

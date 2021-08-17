@@ -190,15 +190,11 @@ class Button(pyglet.gui.WidgetBase):
 		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
 		self.label = pyglet.text.Label(text=label, font_size=font_size, x=0, y=0, anchor_x='center', anchor_y='center');
 		self.on_press = on_press
-		self.app = None
 
 	def on_mouse_press(self, x, y, buttons, modifiers):
 		if self._check_hit(x, y):
 			self.on_press(self)
-
-	def set_app(self, app):
-		self.app = app
-
+	
 	def draw(self):
 		self.background.draw()
 		self.label.draw()
