@@ -3,35 +3,23 @@ from app.app import *
 
 def _make_screen_title(app):
 	return Screen('title', [
-		pyglet.text.Label(
-			'BrushLink',
+		Label('BrushLink',
 			font_size=36,
-			x=app.window_size.width // 2,
-			y=app.window_size.height // 2 + 40,
-			anchor_x='center',
-			anchor_y='center'),
-		pyglet.text.Label(
-			'by ephemeration games',
+			box=Box(hor=(0,"px"), vert=(60,"px"), width=(0,"px"),height=(36, "px"))),
+		Label('by ephemeration games',
 			font_size=24,
-			x=app.window_size.width // 2,
-			y=app.window_size.height // 2 - 20,
-			anchor_x='center',
-			anchor_y='center'),
+			box=Box(hor=(0,"px"), vert=(10,"px"), width=(0,"px"),height=(24, "px"))),
 		],
-		exit_time=0.5,
+		exit_time=1.5,
 		on_exit=lambda s: app.change_state('main')
 	)
 
 
 def _make_screen_main(app):
 	return Screen('main', [
-		pyglet.text.Label(
-			'BrushLink',
+		Label('BrushLink',
 			font_size=36,
-			x=app.window_size.width // 2,
-			y=app.window_size.height - 40,
-			anchor_x='center',
-			anchor_y='center'),
+			box=Box(hor=(0,"px"), top=(40,"px"), width=(0,"px"),height=(36, "px"))),
 		Button(
 			"settings",
 			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
@@ -50,13 +38,9 @@ def _make_screen_main(app):
 
 def _make_screen_settings(app):
 	return Screen('settings', [
-		pyglet.text.Label(
-			"Settings",
+		Label('Settings',
 			font_size=36,
-			x=app.window_size.width // 2,
-			y=app.window_size.height - 40,
-			anchor_x='center',
-			anchor_y='center'),
+			box=Box(hor=(0,"px"), top=(40,"px"), width=(0,"px"),height=(36, "px"))),
 		Button(
 			'back',
 			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
@@ -77,7 +61,7 @@ def _make_screen_game(app):
 			on_press=lambda b: app.change_state('main')),
 		],
 		box=Box(hor=(0,"px"),vert=(0,"px"),width=(430,"px"),height=(300,"px")))
-	return Screen('game', on_enter=lambda s: game_menu.hide(), wigits=[
+	return Screen('game', wigits=[
 		game_menu,
 		Button(
 			"menu",
@@ -90,7 +74,7 @@ def _make_screen_game(app):
 def _make_screen_exit(app):
 	return Screen('exit', [],
 		exit_time=0.0,
-		on_exit=lambda s: s.app.exit()
+		on_exit=lambda s: app.exit()
 	)
 
 

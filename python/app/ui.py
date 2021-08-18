@@ -188,13 +188,13 @@ class Button(pyglet.gui.WidgetBase):
 		self.box = box
 		super().__init__(0,0,0,0);
 		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
-		self.label = pyglet.text.Label(text=label, font_size=font_size, x=0, y=0, anchor_x='center', anchor_y='center');
+		self.label = pyglet.text.Label(text=label, font_size=font_size, x=0, y=0, anchor_x='center', anchor_y='center')
 		self.on_press = on_press
 
 	def on_mouse_press(self, x, y, buttons, modifiers):
 		if self._check_hit(x, y):
 			self.on_press(self)
-	
+
 	def draw(self):
 		self.background.draw()
 		self.label.draw()
@@ -202,14 +202,32 @@ class Button(pyglet.gui.WidgetBase):
 	def update_size(self, window_calc, parent_calc):
 		old_size = self.box.calculated
 		size = self.box.calculate(window_calc, parent_calc)
-		#if size == old_size:
-		#	return
+		if size == old_size:
+			return
 
 		size.update_widget(self)
 		size.update_other(self.label)
-		self.label.y = self.label.y - (self.label.font_size / 2)
-		size.update_other(self.background, centered = False)
-		#self.background.anchor_x = self.background.width / 2;
-		#self.background.anchor_y = self.background.height / 2;
+		self.label.height = self.label.font_size
+		#self.label.y = self.label.y - (self.label.font_size / 2)
+		size.update_other(self.background, centered = True)
+		self.background.anchor_x = self.background.width / 2;
+		self.background.anchor_y = self.background.height / 2;
 
+
+class Label:
+	def __init__(self, label, font_size, box):
+		self.box = box
+		self.label = pyglet.text.Label(text=label, font_size=font_size, x=0, y=0, anchor_x='center', anchor_y='center')
+
+	def update_size(self, window_calc, parent_calc):
+		old_size = self.box.calculated
+		size = self.box.calculate(window_calc, parent_calc)
+		if size == old_size:
+			return
+
+		size.update_other(self.label)
+		#self.label.y = self.label.y - (self.label.font_size / 2)
+
+	def draw(self):
+		self.label.draw()
 
