@@ -2,6 +2,7 @@ import os
 import pyglet
 from game import Match
 from app.ui import *
+from app.player_prefs import *
 
 pyglet.resource.path = [os.path.dirname(__file__) + '/resources/']
 pyglet.resource.reindex()
@@ -12,6 +13,7 @@ class App():
 		self.elapsed_time = 0.0
 		self.current_screen = None
 		self.window_size = (0,0,0,0)
+		self.player_prefs = PlayerPrefs()
 
 	def draw(self):
 		self.current_screen.draw()
@@ -48,9 +50,12 @@ class App():
 		if self.current_screen is not None:
 			self.current_screen.update_window_size(self.window_size)
 
+	def get_player_prefs(self):
+		return self.player_prefs
+
 
 class Screen():
-	def __init__(self, name, wigits, app=None, exit_time=None, on_exit=None, on_enter=None):
+	def __init__(self, name, wigits, exit_time=None, on_exit=None, on_enter=None):
 		self.name = name
 		self.wigits = wigits
 		self.exit_time = exit_time
@@ -73,13 +78,16 @@ class Screen():
 			wigit.draw()
 
 	def on_mouse_press(self, x, y, buttons, modifiers):
-		for wigit in self.wigits:
-			if getattr(wigit, 'on_mouse_press', None):
-				wigit.on_mouse_press(x, y, buttons, modifiers)
+		for wigit in reversed(self.wigits):
+			if getattr(wigit, 'on_mouse_press'):
+				consumed = wigit.on_mouse_press(x, y, buttons, modifiers)
+				if consumed:
+					return True
+		return False
 
 	def update_window_size(self, window_calc):
 		for wigit in self.wigits:
-			if getattr(wigit, 'update_size', None):
+			if getattr(wigit, 'update_size'):
 				wigit.update_size(window_calc, window_calc)
 
 	def show_popup(self, name):
@@ -98,8 +106,9 @@ class Screen():
 		self.current_screen.hide_popup(name)
 
 
-class MatchScreen():
-	def __init__(self, match, player_id):
+class MatchScreen(Screen):
+	def __init__(self, name, wigits):
+		super().__init__(name, wigits)
 		self.match = match
 		self.player_id = player_id
 

@@ -1,6 +1,7 @@
 from app import *
 
 window = pyglet.window.Window(resizable=True)
+window.set_minimum_size(480, 360)
 
 app = App()
 

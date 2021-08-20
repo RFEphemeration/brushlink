@@ -4,11 +4,11 @@ from app.app import *
 def _make_screen_title(app):
 	return Screen('title', [
 		Label('BrushLink',
-			font_size=36,
-			box=Box(hor=(0,"px"), vert=(60,"px"), width=(0,"px"),height=(36, "px"))),
+			font_size=(36,'px'),
+			box=Box(over=(0,"px"), up=(60,"px"), width=(0,"px"),height=(36, "px"))),
 		Label('by ephemeration games',
-			font_size=24,
-			box=Box(hor=(0,"px"), vert=(10,"px"), width=(0,"px"),height=(24, "px"))),
+			font_size=(24,'px'),
+			box=Box(over=(0,"px"), up=(10,"px"), width=(0,"px"),height=(24, "px"))),
 		],
 		exit_time=1.5,
 		on_exit=lambda s: app.change_state('main')
@@ -18,19 +18,19 @@ def _make_screen_title(app):
 def _make_screen_main(app):
 	return Screen('main', [
 		Label('BrushLink',
-			font_size=36,
-			box=Box(hor=(0,"px"), top=(40,"px"), width=(0,"px"),height=(36, "px"))),
+			font_size=(36,'px'),
+			box=Box(over=(0,"px"), top=(40,"px"), width=(0,"px"),height=(36, "px"))),
 		Button(
 			"settings",
-			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
+			box=Box(over=(0,"px"),up=(100,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: app.change_state('settings')),
 		Button(
 			"play",
-			box=Box(hor=(0,"px"),vert=(50,"px"),width=(200,"px"),height=(40,"px")),
+			box=Box(over=(0,"px"),up=(50,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: app.change_state('game')),
 		Button(
 			"exit",
-			box=Box(hor=(0,"px"),vert=(0,"px"),width=(200,"px"),height=(40,"px")),
+			box=Box(over=(0,"px"),up=(0,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: app.change_state('exit')),
 		]
 	)
@@ -39,34 +39,91 @@ def _make_screen_main(app):
 def _make_screen_settings(app):
 	return Screen('settings', [
 		Label('Settings',
-			font_size=36,
-			box=Box(hor=(0,"px"), top=(40,"px"), width=(0,"px"),height=(36, "px"))),
+			font_size=(36,'px'),
+			box=Box(over=(0,"px"), top=(40,"px"), width=(0,"px"),height=(36, "px"))),
 		Button(
 			'back',
-			box=Box(hor=(0,"px"),vert=(100,"px"),width=(200,"px"),height=(40,"px")),
+			box=Box(over=(0,"px"),up=(100,"px"),width=(200,"px"),height=(40,"px")),
 			on_press=lambda b: app.change_state('main')),
 		]
 	)
 
 
 def _make_screen_game(app):
-	game_menu = Panel(name='menu', enabled=False, wigits=[
-		Button(
-			"resume",
-			box=Box(bottom=(10,"px"),right=(10,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: game_menu.hide()),
-		Button(
-			"leave",
-			box=Box(bottom=(10,"px"),left=(10,"px"),width=(200,"px"),height=(40,"px")),
-			on_press=lambda b: app.change_state('main')),
-		],
-		box=Box(hor=(0,"px"),vert=(0,"px"),width=(430,"px"),height=(300,"px")))
+	game_menu = Panel(name='menu', enabled=False,
+		box=Box(over=(0,"px"),up=(0,"px"),width=(40,"vw"),height=(30,"vw")),
+		wigits=[
+			Button(
+				"resume",
+				box=Box(bottom=(1,"vw"),right=(1,"vw"),width=(15,"vw"),height=(4,"vw")),
+				on_press=lambda b: game_menu.hide()),
+			Button(
+				"leave",
+				box=Box(bottom=(1,"vw"),left=(1,"vw"),width=(15,"vw"),height=(4,"vw")),
+				on_press=lambda b: app.change_state('main')),
+			])
+	element_panels = {}
+	type_buttons = {}
+	element_buttons = {}
+	player_prefs = app.get_player_prefs()
+	type_height_ratio = 1.0 / len(player_prefs.exposed_elements)
+	type_index = 0
+	element_cols = player_prefs.command_card.columns
+	element_width_ratio = 1.0 / player_prefs.command_card.columns
+	element_height_ratio = 1.0 / player_prefs.command_card.rows
+	element_types = []
+	for element_type, elements in player_prefs.exposed_elements.items():
+		element_types.append(element_type)
+		element_buttons[element_type] = {}
+		panel_buttons = []
+		element_index = 0
+		for element in elements:
+			element_buttons[element_type][element] = Button(element,
+				on_press=lambda b, e=element: app.command_append_element(e),
+				box=Box(
+					top=((element_index // element_cols) * element_height_ratio * 60, 'ph'),
+					left=((element_index % element_cols) * element_width_ratio * 60, 'pw'),
+					width=(element_width_ratio * 60, 'pw'),
+					height=(element_height_ratio * 60, 'ph')))
+			panel_buttons.append(element_buttons[element_type][element])
+			element_index += 1
+
+
+		type_buttons[element_type] = Button(element_type,
+			on_press=lambda b, t=element_type: app.command_change_tab(t),
+			box=Box(
+				top=(type_height_ratio * 60 * type_index, 'ph'),
+				left=(0,'pw'),
+				width=(6, 'vw'),
+				height=(type_height_ratio * 60, 'ph')))
+		element_panels[element_type] = Panel(
+			box=Box.Fill(),
+			wigits=panel_buttons)
+		type_index += 1
+
+
+	command_card = Tabs(box=Box(bottom=(1,'vw'),right=(1,'vw'),width=(20,'vw'),height=(20,'vw')),
+		contents=[
+			Panel(box=Box.Fill(), wigits=[ Label('Units', box=Box.Fill()) ]),
+			Panel(box=Box.Fill(), wigits=[ Label('Abilities', box=Box.Fill()) ])
+		])
+	card_tabs = Panel(
+		box=Box(bottom=(1,'vw'),right=(22,'vw'),width=(6,'vw'),height=(20,'vw')),
+		wigits=[
+			Button("units",on_press=lambda b: command_card.set_active_tab(0),
+				box=Box(top=(0,'px'),left=(0,'px'),width=(6,'vw'),height=(3,'vw'))),
+			Button("abilities",on_press=lambda b: command_card.set_active_tab(1),
+				box=Box(top=(4,'vw'),left=(0,'px'),width=(6,'vw'),height=(3, 'vw'))),
+		])
+
 	return Screen('game', wigits=[
-		game_menu,
 		Button(
 			"menu",
-			box=Box(bottom=(20,"px"),right=(20,"px"),width=(200,"px"),height=(40,"px")),
+			box=Box(bottom=(1,"vw"),right=(1,"vw"),width=(15,"vw"),height=(4,"vw")),
 			on_press=lambda b: game_menu.show()),
+		command_card,
+		card_tabs,
+		game_menu,
 		]
 	)
 
@@ -84,7 +141,7 @@ def _make_screen_layout_test(app):
 			box=Box(top=(10,"px"),left=(10,"px"),bottom=(10,"px"), right=(10,"px")),
 			wigits = [
 				Panel([], color=(100,50,50),
-					box=Box(hor=(0,"px"),vert=(0,"px"),height=(200,"px"), width=(200,"px")))
+					box=Box(over=(0,"px"),up=(0,"px"),height=(200,"px"), width=(200,"px")))
 			])
 		]
 	)
@@ -97,3 +154,11 @@ def add_screens(app):
 	app.add_screen('settings', _make_screen_settings)
 	app.add_screen('game', _make_screen_game)
 	app.add_screen('exit', _make_screen_exit)
+
+
+"""
+Panel style:{ top:0, bottom:0, left:0, right:0 }
+	Panel style:{ over:0, up:0, width:40vw, height:min(30vw,50vh) }
+		Button style:{  }
+			text: 'settings'
+"""
