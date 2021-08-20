@@ -10,7 +10,7 @@ class PlayerPrefs():
 		self.exposed_elements = {
 			'unit_type': ['spawner', 'healer', 'melee'],
 			'unit_group': ['of_type', 'group_number'],
-			'number': ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+			'number': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
 			'ability': ['move', 'stop', 'attack', 'spawn', 'heal'],
 			'action': ['select', 'use_ability', 'set_group'],
 		}

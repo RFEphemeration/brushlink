@@ -108,7 +108,7 @@ class Box():
 	def calculate(self, window_calc, parent_calc):
 		calc = {}
 		for dim in ['top', 'bottom', 'left', 'right', 'width', 'height', 'over', 'up']:
-			if attribute := getattr(self, dim):
+			if attribute := getattr(self, dim, None):
 				calc[dim] = attribute.calculate(window_calc, parent_calc)
 
 		width = None
@@ -177,7 +177,7 @@ class Panel(pyglet.gui.WidgetBase):
 		if not self.enabled:
 			return False
 		for wigit in reversed(self.wigits):
-			if getattr(wigit, 'on_mouse_press', None):
+			if hasattr(wigit, 'on_mouse_press'):
 				consumed = wigit.on_mouse_press(x, y, buttons, modifiers)
 				if consumed:
 					return True

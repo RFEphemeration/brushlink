@@ -62,6 +62,7 @@ def _make_screen_game(app):
 				box=Box(bottom=(1,"vw"),left=(1,"vw"),width=(15,"vw"),height=(4,"vw")),
 				on_press=lambda b: app.change_state('main')),
 			])
+
 	element_panels = {}
 	type_buttons = {}
 	element_buttons = {}
@@ -72,14 +73,18 @@ def _make_screen_game(app):
 	element_width_ratio = 1.0 / player_prefs.command_card.columns
 	element_height_ratio = 1.0 / player_prefs.command_card.rows
 	element_types = []
+	command_card = None
+	game_screen = None
+	tab_indexes = {}
 	for element_type, elements in player_prefs.exposed_elements.items():
+		tab_indexes[element_type] = type_index
 		element_types.append(element_type)
 		element_buttons[element_type] = {}
 		panel_buttons = []
 		element_index = 0
 		for element in elements:
 			element_buttons[element_type][element] = Button(element,
-				on_press=lambda b, e=element: app.command_append_element(e),
+				on_press=lambda b, e=element: game_screen.command_append_element(e),
 				box=Box(
 					top=((element_index // element_cols) * element_height_ratio * 60, 'ph'),
 					left=((element_index % element_cols) * element_width_ratio * 60, 'pw'),
@@ -90,7 +95,7 @@ def _make_screen_game(app):
 
 
 		type_buttons[element_type] = Button(element_type,
-			on_press=lambda b, t=element_type: app.command_change_tab(t),
+			on_press=lambda b, t=element_type: game_screen.command_change_tab(t),
 			box=Box(
 				top=(type_height_ratio * 60 * type_index, 'ph'),
 				left=(0,'pw'),
@@ -103,29 +108,26 @@ def _make_screen_game(app):
 
 
 	command_card = Tabs(box=Box(bottom=(1,'vw'),right=(1,'vw'),width=(20,'vw'),height=(20,'vw')),
-		contents=[
-			Panel(box=Box.Fill(), wigits=[ Label('Units', box=Box.Fill()) ]),
-			Panel(box=Box.Fill(), wigits=[ Label('Abilities', box=Box.Fill()) ])
-		])
+		contents=[element_panels[t] for t in element_types])
 	card_tabs = Panel(
 		box=Box(bottom=(1,'vw'),right=(22,'vw'),width=(6,'vw'),height=(20,'vw')),
-		wigits=[
-			Button("units",on_press=lambda b: command_card.set_active_tab(0),
-				box=Box(top=(0,'px'),left=(0,'px'),width=(6,'vw'),height=(3,'vw'))),
-			Button("abilities",on_press=lambda b: command_card.set_active_tab(1),
-				box=Box(top=(4,'vw'),left=(0,'px'),width=(6,'vw'),height=(3, 'vw'))),
-		])
+		wigits=[type_buttons[t] for t in element_types])
 
-	return Screen('game', wigits=[
-		Button(
-			"menu",
-			box=Box(bottom=(1,"vw"),right=(1,"vw"),width=(15,"vw"),height=(4,"vw")),
-			on_press=lambda b: game_menu.show()),
-		command_card,
-		card_tabs,
-		game_menu,
-		]
+	game_screen = MatchScreen('game',
+		wigits=[
+			Button(
+				"menu",
+				box=Box(bottom=(1,"vw"),right=(1,"vw"),width=(15,"vw"),height=(4,"vw")),
+				on_press=lambda b: game_menu.show()),
+			command_card,
+			card_tabs,
+			game_menu,
+		],
+		command_card=command_card,
+		command_tab_indexes=tab_indexes
 	)
+
+	return game_screen
 
 
 def _make_screen_exit(app):

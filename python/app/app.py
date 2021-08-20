@@ -79,7 +79,7 @@ class Screen():
 
 	def on_mouse_press(self, x, y, buttons, modifiers):
 		for wigit in reversed(self.wigits):
-			if getattr(wigit, 'on_mouse_press'):
+			if hasattr(wigit, 'on_mouse_press'):
 				consumed = wigit.on_mouse_press(x, y, buttons, modifiers)
 				if consumed:
 					return True
@@ -87,7 +87,7 @@ class Screen():
 
 	def update_window_size(self, window_calc):
 		for wigit in self.wigits:
-			if getattr(wigit, 'update_size'):
+			if hasattr(wigit, 'update_size'):
 				wigit.update_size(window_calc, window_calc)
 
 	def show_popup(self, name):
@@ -107,12 +107,19 @@ class Screen():
 
 
 class MatchScreen(Screen):
-	def __init__(self, name, wigits):
+	def __init__(self, name, wigits, command_card, command_tab_indexes):
 		super().__init__(name, wigits)
-		self.match = match
-		self.player_id = player_id
+		#self.match = match
+		#self.player_id = player_id
+		self.command_card = command_card
+		self.command_tab_indexes = command_tab_indexes
+
+	def command_change_tab(self, element_type):
+		self.command_card.set_active_tab(self.command_tab_indexes[element_type])
 
 	def draw(self):
+		super().draw()
+		"""
 		glPushMatrix()
 		camera_center = self.match.players[self.player_id].camera_center
 		glTranslatef(camera_center[0], camera_center[1])
@@ -120,4 +127,5 @@ class MatchScreen(Screen):
 		self.match.draw(self.player_id)
 
 		glPopMatrix()
+		"""
 
