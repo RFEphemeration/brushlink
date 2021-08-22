@@ -214,19 +214,39 @@ class Panel(pyglet.gui.WidgetBase):
 
 
 class Button(pyglet.gui.WidgetBase):
-	def __init__(self, label, box, on_press, font_size=(1,'vw'), color=(155,155,255)):
+	def __init__(self, label, box, on_press, font_size=(1,'vw'), color=(155,155,255),disabled_color_diff=(-50,-50,-50)):
 		self.box = box
 		super().__init__(0,0,0,0);
 		self.font_size = BoxSize(font_size[0], BoxUnit[font_size[1]])
 		self.background = pyglet.shapes.Rectangle(x=0, y=0, width=0, height=0, color=color)
 		self.label = pyglet.text.Label(text=label, font_size=12, x=0, y=0, anchor_x='center', anchor_y='center')
 		self.on_press = on_press
+		self.color = color
+		self.disabled_color_diff = disabled_color_diff
+		self.enabled = True
 
 	def on_mouse_press(self, x, y, buttons, modifiers):
 		if self._check_hit(x, y):
-			self.on_press(self)
+			self.try_press()
 			return True
 		return False
+
+	def try_press(self):
+		if not self.enabled:
+			return
+		self.on_press(self)
+
+	def disable(self):
+		if not self.enabled:
+			return
+		self.enabled = False
+		self.background.color = tuple(map(lambda c, d: max(0, c+d), self.color, self.disabled_color_diff))
+
+	def enable(self):
+		if self.enabled:
+			return
+		self.enabled = True
+		self.background.color = self.color
 
 	def draw(self):
 		self.background.draw()

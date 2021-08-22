@@ -28,10 +28,12 @@ class CommandCard():
 				self.hotkeys[CommandCard.card_keys[row][column]] = hotkey_index
 				hotkey_index += 1
 
-		for element_type, index in tab_indexes:
+		for element_type, index in tab_indexes.items():
 			if index == 0:
 				self.change_tab(element_type)
 				break
+
+		self.previous_append = None
 
 	def change_tab(self, element_type):
 		self.tabs.set_active_tab(self.tab_indexes[element_type])
@@ -42,19 +44,24 @@ class CommandCard():
 		self.command_label.label.multiline = True
 		self.command_label.label.text = self.command_label.label.text + "\n" + element
 		self.command_label.label.font_size = self.command_label.label.font_size
+		if self.previous_append:
+			self.element_buttons[self.previous_append[0]][self.previous_append[1]].enable()
+
+		self.element_buttons[element_type][element].disable()
+		self.previous_append = (element_type, element)
 		# disable type buttons that aren't allowed
 
 	def on_key_press(self, symbol, modifiers):
 		if modifiers:
 			return False
-		if symbol in self.hotkeys:
-			if self.active_type not in self.exposed_elements:
-				return False
-			index = self.hotkeys[symbol]
-			if index >= len(self.exposed_elements[self.active_type]):
-				return False
-			element = self.exposed_elements[self.active_type][index]
-			element_button = self.element_buttons[self.active_type][element]
-			element_button.on_press(element_button)
-			return True
-		return False
+		if symbol not in self.hotkeys:
+			return False
+		if self.active_type not in self.exposed_elements:
+			return False
+		index = self.hotkeys[symbol]
+		if index >= len(self.exposed_elements[self.active_type]):
+			return False
+		element = self.exposed_elements[self.active_type][index]
+		element_button = self.element_buttons[self.active_type][element]
+		element_button.try_press()
+		return True
