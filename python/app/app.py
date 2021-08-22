@@ -3,19 +3,31 @@ import pyglet
 from game import Match
 from app.ui import *
 from app.player_prefs import *
+from app.command_card import *
 
 pyglet.resource.path = [os.path.dirname(__file__) + '/resources/']
 pyglet.resource.reindex()
 
 class App():
-	def __init__(self):
+	def __init__(self, window):
 		self.screens = {}
 		self.elapsed_time = 0.0
+		self.window = window
 		self.current_screen = None
-		self.window_size = (0,0,0,0)
 		self.player_prefs = PlayerPrefs()
+		self.window_size = (0,0,0,0)
+		self.update_window_size(*self.window.get_size())
+		self.window.push_handlers(
+			on_resize=self.update_window_size,
+			on_mouse_press=self.on_mouse_press,
+			on_draw=self.draw,
+			on_key_press=self.on_key_press)
+
+	def __del__(self):
+		self.window.pop_handlers()
 
 	def draw(self):
+		self.window.clear()
 		self.current_screen.draw()
 
 	def change_state(self, target):
@@ -36,6 +48,9 @@ class App():
 	def on_mouse_press(self, x, y, buttons, modifiers):
 		self.current_screen.on_mouse_press(x, y, buttons, modifiers)
 
+	def on_key_press(self, symbol, modifiers):
+		pass
+
 	def exit(self):
 		pyglet.app.exit()
 
@@ -45,8 +60,8 @@ class App():
 	def add_screen(self, name, constructor):
 		self.screens[name] = constructor
 
-	def update_window_size(self, size):
-		self.window_size = ComputedSize(0, 0, size[0], size[1])
+	def update_window_size(self, width, height):
+		self.window_size = ComputedSize(0, 0, width, height)
 		if self.current_screen is not None:
 			self.current_screen.update_window_size(self.window_size)
 
@@ -107,15 +122,13 @@ class Screen():
 
 
 class MatchScreen(Screen):
-	def __init__(self, name, wigits, command_card, command_tab_indexes):
+	def __init__(self, name, wigits, command_card, window):
 		super().__init__(name, wigits)
 		#self.match = match
 		#self.player_id = player_id
 		self.command_card = command_card
-		self.command_tab_indexes = command_tab_indexes
-
-	def command_change_tab(self, element_type):
-		self.command_card.set_active_tab(self.command_tab_indexes[element_type])
+		self.window = window
+		self.window.push_handlers(on_key_press=self.command_card.on_key_press)
 
 	def draw(self):
 		super().draw()
@@ -128,4 +141,7 @@ class MatchScreen(Screen):
 
 		glPopMatrix()
 		"""
+
+	def __del__(self):
+		self.window.pop_handlers()
 

@@ -50,7 +50,7 @@ def _make_screen_settings(app):
 
 
 def _make_screen_game(app):
-	game_menu = Panel(name='menu', enabled=False,
+	game_menu = Panel(name='menu', enabled=False, color=Color.Random(),
 		box=Box(over=(0,"px"),up=(0,"px"),width=(40,"vw"),height=(30,"vw")),
 		wigits=[
 			Button(
@@ -84,7 +84,7 @@ def _make_screen_game(app):
 		element_index = 0
 		for element in elements:
 			element_buttons[element_type][element] = Button(element,
-				on_press=lambda b, e=element: game_screen.command_append_element(e),
+				on_press=lambda b, e=element,t=element_type: command_card.append_element(e,t),
 				box=Box(
 					top=((element_index // element_cols) * element_height_ratio * 60, 'ph'),
 					left=((element_index % element_cols) * element_width_ratio * 60, 'pw'),
@@ -95,7 +95,7 @@ def _make_screen_game(app):
 
 
 		type_buttons[element_type] = Button(element_type,
-			on_press=lambda b, t=element_type: game_screen.command_change_tab(t),
+			on_press=lambda b, t=element_type: command_card.change_tab(t),
 			box=Box(
 				top=(type_height_ratio * 60 * type_index, 'ph'),
 				left=(0,'pw'),
@@ -106,12 +106,19 @@ def _make_screen_game(app):
 			wigits=panel_buttons)
 		type_index += 1
 
+	command_card = CommandCard(
+		tab_indexes=tab_indexes,
+		tabs=Tabs(
+			box=Box(bottom=(1,'vw'),left=(1,'vw'),width=(20,'vw'),height=(15,'vw')),
+			contents=[element_panels[t] for t in element_types]
+		),
+		tab_buttons=type_buttons,
+		element_buttons=element_buttons,
+		command_label=Label("root",
+			box=Box(top=(1, 'vw'),left=(1,'vw'),width=(20,'vw'),height=(20,'vw'))),
+		card_dimensions=(player_prefs.command_card.rows, player_prefs.command_card.columns),
+		exposed_elements=player_prefs.exposed_elements)
 
-	command_card = Tabs(box=Box(bottom=(1,'vw'),right=(1,'vw'),width=(20,'vw'),height=(20,'vw')),
-		contents=[element_panels[t] for t in element_types])
-	card_tabs = Panel(
-		box=Box(bottom=(1,'vw'),right=(22,'vw'),width=(6,'vw'),height=(20,'vw')),
-		wigits=[type_buttons[t] for t in element_types])
 
 	game_screen = MatchScreen('game',
 		wigits=[
@@ -119,12 +126,18 @@ def _make_screen_game(app):
 				"menu",
 				box=Box(bottom=(1,"vw"),right=(1,"vw"),width=(15,"vw"),height=(4,"vw")),
 				on_press=lambda b: game_menu.show()),
-			command_card,
-			card_tabs,
+			command_card.command_label,
+			Panel(color=Color.Random(), wigits=[],
+				box=Box(bottom=(1,'vw'),left=(1,'vw'),width=(20,'vw'),height=(15,'vw'))
+			),
+			command_card.tabs,
+			Panel(
+				box=Box(bottom=(1,'vw'),left=(22,'vw'),width=(6,'vw'),height=(20,'vw')),
+				wigits=[type_buttons[t] for t in element_types]),
 			game_menu,
 		],
 		command_card=command_card,
-		command_tab_indexes=tab_indexes
+		window=app.window
 	)
 
 	return game_screen

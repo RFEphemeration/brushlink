@@ -2,7 +2,14 @@ from collections import namedtuple
 from typing import NamedTuple
 from functools import reduce
 from enum import Enum
+from random import randrange
 import pyglet
+
+
+class Color():
+	@staticmethod
+	def Random():
+		return (randrange(100,175), randrange(100,175), randrange(100,175))
 
 class BoxUnit(Enum):
 	px = 0 # pixels
@@ -207,7 +214,7 @@ class Panel(pyglet.gui.WidgetBase):
 
 
 class Button(pyglet.gui.WidgetBase):
-	def __init__(self, label, box, on_press, font_size=(18,"px"), color=(155,155,255)):
+	def __init__(self, label, box, on_press, font_size=(1,'vw'), color=(155,155,255)):
 		self.box = box
 		super().__init__(0,0,0,0);
 		self.font_size = BoxSize(font_size[0], BoxUnit[font_size[1]])
@@ -239,10 +246,27 @@ class Button(pyglet.gui.WidgetBase):
 
 
 class Label:
-	def __init__(self, label, box, font_size=(18,'px')):
+	def __init__(self, label, box, font_size=(1,'vw'), html=False):
 		self.box = box
 		self.font_size = BoxSize(font_size[0], BoxUnit[font_size[1]])
-		self.label = pyglet.text.Label(text=label, font_size=12, x=0, y=0, anchor_x='center', anchor_y='center')
+		if html:
+			self.label=pyglet.text.HTMLLabel(
+				text=label,
+				x=0,
+				y=0,
+				width=200,
+				height=200,
+				anchor_x='center',
+				anchor_y='center',
+				multiline=True)
+		else:
+			self.label = pyglet.text.Label(
+				text=label,
+				font_size=12,
+				x=0,
+				y=0,
+				anchor_x='center',
+				anchor_y='center')
 
 	def update_size(self, window_calc, parent_calc):
 		old_size = self.box.calculated

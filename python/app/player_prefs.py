@@ -2,8 +2,8 @@
 
 class CommandCardPrefs():
 	def __init__(self):
-		self.columns = 4
-		self.rows = 3
+		self.columns = 3
+		self.rows = 4
 
 class PlayerPrefs():
 	def __init__(self):
