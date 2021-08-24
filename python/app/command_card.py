@@ -1,6 +1,6 @@
-from app.ui import *
 from pyglet.window import key
 from pprint import pprint
+from burl import 
 
 
 class CommandCard():

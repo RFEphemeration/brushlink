@@ -6,10 +6,51 @@ from random import randrange
 import pyglet
 
 
-class Color():
+def clamp(n, smallest, largest):
+	return max(smallest, min(n, largest))
+
+class Color(NamedTuple):
+	r = 0
+	g = 1
+	b = 2
+	
 	@staticmethod
 	def Random():
 		return (randrange(100,175), randrange(100,175), randrange(100,175))
+
+	@staticmethod
+	def Add(first, second, clamp_range=True):
+		r = first[0] + second[0]
+		g = first[1] + second[1]
+		b = first[2] + second[2]
+		if clamp_range:
+			r = clamp(r, 0, 255)
+			g = clamp(g, 0, 255)
+			b = clamp(b, 0, 255)
+		return (r,g,b)
+
+	@staticmethod
+	def Sub(first, second, clamp_range=True):
+		r = first[0] - second[0]
+		g = first[1] - second[1]
+		b = first[2] - second[2]
+		if clamp_range:
+			r = clamp(r, 0, 255)
+			g = clamp(g, 0, 255)
+			b = clamp(b, 0, 255)
+		return (r,g,b)
+
+	@staticmethod
+	def Mul(color, factor, clamp_range=True):
+		r = color[0] * factor
+		g = color[1] * factor
+		b = color[2] * factor
+		if clamp_range:
+			r = clamp(r, 0, 255)
+			g = clamp(g, 0, 255)
+			b = clamp(b, 0, 255)
+		return (r,g,b)
+
 
 class BoxUnit(Enum):
 	px = 0 # pixels
@@ -235,12 +276,16 @@ class Button(pyglet.gui.WidgetBase):
 		if not self.enabled:
 			return
 		self.on_press(self)
+		App.instance.start_coroutine(self.lerp_color(
+			Color.Sub(self.color, self.disabled_color_diff),
+			self.color,
+			0.25))
 
 	def disable(self):
 		if not self.enabled:
 			return
 		self.enabled = False
-		self.background.color = tuple(map(lambda c, d: max(0, c+d), self.color, self.disabled_color_diff))
+		self.background.color = Color.Add(self.color, self.disabled_color_diff)
 
 	def enable(self):
 		if self.enabled:
@@ -263,6 +308,19 @@ class Button(pyglet.gui.WidgetBase):
 		self.label.font_size = self.font_size.calculate(window_calc, parent_calc)
 		self.label.height = self.label.font_size
 		size.update_other(self.background, centered = False)
+
+	def lerp_color(self, color_start, color_end, duration):
+		elapsed = 0.0
+		color_diff = Color.Sub(color_end, color_start, clamp_range=False)
+		while elapsed < duration:
+			t = elapsed / duration
+			self.background.color = Color.Add(color_start, Color.Mul(color_diff, t, clamp_range=False))
+			dt = yield None
+			elapsed += dt
+		if self.enabled:
+			self.background.color = color_end
+		else:
+			self.background.color = Color.Add(self.color, self.disabled_color_diff)
 
 
 class Label:
@@ -340,3 +398,9 @@ class Tabs:
 			return self.contents[self.active_tab].on_mouse_press(x, y, buttons, modifiers)
 		return False
 
+
+# rmf note: this feels like a pretty gross way to avoid circular dependencies
+# just in the name of having a global reference for coroutines
+# consider giving each wigit a reference to the scene
+# and putting coroutines there, instead
+from app.app import App

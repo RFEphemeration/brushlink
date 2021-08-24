@@ -1,7 +1,6 @@
 import os
 import pyglet
 from game import Match
-from app.ui import *
 from app.player_prefs import *
 from app.command_card import *
 
@@ -9,6 +8,9 @@ pyglet.resource.path = [os.path.dirname(__file__) + '/resources/']
 pyglet.resource.reindex()
 
 class App():
+
+	instance = None
+
 	def __init__(self, window):
 		self.screens = {}
 		self.elapsed_time = 0.0
@@ -17,6 +19,7 @@ class App():
 		self.player_prefs = PlayerPrefs()
 		self.window_size = (0,0,0,0)
 		self.update_window_size(*self.window.get_size())
+		self.coroutines = []
 		self.window.push_handlers(
 			on_resize=self.update_window_size,
 			on_mouse_press=self.on_mouse_press,
@@ -44,6 +47,15 @@ class App():
 	def update(self, dt):
 		self.elapsed_time += dt
 		self.current_screen.update(dt)
+		remaining_coroutines = []
+		for coroutine in self.coroutines:
+			try:
+				coroutine.send(dt)
+				remaining_coroutines.append(coroutine)
+			except StopIteration:
+				pass
+
+		self.coroutines = remaining_coroutines
 
 	def on_mouse_press(self, x, y, buttons, modifiers):
 		self.current_screen.on_mouse_press(x, y, buttons, modifiers)
@@ -67,6 +79,14 @@ class App():
 
 	def get_player_prefs(self):
 		return self.player_prefs
+
+	def start_coroutine(self, coroutine):
+		# calling next immediately because the default behavior is to send dt in update
+		next(coroutine, None)
+		self.coroutines.append(coroutine);
+
+	def stop_coroutine(self, coroutine):
+		self.coroutine.remove(coroutine)
 
 
 class Screen():
@@ -145,3 +165,6 @@ class MatchScreen(Screen):
 	def __del__(self):
 		self.window.pop_handlers()
 
+
+# this is moved to the end to avoid circular imports, which feels bad
+from app.ui import *
