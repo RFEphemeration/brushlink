@@ -68,16 +68,16 @@ def _make_screen_game(app):
 	type_buttons = {}
 	element_buttons = {}
 	player_prefs = app.get_player_prefs()
-	type_height_ratio = 1.0 / len(player_prefs.exposed_elements)
+	type_height_ratio = 1.0 / len(player_prefs.command.exposed_elements)
 	type_index = 0
-	element_cols = player_prefs.command_card.columns
-	element_width_ratio = 1.0 / player_prefs.command_card.columns
-	element_height_ratio = 1.0 / player_prefs.command_card.rows
+	element_cols = player_prefs.command.card_columns
+	element_width_ratio = 1.0 / player_prefs.command.card_columns
+	element_height_ratio = 1.0 / player_prefs.command.card_rows
 	element_types = []
 	command_card = None
 	game_screen = None
 	tab_indexes = {}
-	for element_type, elements in player_prefs.exposed_elements.items():
+	for element_type, elements in player_prefs.command.exposed_elements.items():
 		tab_indexes[element_type] = type_index
 		element_types.append(element_type)
 		element_buttons[element_type] = {}
@@ -93,7 +93,6 @@ def _make_screen_game(app):
 					height=(element_height_ratio * 60, 'ph')))
 			panel_buttons.append(element_buttons[element_type][element])
 			element_index += 1
-
 
 		type_buttons[element_type] = Button(element_type,
 			on_press=lambda b, t=element_type: command_card.change_tab(t),
@@ -117,8 +116,7 @@ def _make_screen_game(app):
 		element_buttons=element_buttons,
 		command_label=Label("root",
 			box=Box(top=(1, 'vw'),left=(1,'vw'),width=(20,'vw'),height=(20,'vw'))),
-		card_dimensions=(player_prefs.command_card.rows, player_prefs.command_card.columns),
-		exposed_elements=player_prefs.exposed_elements)
+		prefs=player_prefs.command)
 
 
 	game_screen = MatchScreen('game',
