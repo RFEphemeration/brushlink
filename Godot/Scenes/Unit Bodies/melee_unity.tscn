@@ -31,7 +31,7 @@ nodes/Move/position = Vector2( 112, 185 )
 nodes/MoveSpeed/node = SubResource( 5 )
 nodes/MoveSpeed/position = Vector2( 320, 70 )
 nodes/output/position = Vector2( 690, 150 )
-node_connections = [ "output", 0, "Attack", "Attack", 0, "MoveSpeed", "Attack", 1, "Bite", "MoveSpeed", 0, "Idle", "MoveSpeed", 1, "Move" ]
+node_connections = [ "output", 0, "Attack", "MoveSpeed", 0, "Idle", "MoveSpeed", 1, "Move", "Attack", 0, "MoveSpeed", "Attack", 1, "Bite" ]
 
 [node name="body" instance=ExtResource( 1 )]
 

@@ -74,6 +74,7 @@ states/Wake/node = SubResource( 3 )
 states/Wake/position = Vector2( 315.5, 117.375 )
 transitions = [ "Wake", "Awake", SubResource( 4 ), "Idle", "Wake", SubResource( 5 ), "Awake", "Idle", SubResource( 6 ) ]
 start_node = "Idle"
+graph_offset = Vector2( -44.25, 73.6199 )
 
 [sub_resource type="AnimationNodeStateMachinePlayback" id=8]
 
